@@ -5,6 +5,10 @@ const path = require("path");
 
 const ACCOUNTS_FILE = path.join(__dirname, "..", "..", "data", "accounts.json");
 
+if(!existsSync(path.join(__dirname, "..", "..", "data"))) {
+  mkdirSync(path.join(__dirname, "..", "..", "data"));
+}
+
 if (!existsSync(ACCOUNTS_FILE)) {
   writeFileSync(ACCOUNTS_FILE, "[]");
 }
