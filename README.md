@@ -2,7 +2,7 @@
 
 # Terminal Coop Dungeon Drawler
 
-![Game Preview](https://via.placeholder.com/600x300)
+<!-- ![Game Preview](https://via.placeholder.com/600x300) -->
 
 A procedurally generated cooperative dungeon crawler that runs in your terminal.
 Built with Node.js and JavaScript.
@@ -13,13 +13,12 @@ Built with Node.js and JavaScript.
 
 [Features](#features) •
 [Installation](#installation) •
-[Quick Start](#quick-start) •
+[Usage](#usage) •
 [Documentation](#documentation) •
 [Contributing](#contributing)
-
 </div>
 
-## ✨ future features
+## Features
 
 - Procedurally generated dungeons ensuring unique gameplay experiences
 - Real-time cooperative multiplayer support
@@ -28,16 +27,14 @@ Built with Node.js and JavaScript.
 - Cross-platform compatibility (Windows, macOS, Linux)
 - Custom server hosting capabilities
 
-## 🚀 Quick Start
+## Installation
 
 ### Prerequisites
-
 - Node.js (v14.0.0 or higher)
 - npm (usually comes with Node.js)
 - Terminal with ANSI support
 
 ### Client Setup
-
 1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/terminal-dungeon-crawler
@@ -50,13 +47,14 @@ cd client
 npm install
 ```
 
-3. Start the game:
+## Usage
+
+### Starting the Client
 ```bash
 npm start
 ```
 
 ### Server Setup
-
 1. Navigate to the server directory:
 ```bash
 cd server
@@ -73,23 +71,20 @@ npm install
 npm start
 ```
 
-## 📖 Documentation
+## Documentation
 
 ### Game Controls
-
 - `W/A/S/D` - Move character
-- `Esc` - exit game
+- `Esc` - Exit game
 
 ### Server Configuration
-
 The server can be configured using the following environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | 3000 |
 
-
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues, and feature requests are welcome!
 
@@ -99,14 +94,13 @@ Contributions, issues, and feature requests are welcome!
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
+## License
 
 This project is [MIT](https://opensource.org/licenses/MIT) licensed.
 
-## 👤 Author
+## Author
 
 **kijmoshi.xyz**
-
 - Website: [kijmoshi.xyz](https://kijmoshi.xyz)
 - GitHub: [@real-kijmoshi](https://github.com/real-kijmoshi)
 
