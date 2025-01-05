@@ -22,24 +22,25 @@ const login = async () => {
       type: "input",
       name: "server",
       message: "Server address:",
-      validate: input => input.trim() !== "" || "Server address cannot be empty"
+      validate: (input) =>
+        input.trim() !== "" || "Server address cannot be empty",
     },
     {
       type: "input",
       name: "username",
       message: "Username:",
-      validate: input => input.trim() !== "" || "Username cannot be empty"
+      validate: (input) => input.trim() !== "" || "Username cannot be empty",
     },
     {
       type: "password",
       name: "password",
       message: "Password:",
-      validate: input => input.trim() !== "" || "Password cannot be empty"
+      validate: (input) => input.trim() !== "" || "Password cannot be empty",
     },
   ]);
 
   console.log(`Logging in to ${server} as ${username}...`);
-  
+
   try {
     const res = await axios.post(`${server}/login`, {
       username,
@@ -58,7 +59,7 @@ const login = async () => {
   } catch (error) {
     console.error("Error while logging in:", error.message);
   }
-  
+
   return false;
 };
 
@@ -69,19 +70,20 @@ const register = async () => {
       type: "input",
       name: "server",
       message: "Server address:",
-      validate: input => input.trim() !== "" || "Server address cannot be empty"
+      validate: (input) =>
+        input.trim() !== "" || "Server address cannot be empty",
     },
     {
       type: "input",
       name: "username",
       message: "Username:",
-      validate: input => input.trim() !== "" || "Username cannot be empty"
+      validate: (input) => input.trim() !== "" || "Username cannot be empty",
     },
     {
       type: "password",
       name: "password",
       message: "Password:",
-      validate: input => input.trim() !== "" || "Password cannot be empty"
+      validate: (input) => input.trim() !== "" || "Password cannot be empty",
     },
   ]);
 
@@ -118,7 +120,7 @@ const newAccount = async () => {
   ]);
 
   const res = action === "login" ? await login() : await register();
-  
+
   if (res) {
     accounts.push(res);
     saveAccounts();
@@ -134,7 +136,10 @@ const loop = async () => {
       type: "list",
       name: "account",
       message: "Which account do you want to use?",
-      choices: [...accounts.map(a => `${a.username} - ${a.server}`), "new account"]
+      choices: [
+        ...accounts.map((a) => `${a.username} - ${a.server}`),
+        "new account",
+      ],
     },
   ]);
 
@@ -149,7 +154,7 @@ const loop = async () => {
 
   const [username, server] = account.split(" - ");
   const selectedAccount = accounts.find(
-    a => a.username === username && a.server === server
+    (a) => a.username === username && a.server === server,
   );
   return selectedAccount || loop();
 };

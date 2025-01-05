@@ -1,90 +1,135 @@
-const { bottomMargin, topMargin, leftMargin, rightMargin } = require("../../const.json");
+const {
+  bottomMargin,
+  topMargin,
+  leftMargin,
+  rightMargin,
+} = require("../../const.json");
 
-// Pre-calculate ANSI color sequences
+const COLORS = {
+  WHITE: [255, 255, 255],
+  BLACK: [0, 0, 0],
+  GREEN: [0, 255, 0],
+  RED: [255, 0, 0],
+  BLUE: [0, 0, 255],
+  YELLOW: [255, 255, 0],
+};
+
 const colorCache = new Map();
+
 const getColorCode = (color) => {
-    const key = color.join(',');
-    if (!colorCache.has(key)) {
-        colorCache.set(key, `\x1b[38;2;${color[0]};${color[1]};${color[2]}m`);
-    }
-    return colorCache.get(key);
+  if (!color || !Array.isArray(color) || color.length !== 3) {
+    color = COLORS.WHITE;
+  }
+
+  color = color.map((c) => Number(c) || 0);
+
+  const key = color.join(",");
+  if (!colorCache.has(key)) {
+    colorCache.set(key, `\x1b[38;2;${color[0]};${color[1]};${color[2]}m`);
+  }
+  return colorCache.get(key);
 };
 
 let buffer = [];
 
 const drawRoom = (room, width, height, camera, player) => {
-    if (buffer.length !== height) {
-        buffer = Array(height);
-        for (let i = 0; i < height; i++) {
-            buffer[i] = new Array(width).fill(' ');
-        }
-    } else {
-        for (let y = 0; y < height; y++) {
-            buffer[y].fill(' ');
-        }
+  if (!room || !Array.isArray(room.objects)) {
+    console.error("Invalid room data");
+    return;
+  }
+
+  if (buffer.length !== height) {
+    buffer = Array(height);
+    for (let i = 0; i < height; i++) {
+      buffer[i] = new Array(width).fill(" ");
+    }
+  } else {
+    for (let y = 0; y < height; y++) {
+      buffer[y].fill(" ");
+    }
+  }
+
+  const visibleWidth = width - leftMargin - rightMargin;
+  const visibleHeight = height - topMargin - bottomMargin;
+
+  const screenCenterX = Math.floor(visibleWidth / 2);
+  const screenCenterY = Math.floor(visibleHeight / 2);
+
+  const targetCameraX = Math.max(
+    0,
+    Math.min(player.x - screenCenterX, room.width - visibleWidth),
+  );
+  const targetCameraY = Math.max(
+    0,
+    Math.min(player.y - screenCenterY, room.height - visibleHeight),
+  );
+
+  camera.x = targetCameraX;
+  camera.y = targetCameraY;
+
+  const whiteColor = getColorCode(COLORS.WHITE);
+  for (let x = 0; x < visibleWidth; x++) {
+    buffer[topMargin][x + leftMargin] = whiteColor + "█";
+    buffer[height - bottomMargin - 1][x + leftMargin] = whiteColor + "█";
+  }
+  for (let y = topMargin; y < height - bottomMargin; y++) {
+    buffer[y][leftMargin] = whiteColor + "█";
+    buffer[y][width - rightMargin - 1] = whiteColor + "█";
+  }
+
+  const dotColor = getColorCode(COLORS.BLACK);
+  for (let y = topMargin + 1; y < height - bottomMargin - 1; y++) {
+    for (let x = leftMargin + 1; x < width - rightMargin - 1; x++) {
+      buffer[y][x] = dotColor + "·";
+    }
+  }
+
+  for (const obj of room.objects) {
+    if (!obj || typeof obj.x !== "number" || typeof obj.y !== "number") {
+      continue;
     }
 
-    // Calculate visible area
-    const visibleWidth = width - leftMargin - rightMargin;
-    const visibleHeight = height - topMargin - bottomMargin;
+    const screenX = obj.x - camera.x + leftMargin;
+    const screenY = obj.y - camera.y + topMargin;
 
-    // Calculate screen center
-    const screenCenterX = Math.floor(visibleWidth / 2);
-    const screenCenterY = Math.floor(visibleHeight / 2);
+    const objColor = obj.color || (obj === player ? COLORS.RED : COLORS.BLUE);
+    const objChar = obj.char || "@";
 
-    // Update camera position based on player position
-    const targetCameraX = Math.max(0, Math.min(player.x - screenCenterX, room.width - visibleWidth));
-    const targetCameraY = Math.max(0, Math.min(player.y - screenCenterY, room.height - visibleHeight));
-
-    // Smooth camera movement
-    camera.x = targetCameraX;
-    camera.y = targetCameraY;
-
-    // Draw borders
-    const whiteColor = getColorCode([255, 255, 255]);
-    for (let x = 0; x < visibleWidth; x++) {
-        buffer[topMargin][x + leftMargin] = whiteColor + '█';
-        buffer[height - bottomMargin - 1][x + leftMargin] = whiteColor + '█';
+    if (
+      screenX >= leftMargin &&
+      screenX < width - rightMargin &&
+      screenY >= topMargin &&
+      screenY < height - bottomMargin
+    ) {
+      buffer[screenY][screenX] = getColorCode(objColor) + objChar;
     }
-    for (let y = topMargin; y < height - bottomMargin; y++) {
-        buffer[y][leftMargin] = whiteColor + '█';
-        buffer[y][width - rightMargin - 1] = whiteColor + '█';
-    }
+  }
 
-    // Fill interior
-    const dotColor = getColorCode([0, 0, 0]);
-    for (let y = topMargin + 1; y < height - bottomMargin - 1; y++) {
-        for (let x = leftMargin + 1; x < width - rightMargin - 1; x++) {
-            buffer[y][x] = dotColor + '·';
-        }
-    }
-
-    // Draw objects with camera offset
-    for (const obj of room.objects) {
-        const screenX = obj.x - camera.x + leftMargin;
-        const screenY = obj.y - camera.y + topMargin;
-        
-        if (screenX >= leftMargin && screenX < width - rightMargin &&
-            screenY >= topMargin && screenY < height - bottomMargin) {
-            buffer[screenY][screenX] = getColorCode(obj.color) + obj.char;
-        }
-    }
-
-    // Draw connections with camera offset
-    const connectionColor = getColorCode([0, 255, 0]);
+  if (Array.isArray(room.connections)) {
+    const connectionColor = getColorCode(COLORS.GREEN);
     for (const conn of room.connections) {
-        const screenX = conn.x - camera.x + leftMargin;
-        const screenY = conn.y - camera.y + topMargin;
-        
-        if (screenX >= leftMargin && screenX < width - rightMargin &&
-            screenY >= topMargin && screenY < height - bottomMargin) {
-            buffer[screenY][screenX] = connectionColor + '█';
-        }
-    }
+      if (!conn || typeof conn.x !== "number" || typeof conn.y !== "number") {
+        continue;
+      }
 
-    // Output the buffer
-    process.stdout.write('\x1b[0f');
-    process.stdout.write(buffer.map(row => row.join('') + '\x1b[0m').join('\n'));
+      const screenX = conn.x - camera.x + leftMargin;
+      const screenY = conn.y - camera.y + topMargin;
+
+      if (
+        screenX >= leftMargin &&
+        screenX < width - rightMargin &&
+        screenY >= topMargin &&
+        screenY < height - bottomMargin
+      ) {
+        buffer[screenY][screenX] = connectionColor + "█";
+      }
+    }
+  }
+
+  process.stdout.write("\x1b[0f");
+  process.stdout.write(
+    buffer.map((row) => row.join("") + "\x1b[0m").join("\n"),
+  );
 };
 
 module.exports = { drawRoom };
