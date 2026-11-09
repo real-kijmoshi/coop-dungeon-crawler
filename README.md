@@ -11,7 +11,7 @@ Early access — contributions and bug reports are welcome.
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/server-node%20%3E%3D%2018-brightgreen)](https://nodejs.org)
+[![Node.js Version](https://img.shields.io/badge/server-node%20%3E%3D%2022-brightgreen)](https://nodejs.org)
 [![Go Version](https://img.shields.io/badge/client-go%201.24-00ADD8)](https://go.dev)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
@@ -33,6 +33,23 @@ Early access — contributions and bug reports are welcome.
 - Persistent character progression
 - Cross-platform compatibility (Windows, macOS, Linux)
 - Custom server hosting capabilities
+
+## Host a server — easy start
+
+1. Install [Node.js LTS](https://nodejs.org/) once.
+2. Download [cdc-server.zip](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-server.zip) and **extract it**.
+3. **Windows:** double-click `start-server.cmd`. **macOS / Linux:** open a terminal in the extracted folder and run `sh start-server.sh`.
+
+The launcher installs dependencies on first use and starts the server. No Git or Go is required.
+Open **http://localhost:3143** for the server's play launcher, or connect your downloaded client to `localhost:3143`.
+The server window prints addresses for friends on the same network. Keep that window open; **Ctrl+C** stops the server.
+
+Your heroes and world are saved in `server/users.db` and `server/utils/map.json` in the extracted folder.
+Restart using the same launcher and folder. Back up those files before updating; do not overwrite or delete them.
+For Internet play, use a reachable server address or forward TCP port 3143 on your router. A LAN address does not work across the Internet.
+Use a modern Node.js LTS; the first launch needs Internet access for dependencies. If native dependency installation fails, use Node.js LTS and retry.
+
+You can also run `node start-server.js` from a source checkout. Set `PORT` in `server/.env` to change the port.
 
 ## Play in one command
 
@@ -70,7 +87,7 @@ go build -o cdc .          # just your platform
 
 ### Server
 
-Requires Node.js 18 or newer.
+Requires Node.js 22 or newer.
 
 ```bash
 cd server

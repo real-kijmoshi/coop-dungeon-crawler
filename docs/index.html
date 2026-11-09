@@ -151,7 +151,7 @@
 <span>  \___\___/\___/ .__/    |___/ \_,_|_||_\__, \___\___/_||_| </span>
 <span>               |_|                       |___/              </span></pre>
     <p class="tagline">A co-op dungeon crawler for your terminal. Grab friends, pick a class, go deep, wake the Abyss.</p>
-    <p class="status">v0.1.0 · Early access · MIT licensed</p>
+    <p class="status">v0.1.1 · Early access · MIT licensed</p>
     <p><a class="copy" href="#downloads" style="display:inline-block;text-decoration:none;padding:12px 24px">Download the client ↓</a> <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler">View source on GitHub ↗</a></p>
     <div class="play panel">
       <h1 style="font-size:1.4rem;margin:0 0 8px">Your next adventure starts in a terminal.</h1>
@@ -234,11 +234,15 @@
   </section>
   <section id="start">
     <h2>Start a dungeon with friends</h2>
-    <p class="sub">Host the Node.js server on your computer or your own host. Requires Node.js 18+ and npm.</p>
-    <pre class="block">git clone https://github.com/real-kijmoshi/coop-dungeon-crawler.git
-cd coop-dungeon-crawler/server
-npm ci
-npm start</pre>
+    <p class="sub">Download, extract, launch. No Git or Go required.</p>
+    <p><a class="copy" style="display:inline-block;text-decoration:none;padding:12px 24px" href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-server.zip">Download server ZIP ↓</a></p>
+    <ol>
+      <li>Install <a href="https://nodejs.org/">Node.js LTS</a> once.</li>
+      <li>Extract the server ZIP into a folder you want to keep.</li>
+      <li><b>Windows:</b> double-click <code>start-server.cmd</code>.<br><b>macOS / Linux:</b> run <code>sh start-server.sh</code> in that folder.</li>
+    </ol>
+    <p>The first launch installs dependencies automatically. Keep the server window open. Open <code>http://localhost:3143</code> for one-command client launchers. Press <code>Ctrl+C</code> to stop.</p>
+    <p class="hint">Your world and heroes stay in the extracted folder. Reuse it on your next launch and back up your saves before updating. Same-network friends can use the address printed in the server window; Internet play needs a reachable host or TCP port forwarding.</p>
     <p>Launch your downloaded client and choose <b>Register</b>. On the same computer, use <code>localhost:3143</code>. Friends use your server’s reachable address. Press <code>P</code> to form a party.</p>
     <p>On Windows, run the downloaded <code>.exe</code> from Windows Terminal. On macOS / Linux, use the command above. A terminal of at least 100 × 30 is recommended.</p>
     <p><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler#documentation">Controls &amp; full guide ↗</a> · <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/issues">Report a bug ↗</a> · <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">Release notes &amp; checksums ↗</a></p>

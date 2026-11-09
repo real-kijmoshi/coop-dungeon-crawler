@@ -308,5 +308,16 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 httpServer.listen(PORT, () => {
-  console.log(`Game server running on port ${PORT}`);
+  console.log(`Game server ready! Open http://localhost:${PORT} for the play launcher.`);
+  console.log(`On this computer, connect the client to localhost:${PORT}`);
+  let interfaces = {};
+  try { interfaces = require("os").networkInterfaces(); } catch { console.log("Network addresses unavailable; use your computer’s LAN address for friends."); }
+  for (const addresses of Object.values(interfaces)) {
+    for (const address of addresses || []) {
+      if (address.family === "IPv4" && !address.internal) {
+        console.log(`Same-network friends: http://${address.address}:${PORT}`);
+      }
+    }
+  }
+  console.log("Friends outside your network need a reachable host or router port forwarding (TCP). Local addresses only work on your network.");
 });
