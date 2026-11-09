@@ -5,7 +5,7 @@ const http = require("http");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const Database = require("better-sqlite3");
-const { Server } = require("socket.io");
+const { createHub } = require("./net/hub");
 const { initMap } = require("./utils/map");
 const { World } = require("./game/World");
 
@@ -112,7 +112,7 @@ world.on("floater", (f) => {
 world.on("shop", (id, shop) => sockets.get(id)?.emit("shop", shop));
 world.on("message", ({ to, text, color }) => {
   const msg = { text, color };
-  if (to === null) io.emit("message", msg);
+  if (to === null) hub.broadcast("message", msg);
   else sockets.get(to)?.emit("message", msg);
 });
 
@@ -173,23 +173,11 @@ app.post("/login", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Socket.io
+// WebSocket connections (see net/hub.js for the protocol)
 // ---------------------------------------------------------------------------
 const httpServer = http.createServer(app);
-const io = new Server(httpServer);
 
-io.use((socket, next) => {
-  const { username, password } = socket.handshake.auth || {};
-  if (!username || !password) {
-    return next(new Error("Authentication required"));
-  }
-  const user = checkCredentials(username, password);
-  if (!user) return next(new Error("Invalid credentials"));
-  socket.user = user;
-  next();
-});
-
-io.on("connection", (socket) => {
+const onConnection = (socket) => {
   // Only one session per account: kick the older one.
   const old = sockets.get(socket.user.id);
   if (old) {
@@ -262,7 +250,7 @@ io.on("connection", (socket) => {
     if (typeof text !== "string") return;
     text = text.replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, 120);
     if (!text) return;
-    io.emit("message", { text: `<${player.username}> ${text}`, color: [140, 200, 255] });
+    hub.broadcast("message", { text: `<${player.username}> ${text}`, color: [140, 200, 255] });
   });
 
   socket.on("disconnect", () => {
@@ -272,6 +260,11 @@ io.on("connection", (socket) => {
     const p = world.removePlayer(user.id);
     if (p) savePlayers([p]);
   });
+};
+
+const hub = createHub(httpServer, {
+  authenticate: ({ username, password }) => checkCredentials(username, password),
+  onConnection,
 });
 
 const shutdown = () => {

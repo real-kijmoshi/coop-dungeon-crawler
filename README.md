@@ -5,13 +5,14 @@
 <!-- ![Game Preview](https://via.placeholder.com/600x300) -->
 
 A procedurally generated cooperative dungeon crawler that runs in your terminal.
-Built with Node.js and JavaScript.
+The server is Node.js; the client is a single small Go binary for Windows, macOS and Linux.
 
 its somewhat working for now all contrributions are welcome
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D%2014.0.0-brightgreen)](https://nodejs.org)
+[![Node.js Version](https://img.shields.io/badge/server-node%20%3E%3D%2018-brightgreen)](https://nodejs.org)
+[![Go Version](https://img.shields.io/badge/client-go%201.24-00ADD8)](https://go.dev)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
 [Features](#features) •
@@ -33,56 +34,54 @@ its somewhat working for now all contrributions are welcome
 
 ## Installation
 
-### Prerequisites
+### Client
 
-- Node.js (v14.0.0 or higher)
-- npm (usually comes with Node.js)
-- Terminal with ANSI support
+**Download** the binary for your system from the [Releases](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases)
+page (`cdc-windows-amd64.exe`, `cdc-darwin-arm64`, `cdc-linux-amd64`, ...). It is a single ~6-7 MB file with
+no dependencies. On macOS/Linux make it executable with `chmod +x cdc-*` and run it.
 
-### Client Setup
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/terminal-dungeon-crawler
-cd terminal-dungeon-crawler
-```
-
-2. Install dependencies:
+**Or build it yourself** with [Go 1.24+](https://go.dev/dl/):
 
 ```bash
 cd client
+go build -o cdc .          # just your platform
+./build.sh                 # all platforms into client/dist/
+```
+
+### Server
+
+Requires Node.js 18 or newer.
+
+```bash
+cd server
 npm install
+echo "PORT=3143" > .env    # optional, 3143 is the default
+npm start
 ```
 
 ## Usage
 
-### Starting the Client
+Start the client and pick or create a hero on the login screen (server address defaults to `localhost:3143`):
 
 ```bash
-npm start
+./cdc
 ```
 
-### Server Setup
-
-1. Navigate to the server directory:
+Or skip the login screen:
 
 ```bash
-cd server
+./cdc -server play.example.com:3143 -user alice -pass secret            # log in
+./cdc -server play.example.com:3143 -user alice -pass secret -register  # create the account first
 ```
 
-2. Create a `.env` file:
+Saved accounts live in your user config folder (`~/.config/coop-dungeon-crawler/` on Linux,
+`~/Library/Application Support/coop-dungeon-crawler/` on macOS, `%AppData%\coop-dungeon-crawler\` on Windows).
 
-```bash
-echo "PORT=3143" > .env
-```
+### Protocol
 
-3. Install server dependencies and start:
-
-```bash
-npm install
-npm start
-```
+The client talks to the server over a plain WebSocket at `/ws` with JSON messages, so writing another client
+(web, mobile, bots) is easy. See [`server/net/hub.js`](server/net/hub.js) for the message format. Accounts are
+created through `POST /register` and checked with `POST /login`.
 
 ## Documentation
 
@@ -177,8 +176,8 @@ Everything is saved on the server: class, level, gear, backpack, bounties, achie
 ### Quick start (local)
 
 1. Start the server: `cd server && npm install && npm start`
-2. In another terminal start the client: `cd client && npm install && npm start`
-3. Choose **register**, keep the default server address (`http://localhost:3143`) and pick a username/password.
+2. In another terminal start the client: `cd client && go run .` (or run a downloaded `cdc` binary)
+3. Choose **Register**, keep the default server address (`localhost:3143`) and pick a username/password.
 4. Start more clients (with other accounts) to play together - you'll see each other on the map.
 
 The map is saved to `server/utils/map.json` and accounts to `server/users.db`.
