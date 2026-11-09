@@ -27,6 +27,7 @@ type Conn struct {
 	nextID  int
 	pending map[int]func(json.RawMessage)
 	Events  chan NetEvent
+	States  chan NetEvent // latest snapshot only; reliable events keep their FIFO
 }
 
 type frame struct {
@@ -60,7 +61,7 @@ func Dial(server, username, password string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
+	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, EnableCompression: true}
 	ws, _, err := dialer.Dial(addr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not reach %s: %w", server, err)
@@ -95,7 +96,7 @@ func Dial(server, username, password string) (*Conn, error) {
 		return nil, errors.New(reason)
 	}
 
-	c := &Conn{ws: ws, pending: map[int]func(json.RawMessage){}, Events: make(chan NetEvent, 256)}
+	c := &Conn{ws: ws, pending: map[int]func(json.RawMessage){}, Events: make(chan NetEvent, 256), States: make(chan NetEvent, 1)}
 	go c.readLoop()
 	return c, nil
 }
@@ -113,6 +114,10 @@ func (c *Conn) readLoop() {
 		if json.Unmarshal(raw, &f) != nil {
 			continue
 		}
+		if f.T == "gameState" {
+			c.queueState(NetEvent{T: f.T, D: f.D})
+			continue
+		}
 		if f.T == "reply" && f.ID != nil {
 			c.mu.Lock()
 			cb := c.pending[*f.ID]
@@ -124,6 +129,20 @@ func (c *Conn) readLoop() {
 			continue
 		}
 		c.Events <- NetEvent{T: f.T, D: f.D}
+	}
+}
+
+// Only readLoop produces snapshots. Replace an unconsumed frame instead of
+// making the UI play through stale positions after a burst or a slow redraw.
+func (c *Conn) queueState(ev NetEvent) {
+	select {
+	case c.States <- ev:
+	default:
+		select {
+		case <-c.States:
+		default:
+		}
+		c.States <- ev
 	}
 }
 

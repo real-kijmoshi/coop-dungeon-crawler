@@ -1,3 +1,17 @@
+## Tunnel performance update
+
+Update **both the host and the game clients** for the full improvement. Back up your saves before replacing the executable; use the same save folder.
+
+- Negotiate WebSocket compression to shrink repetitive game snapshots.
+- Coalesce world changes into at most 20 snapshots per second.
+- Keep only the latest pending snapshot for slow connections; preserve reliable game events.
+- Keep only the latest received snapshot in the client and limit terminal rendering to approximately 30 FPS.
+- Test compressed and uncompressed connections, slow-client backpressure, reliable events and snapshot bursts.
+
+These changes address application-side backlog. They cannot remove latency or outages on the Internet/tunnel route. The temporary URL still changes after restarting.
+
+## Windows host
+
 Download **cdc-host-windows-amd64.exe** on Windows x64, double-click it and choose a hosting mode. Node.js, the server dependencies and cloudflared are bundled; no installation or Administrator access is needed for public mode.
 
 - **Internet:** creates a temporary Cloudflare HTTPS URL and prints the full address to share. Friends paste that URL into the game client's Server field or open it in a browser for launch commands. Anyone with the URL can reach the game server. No Cloudflare account, inbound firewall rule or router configuration is required. The URL changes on restart. Quick Tunnels have no uptime guarantee and are intended for testing/development, rather than permanent hosting.

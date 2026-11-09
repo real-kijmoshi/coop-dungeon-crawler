@@ -44,6 +44,12 @@ LAN mode prints local addresses. If needed, use `cdc-host-windows-amd64.exe --la
 
 Press **Enter** in the window to save and stop. Saves live in `%LOCALAPPDATA%/CoopDungeonHost/saves`, separately from each bundled runtime version. Back up this folder before upgrades. `--local` binds only to loopback; `--port` and `--data-dir` override defaults.
 
+### Tunnel performance
+
+Use the latest **host and client** together. Clients negotiate WebSocket compression; game snapshots are coalesced to at most 20 per second, and slow connections retain only the latest pending state. The client also replaces old snapshots and caps terminal redraws at approximately 30 FPS. Reliable messages, profiles and request replies stay ordered within their event stream.
+
+If movement is still delayed, compare a local connection (`localhost:3143`) against the public URL. The host player should connect locally to avoid going through the public tunnel. A permanent tunnel hostname keeps the address stable, but does not itself guarantee lower latency. Back up your saves before upgrading the host.
+
 ## Host a server from the ZIP — all platforms
 
 1. Install [Node.js LTS](https://nodejs.org/) once.
