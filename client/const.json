@@ -1,7 +1,7 @@
 {
-  "_comment": "in lines",
-  "bottomMargin": 3,
+  "_comment": "in lines/columns",
+  "bottomMargin": 6,
   "topMargin": 0,
   "leftMargin": 0,
-  "rightMargin": 40
+  "rightMargin": 42
 }

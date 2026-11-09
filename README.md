@@ -88,8 +88,35 @@ npm start
 
 ### Game Controls
 
-- `W/A/S/D` or arrow keys - Move character
-- `Q`, `Esc` or `Ctrl+C` - Exit game
+| Key | Action |
+| --- | ------ |
+| `W/A/S/D` or arrow keys | Move. Walking into a monster attacks it |
+| `H` | Drink a healing potion |
+| `T` or `Enter` | Chat with everyone online (`Enter` sends, `Esc` cancels) |
+| `Q`, `Esc` or `Ctrl+C` | Quit |
+
+### How to play
+
+- You start in a safe room in the middle of the dungeon. The **further you go from it, the deeper you are**
+  (shown as *Depth* in the side panel) and the more dangerous the monsters get:
+  rats and bats → goblins → skeletons → orcs → wraiths → trolls → **dragons**.
+- Kill monsters for **XP** and **gold**. Each level gives more max HP and ATK (and DEF every other level) and fully heals you.
+- Loot found in rooms or dropped by monsters:
+
+  | Symbol | Item |
+  | ------ | ---- |
+  | `$` | Gold |
+  | `!` | Healing potion (heals 40% of max HP, carry up to 9) |
+  | `/` | Sharper blade: ATK +1 |
+  | `]` | Armor plate: DEF +1 |
+  | `♥` | Heart crystal: max HP +5 |
+
+- HP slowly regenerates when you haven't been hit for a few seconds.
+- If you die you drop half your gold where you fell and respawn in the starting room. Go back and pick it up!
+- **Co-op:** when a party member kills a monster near you, you get half its XP too. Other players are
+  shown in cyan with their name above them, and the side panel lists everyone online with their level and HP.
+- The map is endless-feeling and generated as you explore. Places you've already seen stay on screen, dimmed.
+- Your character (level, stats, gold, potions, position) is saved on the server.
 
 ### Quick start (local)
 

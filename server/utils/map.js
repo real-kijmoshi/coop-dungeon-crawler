@@ -329,7 +329,7 @@ const MAP_FILE = path.join(__dirname, 'map.json');
 
 const loadMap = () => {
     try {
-        const mapClass = new Grid(20, 20, 100);
+        const mapClass = new Grid(20, 20, 200);
         const loaded = mapClass.loadFromFile(MAP_FILE);
         if (!loaded) {
             throw new Error('Failed to load map data');
@@ -345,7 +345,7 @@ const loadMap = () => {
 
 const createMap = () => {
     try {
-        const mapClass = new Grid(20, 20, 100, Date.now());
+        const mapClass = new Grid(20, 20, 200, Date.now());
         mapClass.filepath = MAP_FILE;
         mapClass.generateInitialRoom();
         mapClass.saveToFile(MAP_FILE);

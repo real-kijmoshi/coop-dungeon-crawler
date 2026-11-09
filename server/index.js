@@ -7,16 +7,15 @@ const bcrypt = require("bcryptjs");
 const Database = require("better-sqlite3");
 const { Server } = require("socket.io");
 const { initMap } = require("./utils/map");
+const { World } = require("./game/World");
+const { PLAYER_BASE } = require("./game/data");
 
 const PORT = process.env.PORT || 3143;
-const VISION_RADIUS = 8;
-const NEARBY_RANGE = 20;
 
+// ---------------------------------------------------------------------------
+// Database
+// ---------------------------------------------------------------------------
 const db = new Database(path.join(__dirname, "users.db"));
-const gameMap = initMap();
-
-// userId -> { socket, player }
-const activeGames = new Map();
 
 db.prepare(
   `
@@ -27,20 +26,48 @@ db.prepare(
     gold INTEGER DEFAULT 0,
     xp INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1,
-    hp INTEGER DEFAULT 100,
-    position_x INTEGER DEFAULT 50,
-    position_y INTEGER DEFAULT 50
+    hp INTEGER DEFAULT ${PLAYER_BASE.maxHp},
+    position_x INTEGER DEFAULT -1,
+    position_y INTEGER DEFAULT -1
   )
 `,
 ).run();
+
+// Migrate older databases: add any missing stat columns.
+const MIGRATIONS = {
+  max_hp: `INTEGER DEFAULT ${PLAYER_BASE.maxHp}`,
+  atk: `INTEGER DEFAULT ${PLAYER_BASE.atk}`,
+  def: `INTEGER DEFAULT ${PLAYER_BASE.def}`,
+  potions: `INTEGER DEFAULT ${PLAYER_BASE.potions}`,
+  kills: "INTEGER DEFAULT 0",
+  deaths: "INTEGER DEFAULT 0",
+};
+const existingColumns = new Set(
+  db.prepare("PRAGMA table_info(users)").all().map((c) => c.name),
+);
+for (const [col, type] of Object.entries(MIGRATIONS)) {
+  if (!existingColumns.has(col)) {
+    db.prepare(`ALTER TABLE users ADD COLUMN ${col} ${type}`).run();
+  }
+}
 
 const findUser = db.prepare("SELECT * FROM users WHERE username = ?");
 const insertUser = db.prepare(
   "INSERT INTO users (username, password) VALUES (?, ?)",
 );
-const updatePos = db.prepare(
-  "UPDATE users SET position_x = ?, position_y = ? WHERE id = ?",
-);
+const savePlayerStmt = db.prepare(`
+  UPDATE users SET
+    position_x = @x, position_y = @y,
+    hp = @hp, max_hp = @maxHp, atk = @atk, def = @def,
+    level = @level, xp = @xp, gold = @gold, potions = @potions,
+    kills = @kills, deaths = @deaths
+  WHERE id = @id
+`);
+const savePlayers = db.transaction((players) => {
+  for (const p of players) {
+    savePlayerStmt.run({ id: p.id, x: p.x, y: p.y, ...p.stats });
+  }
+});
 
 const checkCredentials = (username, password) => {
   if (typeof username !== "string" || typeof password !== "string") return null;
@@ -50,6 +77,39 @@ const checkCredentials = (username, password) => {
 };
 
 // ---------------------------------------------------------------------------
+// World
+// ---------------------------------------------------------------------------
+const gameMap = initMap();
+const world = new World(gameMap);
+const sockets = new Map(); // playerId -> socket
+
+let broadcastQueued = false;
+const broadcastStates = () => {
+  if (broadcastQueued) return;
+  broadcastQueued = true;
+  setImmediate(() => {
+    broadcastQueued = false;
+    for (const [id, socket] of sockets) {
+      const player = world.players.get(id);
+      if (player) socket.emit("gameState", world.stateFor(player));
+    }
+  });
+};
+
+world.on("changed", broadcastStates);
+world.on("message", ({ to, text, color }) => {
+  const msg = { text, color };
+  if (to === null) io.emit("message", msg);
+  else sockets.get(to)?.emit("message", msg);
+});
+
+const flushPlayers = () => {
+  const dirty = world.takeDirtyPlayers();
+  if (dirty.length) savePlayers(dirty);
+};
+setInterval(flushPlayers, 2000);
+
+// ---------------------------------------------------------------------------
 // HTTP API
 // ---------------------------------------------------------------------------
 const app = express();
@@ -57,7 +117,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/", (req, res) => {
-  res.json({ name: "coop-dungeon-crawler", players: activeGames.size });
+  res.json({ name: "coop-dungeon-crawler", players: world.players.size });
 });
 
 app.post("/register", (req, res) => {
@@ -68,10 +128,10 @@ app.post("/register", (req, res) => {
       .status(400)
       .json({ message: "Username and password are required." });
   }
-  if (username.length > 16) {
-    return res
-      .status(400)
-      .json({ message: "Username must be at most 16 characters." });
+  if (!/^[\w-]{1,16}$/.test(username)) {
+    return res.status(400).json({
+      message: "Username must be 1-16 letters, digits, _ or -.",
+    });
   }
   if (findUser.get(username)) {
     return res.status(409).json({ message: "Username already taken." });
@@ -100,100 +160,6 @@ app.post("/login", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Game helpers
-// ---------------------------------------------------------------------------
-const isWalkable = (x, y) =>
-  x >= 0 &&
-  y >= 0 &&
-  x < gameMap.size &&
-  y < gameMap.size &&
-  gameMap.grid[x][y] !== 0;
-
-const ensureChunksAround = (x, y) => {
-  const { chunkX, chunkY } = gameMap.getChunkCoords(x, y);
-  let generated = false;
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      if (gameMap.generateChunk(chunkX + dx, chunkY + dy)) generated = true;
-    }
-  }
-  if (generated) gameMap.scheduleSave();
-};
-
-// Returns the area around the player. grid[row][col], row = y, col = x.
-// Cells are: null (outside map), 0 (wall), -1 (corridor), >0 (room id).
-const getVisibleArea = (player) => {
-  ensureChunksAround(player.x, player.y);
-
-  const originX = player.x - VISION_RADIUS;
-  const originY = player.y - VISION_RADIUS;
-  const grid = [];
-  for (let y = originY; y <= player.y + VISION_RADIUS; y++) {
-    const row = [];
-    for (let x = originX; x <= player.x + VISION_RADIUS; x++) {
-      if (x >= 0 && x < gameMap.size && y >= 0 && y < gameMap.size) {
-        row.push(gameMap.grid[x][y]);
-      } else {
-        row.push(null);
-      }
-    }
-    grid.push(row);
-  }
-  return { originX, originY, grid };
-};
-
-const publicPlayer = (p) => ({
-  id: p.id,
-  username: p.username,
-  x: p.x,
-  y: p.y,
-});
-
-const getNearbyPlayers = (me) => {
-  const nearby = [];
-  for (const [id, { player }] of activeGames) {
-    if (id === me.id) continue;
-    const distance = Math.hypot(player.x - me.x, player.y - me.y);
-    if (distance <= NEARBY_RANGE) nearby.push(publicPlayer(player));
-  }
-  return nearby;
-};
-
-const buildState = (player) => ({
-  player,
-  map: { width: gameMap.size, height: gameMap.size },
-  view: getVisibleArea(player),
-  nearbyPlayers: getNearbyPlayers(player),
-  online: Array.from(activeGames.values()).map(({ player: p }) => p.username),
-});
-
-const broadcastStates = (exceptId) => {
-  for (const [id, { socket, player }] of activeGames) {
-    if (id === exceptId) continue;
-    socket.emit("gameState", buildState(player));
-  }
-};
-
-const DIRECTIONS = {
-  north: [0, -1],
-  south: [0, 1],
-  east: [1, 0],
-  west: [-1, 0],
-};
-
-const findSpawn = () => {
-  const room = gameMap.rooms[0];
-  if (room) {
-    return {
-      x: room.x + Math.floor(room.width / 2),
-      y: room.y + Math.floor(room.height / 2),
-    };
-  }
-  const c = Math.floor(gameMap.size / 2);
-  return { x: c, y: c };
-};
-
-// ---------------------------------------------------------------------------
 // Socket.io
 // ---------------------------------------------------------------------------
 const httpServer = http.createServer(app);
@@ -211,76 +177,56 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  const user = socket.user;
+  // Only one session per account: kick the older one.
+  const old = sockets.get(socket.user.id);
+  if (old) {
+    old.emit("kicked", "Logged in from another client.");
+    old.disconnect(true);
+    const oldPlayer = world.players.get(socket.user.id);
+    if (oldPlayer) savePlayers([oldPlayer]);
+    world.players.delete(socket.user.id);
+  }
+
+  // Re-read the user so stats saved by a previous session are up to date.
+  const user = findUser.get(socket.user.username);
   console.log(`User connected: ${user.username}`);
 
-  // Only one session per account: kick the older one.
-  const existing = activeGames.get(user.id);
-  if (existing) {
-    existing.socket.emit("kicked", "Logged in from another client.");
-    existing.socket.disconnect(true);
-  }
-
-  let x = user.position_x;
-  let y = user.position_y;
-  ensureChunksAround(x, y);
-  if (!isWalkable(x, y)) {
-    ({ x, y } = findSpawn());
-    updatePos.run(x, y, user.id);
-  }
-
-  const player = {
-    id: user.id,
-    username: user.username,
-    x,
-    y,
-    stats: {
-      hp: user.hp,
-      level: user.level,
-      xp: user.xp,
-      gold: user.gold,
-    },
-  };
-
-  activeGames.set(user.id, { socket, player });
-  socket.emit("gameState", buildState(player));
-  broadcastStates(user.id);
+  sockets.set(user.id, socket);
+  const player = world.addPlayer(user);
+  socket.emit("message", {
+    text: "Welcome! Walk into monsters to attack. H drinks a potion, T to chat.",
+    color: [255, 255, 120],
+  });
 
   socket.on("getGameState", (callback) => {
-    if (typeof callback === "function") callback(buildState(player));
+    if (typeof callback === "function") callback(world.stateFor(player));
   });
 
   socket.on("move", (direction, callback) => {
-    const delta = DIRECTIONS[direction];
-    let moved = false;
-    if (delta) {
-      const nx = player.x + delta[0];
-      const ny = player.y + delta[1];
-      if (isWalkable(nx, ny)) {
-        player.x = nx;
-        player.y = ny;
-        updatePos.run(nx, ny, player.id);
-        moved = true;
-      }
-    }
+    const result = world.movePlayer(player, direction);
+    if (typeof callback === "function") callback(result);
+  });
 
-    if (typeof callback === "function") {
-      callback({ moved, ...buildState(player) });
-    }
-    if (moved) broadcastStates(player.id);
+  socket.on("potion", () => world.drinkPotion(player));
+
+  socket.on("chat", (text) => {
+    if (typeof text !== "string") return;
+    text = text.replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, 120);
+    if (!text) return;
+    io.emit("message", { text: `<${player.username}> ${text}`, color: [140, 200, 255] });
   });
 
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${user.username}`);
-    const entry = activeGames.get(user.id);
-    if (entry && entry.socket === socket) {
-      activeGames.delete(user.id);
-      broadcastStates();
-    }
+    if (sockets.get(user.id) !== socket) return; // replaced by a newer session
+    sockets.delete(user.id);
+    const p = world.removePlayer(user.id);
+    if (p) savePlayers([p]);
   });
 });
 
 const shutdown = () => {
+  savePlayers(Array.from(world.players.values()));
   gameMap.saveNow();
   process.exit(0);
 };
