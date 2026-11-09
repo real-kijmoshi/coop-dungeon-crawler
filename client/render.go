@@ -51,8 +51,9 @@ var (
 
 // ------------------------------------------------------------------ frame
 func (g *Game) draw() {
+	started := time.Now()
 	cv := g.cv
-	cv.W, cv.H = cv.s.Size()
+	cv.BeginFrame()
 	W, H := cv.W, cv.H
 	cv.Fill(0, 0, W, H, theme.bg)
 	now := time.Now()
@@ -123,7 +124,11 @@ func (g *Game) draw() {
 		msg := "  ⚠ Connection lost — reconnecting...  "
 		cv.Text(maxi(0, (W-runeLen(msg))/2), 0, msg, Color{20, 20, 20}, ptr(Color{255, 180, 60}), true, -1)
 	}
-	cv.s.Show()
+	if g.showPerformance {
+		g.drawPerformance()
+	}
+	cv.Show()
+	g.drawTime = time.Since(started)
 }
 
 // ------------------------------------------------------------------ top bar

@@ -1,25 +1,15 @@
-# Cloudflare + Direct Internet hosting
+# Fix local terminal rendering lag
 
-Download **cdc-host-windows-amd64.exe**, double-click it and choose:
+Update your **client to v0.3.1**. Existing v0.3.0 hosts remain compatible; the client update contains this rendering fix.
 
-1. **Cloudflare** — temporary HTTPS URL; no router setup.
-2. **Direct Internet** — opens the game port and tries automatic router forwarding.
-3. **Both** — both addresses point to the same saved world.
-4. **LAN**.
-5. **Local**.
+The old renderer cleared and repainted directly into the terminal library on every frame. That invalidated cells even if their final content was unchanged. On a static 120×40 test scene, every frame still dirtied all 4,800 cells.
 
-Node.js and dependencies are bundled. No domain or VPS is required.
+Frames are now composed in memory, and only final changed cells are submitted. The same unchanged scene produces zero terminal cell updates. This avoids unnecessary console output, especially on Windows. It does not claim to eliminate every source of lag.
 
-Direct mode creates an app-specific TCP firewall rule, tries UPnP/NAT-PMP mapping, renews its finite lease, and removes its own router mapping on normal shutdown. Only firewall configuration requests Administrator permission; the game stays under the normal user account. The firewall rule persists between launches and can be removed with `--direct --remove-firewall`. It covers this executable's game port on Private/Public profiles. The LAN rule remains Private/local-subnet only.
+Press **F3** in game for live WebSocket RTT, render time, changed-cell count and time since the last snapshot arrived. RTT is measured using WebSocket control frames, independently of the UI loop. The snapshot timer can increase while the game is idle.
 
-Direct invitations use HTTPS plus the host's persistent public-key fingerprint. **Friends must use client v0.3.0+ and paste the entire invite, including `#key=...`, into the Server field.** Registration, login and game traffic are encrypted and pinned to that key. Direct invites are for the game client; browsers do not automatically trust the self-signed certificate. Cloudflare links work normally in a browser.
+The Windows host still offers Cloudflare, Direct HTTPS, Both, LAN and Local. Direct invite links require client v0.3.0+ and the complete `#key=...` suffix. The host configures only its game-port firewall rule and attempts UPnP/NAT-PMP router forwarding; CGNAT and unsupported routers can require Cloudflare. Cloudflare Quick Tunnel URLs change after a restart.
 
-The host prints the actual public port granted by the router. It labels direct reachability as **not independently verified**. Unsupported routers, CGNAT/upstream NAT, or firewall restrictions can prevent direct connections; automatic Cloudflare fallback is available. Use `--no-upnp`, `--public-ip`, `--external-port`, `--no-firewall` and `--no-fallback` for manual setup.
+Stop the old host before replacing it. Keep `%LOCALAPPDATA%/CoopDungeonHost/saves` and the adjacent `tls` folder to preserve heroes, world and direct server identity. All six client platforms, Windows host executable, server ZIP and SHA256 checksums are included.
 
-Command line: `--public`, `--direct`, or `--public --direct`.
-
-Press **Enter** to save and stop. Saves remain in `%LOCALAPPDATA%/CoopDungeonHost/saves`; TLS identity is in `.../tls`. Stop the old host and back up these folders before upgrading. The new host prevents concurrent use of the same save folder and stops its Windows server/tunnel child processes if the launcher closes.
-
-All six client platforms, source-server ZIP and SHA256 checksums are included. Executables are unsigned. Existing Cloudflare/LAN protocols remain compatible; new clients are required for key-bearing direct invitations.
-
-Router mapping behavior is tested with mock devices; actual router/ISP forwarding cannot be established by those tests. External direct reachability must be checked from another network.
+Validation covers unchanged and changed frames, layering/backgrounds, Unicode, resizing, real WebSocket latency probes, compressed snapshots and pinned HTTPS/WSS joins. The renderer benchmark uses a simulated screen, not a measurement of physical Windows Terminal FPS. Router mapping tests remain simulated; remote direct reachability still requires checking from another network.

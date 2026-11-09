@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/flate"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -40,20 +42,24 @@ func decodeWireMessage(messageType int, raw []byte) ([]byte, error) {
 
 // NetEvent is something that arrived from the server, delivered to the game loop.
 type NetEvent struct {
-	T     string
-	D     json.RawMessage
-	reply func(json.RawMessage) // set for request replies
+	T          string
+	D          json.RawMessage
+	reply      func(json.RawMessage) // set for request replies
+	receivedAt time.Time
 }
 
 // Conn is a WebSocket connection speaking the server's JSON protocol.
 type Conn struct {
-	ws      *websocket.Conn
-	writeMu sync.Mutex
-	mu      sync.Mutex
-	nextID  int
-	pending map[int]func(json.RawMessage)
-	Events  chan NetEvent
-	States  chan NetEvent // latest snapshot only; reliable events keep their FIFO
+	ws       *websocket.Conn
+	writeMu  sync.Mutex
+	mu       sync.Mutex
+	nextID   int
+	pending  map[int]func(json.RawMessage)
+	Events   chan NetEvent
+	States   chan NetEvent // latest snapshot only; reliable events keep their FIFO
+	done     chan struct{}
+	rttNanos atomic.Int64
+	lastPong atomic.Int64
 }
 
 type frame struct {
@@ -125,14 +131,53 @@ func Dial(server, username, password string) (*Conn, error) {
 		return nil, errors.New(reason)
 	}
 
-	c := &Conn{ws: ws, pending: map[int]func(json.RawMessage){}, Events: make(chan NetEvent, 256), States: make(chan NetEvent, 1)}
+	c := &Conn{ws: ws, pending: map[int]func(json.RawMessage){}, Events: make(chan NetEvent, 256), States: make(chan NetEvent, 1), done: make(chan struct{})}
+	ws.SetPongHandler(func(payload string) error {
+		if len(payload) == 12 && payload[:4] == "CDCP" {
+			sent := int64(binary.BigEndian.Uint64([]byte(payload[4:])))
+			elapsed := time.Now().UnixNano() - sent
+			if elapsed > 0 && elapsed < int64(time.Minute) {
+				c.rttNanos.Store(elapsed)
+				c.lastPong.Store(time.Now().UnixNano())
+			}
+		}
+		return nil
+	})
 	go c.readLoop()
+	go c.probeLoop()
 	return c, nil
+}
+
+// Control frames measure the live WebSocket path independently of rendering.
+// WriteControl is safe alongside normal writes; closing the socket stops both
+// goroutines. No game RPC or extra world snapshot is needed for a probe.
+func (c *Conn) probeLoop() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		payload := make([]byte, 12)
+		copy(payload, "CDCP")
+		binary.BigEndian.PutUint64(payload[4:], uint64(time.Now().UnixNano()))
+		if err := c.ws.WriteControl(websocket.PingMessage, payload, time.Now().Add(time.Second)); err != nil {
+			return
+		}
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func (c *Conn) latency() (time.Duration, bool) {
+	last := c.lastPong.Load()
+	return time.Duration(c.rttNanos.Load()), last != 0 && time.Since(time.Unix(0, last)) < 6*time.Second
 }
 
 func (c *Conn) readLoop() {
 	defer func() {
 		c.ws.Close()
+		close(c.done)
 		c.Events <- NetEvent{T: "_closed"}
 	}()
 	for {
@@ -140,6 +185,7 @@ func (c *Conn) readLoop() {
 		if err != nil {
 			return
 		}
+		receivedAt := time.Now()
 		raw, err = decodeWireMessage(messageType, raw)
 		if err != nil {
 			return
@@ -149,7 +195,7 @@ func (c *Conn) readLoop() {
 			continue
 		}
 		if f.T == "gameState" {
-			c.queueState(NetEvent{T: f.T, D: f.D})
+			c.queueState(NetEvent{T: f.T, D: f.D, receivedAt: receivedAt})
 			continue
 		}
 		if f.T == "reply" && f.ID != nil {

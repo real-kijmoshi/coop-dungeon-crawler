@@ -76,6 +76,8 @@ Cloudflare uses Quick Tunnels: the URL changes after restarting, no account/doma
 
 ### Tunnel performance
 
+**Local lag:** update the client to v0.3.1 or later. Earlier clients invalidated the entire terminal on every frame, even when most cells were unchanged. Press **F3** in game to toggle live WebSocket RTT, previous frame rendering time (including terminal output), changed-cell count, and time since the last state arrived. The state timer can increase normally while the world is idle; it is not network latency. The rendering fix works with a v0.3.0 host, so existing hosts do not need a server update for it.
+
 Use the latest **host and client** together. New clients request application-level snapshot compression, which remains effective when a proxy does not negotiate WebSocket compression. Game snapshots are coalesced to at most 20 per second, and slow connections retain only the latest pending state. The client also replaces old snapshots and caps terminal redraws at approximately 30 FPS. Reliable messages, profiles and request replies stay ordered within their event stream.
 
 If movement is still delayed, compare a local connection (`localhost:3143`) against the public URL. The host player should connect locally to avoid going through the public tunnel. A permanent tunnel hostname keeps the address stable, but does not itself guarantee lower latency. Back up your saves before upgrading the host.

@@ -100,14 +100,17 @@ type Game struct {
 	quit        bool
 	exitReason  string
 
-	settings       Settings
-	world          *WorldInfo
-	partyChannel   bool   // chat goes to the party
-	confirmSellUID string // second X press confirms selling a rare+ item
-	rebinding      string // action waiting for a new key
-	menuCursor     int    // cursor for settings / party / travel menus
-	journalPage    int
-	travelOpts     *TravelOptions
+	settings        Settings
+	world           *WorldInfo
+	partyChannel    bool   // chat goes to the party
+	confirmSellUID  string // second X press confirms selling a rare+ item
+	rebinding       string // action waiting for a new key
+	menuCursor      int    // cursor for settings / party / travel menus
+	journalPage     int
+	travelOpts      *TravelOptions
+	showPerformance bool
+	drawTime        time.Duration
+	lastStateAt     time.Time
 }
 
 func nowMs() float64 { return float64(time.Now().UnixMilli()) }
@@ -139,6 +142,10 @@ func (g *Game) handleNet(ev NetEvent) {
 	case "gameState":
 		var st GameState
 		if json.Unmarshal(ev.D, &st) == nil {
+			g.lastStateAt = ev.receivedAt
+			if g.lastStateAt.IsZero() {
+				g.lastStateAt = time.Now()
+			}
 			g.state = &st
 			g.clockOffset = st.Now - nowMs()
 			if st.SafeRoomID != nil {
@@ -276,6 +283,10 @@ func (g *Game) invAction(action string, arg any) {
 
 // ------------------------------------------------------------------ input
 func (g *Game) handleKey(ev *tcell.EventKey) {
+	if ev.Key() == tcell.KeyF3 && g.rebinding == "" {
+		g.showPerformance = !g.showPerformance
+		return
+	}
 	if ev.Key() == tcell.KeyCtrlC {
 		g.quit = true
 		return
@@ -735,7 +746,7 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 				animating = true
 			}
 			// Timers (cooldowns, buffs, events) tick a few times a second.
-			if animating || now.Sub(lastDraw) > 250*time.Millisecond {
+			if animating || g.showPerformance || now.Sub(lastDraw) > 250*time.Millisecond {
 				dirty = true
 			}
 			// Only the frame ticker redraws. Network bursts and input can mark

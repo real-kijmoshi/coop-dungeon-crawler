@@ -138,3 +138,46 @@ func TestApplicationFrameRejectsCorruptionAndOversizedInflation(t *testing.T) {
 		t.Fatal("accepted oversized state")
 	}
 }
+
+func TestLatencyProbeWorksWithoutConsumingUIEvents(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer ws.Close()
+		if _, _, err = ws.ReadMessage(); err != nil {
+			return
+		}
+		ws.WriteJSON(map[string]any{"t": "welcome"})
+		for {
+			if _, _, err = ws.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}))
+	defer server.Close()
+	c, err := Dial(server.URL, "test", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if rtt, fresh := c.latency(); fresh {
+			if rtt <= 0 || rtt > 3*time.Second {
+				t.Fatal("invalid local RTT", rtt)
+			}
+			c.Close()
+			select {
+			case <-c.done:
+			case <-time.After(time.Second):
+				t.Fatal("connection did not stop")
+			}
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("no WebSocket RTT sample")
+}
