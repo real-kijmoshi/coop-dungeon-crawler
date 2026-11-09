@@ -15,7 +15,7 @@ async function until(fn) {
   throw new Error('Timed out waiting for game network state');
 }
 
-test('four compressed clients authenticate, choose classes, move and chat on a real server', { timeout: 25000 }, async t => {
+test('mixed legacy and application-compressed clients authenticate, move and chat on a real server', { timeout: 25000 }, async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdc-network-'));
   const probe = net.createServer(); await new Promise(r => probe.listen(0, '127.0.0.1', r));
   const port = probe.address().port; await new Promise(r => probe.close(r));

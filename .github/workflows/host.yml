@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           cd client
-          ./build.sh v0.2.1
+          ./build.sh v0.2.2
           cd ..
           git archive --format=zip --output=client/dist/cdc-server.zip HEAD server start-server.js start-server.cmd start-server.sh README.md LICENSE
           cd client/dist
@@ -64,13 +64,13 @@ jobs:
         with:
           name: cdc-host-release
           path: client/dist/*
-      - name: Publish v0.2.1
+      - name: Publish v0.2.2
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.2.1 *> $null
-          if ($LASTEXITCODE -eq 0) { throw 'v0.2.1 exists; do not overwrite a published release' }
-          gh release create v0.2.1 client/dist/* --target $env:GITHUB_SHA --title 'v0.2.1 — Reduce tunnel lag' --notes-file host/RELEASE.md
+          gh release view v0.2.2 *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'v0.2.2 exists; do not overwrite a published release' }
+          gh release create v0.2.2 client/dist/* --target $env:GITHUB_SHA --title 'v0.2.2 — Keep compression through tunnels' --notes-file host/RELEASE.md
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

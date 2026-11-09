@@ -1,0 +1,174 @@
+{
+  "started": "2026-11-09T19:02:37.924Z",
+  "node": "v24.22.2",
+  "platform": "linux",
+  "players": 4,
+  "durationSeconds": 30,
+  "rounds": 2,
+  "scenario": "Four synthetic heroes in the initial dungeon, 20 full snapshots/s/client, movement every 150ms and reliable probe every 250ms. Clients and origin on same machine; public paths actually traverse Cloudflare. This does not measure a Polish home connection.",
+  "results": [
+    {
+      "label": "direct-local",
+      "round": 1,
+      "negotiatedProtocol": "none",
+      "compression": true,
+      "applicationCompressedFrames": 2379,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 480,
+        "p50": 0.2,
+        "p95": 0.5,
+        "max": 0.6
+      },
+      "snapshotAgeMs": {
+        "samples": 2379,
+        "p50": 0,
+        "p95": 1,
+        "max": 4
+      },
+      "snapshots": 2379,
+      "snapshotsPerSecondPerPlayer": 19.8,
+      "websocketBytesReceived": 2191560,
+      "websocketKiBPerSecondAllPlayers": 71.3,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        44,
+        5,
+        5,
+        44
+      ]
+    },
+    {
+      "label": "cloudflare-http2",
+      "round": 1,
+      "negotiatedProtocol": "http2",
+      "compression": false,
+      "applicationCompressedFrames": 2388,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 480,
+        "p50": 13.4,
+        "p95": 16.8,
+        "max": 22.1
+      },
+      "snapshotAgeMs": {
+        "samples": 2388,
+        "p50": 7,
+        "p95": 9,
+        "max": 28
+      },
+      "snapshots": 2388,
+      "snapshotsPerSecondPerPlayer": 19.9,
+      "websocketBytesReceived": 2210985,
+      "websocketKiBPerSecondAllPlayers": 72,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        48,
+        49,
+        32,
+        32
+      ]
+    },
+    {
+      "label": "cloudflare-http2",
+      "round": 2,
+      "negotiatedProtocol": "http2",
+      "compression": false,
+      "applicationCompressedFrames": 2393,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 480,
+        "p50": 15.3,
+        "p95": 21.4,
+        "max": 52.7
+      },
+      "snapshotAgeMs": {
+        "samples": 2393,
+        "p50": 8,
+        "p95": 11,
+        "max": 95
+      },
+      "snapshots": 2393,
+      "snapshotsPerSecondPerPlayer": 19.9,
+      "websocketBytesReceived": 2215478,
+      "websocketKiBPerSecondAllPlayers": 72.1,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        44,
+        45,
+        46,
+        6
+      ]
+    },
+    {
+      "label": "cloudflare-auto",
+      "round": 1,
+      "negotiatedProtocol": "quic",
+      "compression": false,
+      "applicationCompressedFrames": 2391,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 479,
+        "p50": 14.4,
+        "p95": 18.3,
+        "max": 63.5
+      },
+      "snapshotAgeMs": {
+        "samples": 2391,
+        "p50": 7,
+        "p95": 10,
+        "max": 36
+      },
+      "snapshots": 2391,
+      "snapshotsPerSecondPerPlayer": 19.9,
+      "websocketBytesReceived": 2213743,
+      "websocketKiBPerSecondAllPlayers": 72.1,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        41,
+        11,
+        7,
+        6
+      ]
+    },
+    {
+      "label": "cloudflare-auto",
+      "round": 2,
+      "negotiatedProtocol": "quic",
+      "compression": false,
+      "applicationCompressedFrames": 2390,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 480,
+        "p50": 14.4,
+        "p95": 19.4,
+        "max": 40
+      },
+      "snapshotAgeMs": {
+        "samples": 2390,
+        "p50": 7,
+        "p95": 11,
+        "max": 30
+      },
+      "snapshots": 2390,
+      "snapshotsPerSecondPerPlayer": 19.9,
+      "websocketBytesReceived": 2212587,
+      "websocketKiBPerSecondAllPlayers": 72,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        2,
+        50,
+        25,
+        52
+      ]
+    }
+  ],
+  "finished": "2026-11-09T19:05:43.150Z",
+  "runnerRegion": "westus2",
+  "sourceRun": "https://github.com/real-kijmoshi/coop-dungeon-crawler/actions/runs/42679492614"
+}

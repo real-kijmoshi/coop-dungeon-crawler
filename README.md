@@ -46,7 +46,7 @@ Press **Enter** in the window to save and stop. Saves live in `%LOCALAPPDATA%/Co
 
 ### Tunnel performance
 
-Use the latest **host and client** together. Clients negotiate WebSocket compression; game snapshots are coalesced to at most 20 per second, and slow connections retain only the latest pending state. The client also replaces old snapshots and caps terminal redraws at approximately 30 FPS. Reliable messages, profiles and request replies stay ordered within their event stream.
+Use the latest **host and client** together. New clients request application-level snapshot compression, which remains effective when a proxy does not negotiate WebSocket compression. Game snapshots are coalesced to at most 20 per second, and slow connections retain only the latest pending state. The client also replaces old snapshots and caps terminal redraws at approximately 30 FPS. Reliable messages, profiles and request replies stay ordered within their event stream.
 
 If movement is still delayed, compare a local connection (`localhost:3143`) against the public URL. The host player should connect locally to avoid going through the public tunnel. A permanent tunnel hostname keeps the address stable, but does not itself guarantee lower latency. Back up your saves before upgrading the host.
 
@@ -149,6 +149,10 @@ response buffering for `/watch` so the live stream flows (nginx: `proxy_bufferin
 The client talks to the server over a plain WebSocket at `/ws` with JSON messages, so writing another client
 (web, mobile, bots) is easy. See [`server/net/hub.js`](server/net/hub.js) for the message format. Accounts are
 created through `POST /register` and checked with `POST /login`.
+
+Clients may advertise `features: ["state-deflate-v1"]` in the top-level authentication frame. For those clients, snapshots of at least 1 KiB are sent as binary WebSocket frames: ASCII `CDC1`, followed by raw DEFLATE of the usual JSON game-state event. Other events remain JSON text. Clients without this feature receive the existing JSON-only protocol. The Go client accepts both formats and limits decompressed frames to 4 MiB.
+
+A real four-client tunnel benchmark and repeatable test are in [`diagnostics/`](diagnostics/README.md). The test distinguishes native WebSocket compression from application compression and records what tunnel protocol was actually negotiated.
 
 ## Documentation
 

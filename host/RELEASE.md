@@ -1,14 +1,18 @@
-## Tunnel performance update
+## Compression that survives tunnels
 
-Update **both the host and the game clients** for the full improvement. Back up your saves before replacing the executable; use the same save folder.
+Update **both the Windows host and all game clients**. Back up saves and keep the same save folder.
 
-- Negotiate WebSocket compression to shrink repetitive game snapshots.
-- Coalesce world changes into at most 20 snapshots per second.
-- Keep only the latest pending snapshot for slow connections; preserve reliable game events.
-- Keep only the latest received snapshot in the client and limit terminal rendering to approximately 30 FPS.
-- Test compressed and uncompressed connections, slow-client backpressure, reliable events and snapshot bursts.
+A real Cloudflare test showed that WebSocket permessage-deflate was not negotiated on the tested public tunnel, even though it worked locally. v0.2.2 adds opt-in, application-level DEFLATE for game snapshots so compression does not depend on the proxy negotiating a WebSocket extension.
 
-These changes address application-side backlog. They cannot remove latency or outages on the Internet/tunnel route. The temporary URL still changes after restarting.
+In the real four-client Cloudflare benchmark, total received game traffic fell from about **410 KiB/s to 72 KiB/s** (about **82% less**) while maintaining roughly 20 snapshots/s per player, with no disconnects during the short test. Both ends ran on US GitHub runners; this does not establish latency from Poland. [Raw results and method](https://github.com/real-kijmoshi/coop-dungeon-crawler/blob/main/diagnostics/README.md).
+
+- New clients advertise the codec; older clients continue receiving JSON text.
+- Snapshots remain coalesced and limited to one in-flight compression/write per connection.
+- Clients bound decompression size and reject corrupted binary frames.
+- Reliable game events keep their existing event stream.
+- Includes tests for legacy clients/servers, mixed client versions, compressed snapshots without WebSocket extensions, and Node-to-Go codec compatibility.
+
+The temporary tunnel address still changes after a restart. No save format or save location changes.
 
 ## Windows host
 
