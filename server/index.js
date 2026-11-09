@@ -27,29 +27,17 @@ db.prepare(
     xp INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1,
     hp INTEGER DEFAULT ${PLAYER_BASE.maxHp},
+    max_hp INTEGER DEFAULT ${PLAYER_BASE.maxHp},
+    atk INTEGER DEFAULT ${PLAYER_BASE.atk},
+    def INTEGER DEFAULT ${PLAYER_BASE.def},
+    potions INTEGER DEFAULT ${PLAYER_BASE.potions},
+    kills INTEGER DEFAULT 0,
+    deaths INTEGER DEFAULT 0,
     position_x INTEGER DEFAULT -1,
     position_y INTEGER DEFAULT -1
   )
 `,
 ).run();
-
-// Migrate older databases: add any missing stat columns.
-const MIGRATIONS = {
-  max_hp: `INTEGER DEFAULT ${PLAYER_BASE.maxHp}`,
-  atk: `INTEGER DEFAULT ${PLAYER_BASE.atk}`,
-  def: `INTEGER DEFAULT ${PLAYER_BASE.def}`,
-  potions: `INTEGER DEFAULT ${PLAYER_BASE.potions}`,
-  kills: "INTEGER DEFAULT 0",
-  deaths: "INTEGER DEFAULT 0",
-};
-const existingColumns = new Set(
-  db.prepare("PRAGMA table_info(users)").all().map((c) => c.name),
-);
-for (const [col, type] of Object.entries(MIGRATIONS)) {
-  if (!existingColumns.has(col)) {
-    db.prepare(`ALTER TABLE users ADD COLUMN ${col} ${type}`).run();
-  }
-}
 
 const findUser = db.prepare("SELECT * FROM users WHERE username = ?");
 const insertUser = db.prepare(
