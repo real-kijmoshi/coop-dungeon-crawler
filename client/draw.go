@@ -6,11 +6,48 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// Canvas wraps a tcell screen with the drawing helpers the UI needs.
-// tcell keeps a back buffer and only sends changed cells to the terminal.
+// Compose a complete frame before touching tcell. Clearing and restoring a
+// glyph directly in tcell invalidates it even when its final value is unchanged.
+// On Windows those false changes cause many synchronous console writes.
 type Canvas struct {
-	s    tcell.Screen
-	W, H int
+	s                tcell.Screen
+	W, H             int
+	frame, presented []canvasCell
+	composing        bool
+	changed          int
+}
+
+type canvasCell struct {
+	r     rune
+	style tcell.Style
+}
+
+func (c *Canvas) BeginFrame() {
+	w, h := c.s.Size()
+	if w != c.W || h != c.H || len(c.frame) != w*h {
+		c.frame = make([]canvasCell, w*h)
+		c.presented = nil
+	}
+	c.W, c.H = w, h
+	c.composing = true
+}
+
+func (c *Canvas) Show() {
+	c.changed = 0
+	if c.composing {
+		for i, cell := range c.frame {
+			if len(c.presented) == 0 || cell != c.presented[i] {
+				c.s.SetContent(i%c.W, i/c.W, cell.r, nil, cell.style)
+				c.changed++
+			}
+		}
+		if len(c.presented) != len(c.frame) {
+			c.presented = make([]canvasCell, len(c.frame))
+		}
+		copy(c.presented, c.frame)
+		c.composing = false
+	}
+	c.s.Show()
 }
 
 func tc(c Color) tcell.Color {
@@ -51,11 +88,18 @@ func (c *Canvas) Put(x, y int, r rune, fg Color, bg *Color, bold bool) {
 	var back tcell.Color
 	if bg != nil {
 		back = tc(*bg)
+	} else if c.composing {
+		_, back, _ = c.frame[y*c.W+x].style.Decompose()
 	} else {
 		_, _, st, _ := c.s.GetContent(x, y)
 		_, back, _ = st.Decompose()
 	}
-	c.s.SetContent(x, y, r, nil, tcell.StyleDefault.Foreground(tc(fg)).Background(back).Bold(bold))
+	style := tcell.StyleDefault.Foreground(tc(fg)).Background(back).Bold(bold)
+	if c.composing {
+		c.frame[y*c.W+x] = canvasCell{r, style}
+	} else {
+		c.s.SetContent(x, y, r, nil, style)
+	}
 }
 
 // Text draws a string and returns how many cells it used.

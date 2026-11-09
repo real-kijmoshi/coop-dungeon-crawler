@@ -203,7 +203,7 @@ func (ui *loginUI) submit() *Account {
 
 func (ui *loginUI) draw() {
 	cv := ui.cv
-	cv.W, cv.H = cv.s.Size()
+	cv.BeginFrame()
 	cv.Fill(0, 0, cv.W, cv.H, theme.bg)
 	y := maxi(1, cv.H/2-12)
 	for i, l := range logo {
@@ -289,7 +289,7 @@ func (ui *loginUI) draw() {
 		}
 		cv.Text(maxi(0, (cv.W-runeLen(ui.status))/2), cv.H-2, ui.status, c, &theme.bg, true, -1)
 	}
-	cv.s.Show()
+	cv.Show()
 }
 
 func (ui *loginUI) footer(x, y, w int, text string) {

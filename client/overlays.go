@@ -53,6 +53,7 @@ func (g *Game) showHelp() {
 		L(fmt.Sprintf("%s %s %s %s        class skills (unlock at Lv 1, 3, 5, 8)", k("skill1"), k("skill2"), k("skill3"), k("skill4")), cCyan),
 		L(fmt.Sprintf("%s potion   %s inventory   %s journal   %s party   %s travel", k("potion"), k("inventory"), k("journal"), k("party"), k("travel")), cCyan),
 		L(fmt.Sprintf("%s ping   %s chat   %s party chat   %s ranks   %s settings   %s quit", k("ping"), k("chat"), k("partychat"), k("leaderboard"), k("settings"), k("quit")), cCyan),
+		L("F3 toggles network latency and terminal rendering diagnostics", cCyan),
 		L("", cWhite),
 		L("M Merchant & blacksmith (safe room): potions, upgrades, +N gear, rebirth", cOrange),
 		L("$ gold  ! potion  ♥ heart  = chest  ^ shrine  § lore scroll  Ω waystone", cYellow),
