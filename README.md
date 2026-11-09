@@ -34,15 +34,45 @@ Early access — contributions and bug reports are welcome.
 - Cross-platform compatibility (Windows, macOS, Linux)
 - Custom server hosting capabilities
 
-## Host on Windows — single executable
+## Host on Windows — Cloudflare, Direct, or Both
 
-Download [cdc-host-windows-amd64.exe](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-host-windows-amd64.exe), double-click it and choose Internet, LAN or local hosting. Node.js and dependencies are bundled. No runtime installation is needed.
+Download [cdc-host-windows-amd64.exe](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-host-windows-amd64.exe) and double-click it. Node.js and the server dependencies are bundled. No domain or VPS is required.
 
-Internet mode prints a full temporary HTTPS URL to share with friends. They enter it in the client's Server field or open it for launch commands. It uses Cloudflare Quick Tunnels, so no inbound firewall rule or router forwarding is needed. Anyone with the URL can reach the server. The URL changes on restart, and Quick Tunnels have no uptime guarantee; use a named tunnel or a reachable host for permanent hosting.
+| Menu | Mode | What friends receive |
+| --- | --- | --- |
+| 1 | Cloudflare | A temporary HTTPS URL; no router changes or Administrator access |
+| 2 | Direct Internet | An encrypted direct invite with your public IPv4, port, and server key |
+| 3 | Both | Both addresses for the same world |
+| 4 | LAN | Your computer's local-network address |
+| 5 | Local | This computer only |
 
-LAN mode prints local addresses. If needed, use `cdc-host-windows-amd64.exe --lan --open-firewall` from an Administrator terminal to add a Windows Private-profile TCP rule limited to the local subnet. This does not configure your router. Public mode does not need Administrator access.
+For command-line use:
 
-Press **Enter** in the window to save and stop. Saves live in `%LOCALAPPDATA%/CoopDungeonHost/saves`, separately from each bundled runtime version. Back up this folder before upgrades. `--local` binds only to loopback; `--port` and `--data-dir` override defaults.
+```powershell
+.\cdc-host-windows-amd64.exe --public
+.\cdc-host-windows-amd64.exe --direct
+.\cdc-host-windows-amd64.exe --public --direct
+```
+
+**Direct mode:** the host requests elevation only to configure its own Windows firewall rule. The rule allows this executable's TCP port (3143 by default) on Private/Public networks, without disabling the firewall. It tries UPnP/NAT-PMP router forwarding, renews a finite lease while running, and removes its own mapping on normal shutdown. If automatic forwarding or firewall setup is unavailable, it starts Cloudflare as a fallback. Router support and a reachable public IPv4 are still required for direct Internet access; CGNAT or upstream NAT can prevent it. Every direct invite is marked **externally unverified** because router configuration does not prove reachability from a friend's network.
+
+Paste the **entire direct invite**, including `#key=...`, into the Server field in **client v0.3.0 or later**. The client verifies the host's persistent TLS public key for registration, login, and WebSocket traffic. Direct invites are for the game client; a browser does not automatically trust this self-signed certificate. Cloudflare links continue to work normally in browsers. Local players should use the local address printed by the host; in Direct mode this is a stable, pinned loopback HTTPS invite.
+
+If automatic router mapping is unavailable, configure a TCP port-forward from your router to the hosting PC's LAN IPv4 and printed local port. `--external-port` requests a different public port; if the router grants another port, the invite shows the actual one. The public IPv4 can still change when your ISP changes it.
+
+Advanced options: `--no-upnp` for manual forwarding, `--public-ip <IPv4>` to override address discovery, `--no-firewall` to manage firewall rules yourself, and `--no-fallback` to prevent automatic Cloudflare fallback. `--public --direct` explicitly runs both even with `--no-fallback`.
+
+The firewall rule persists so later launches in the same location do not repeatedly request elevation. Remove only this mode's own rule with:
+
+```powershell
+.\cdc-host-windows-amd64.exe --direct --remove-firewall
+```
+
+LAN mode's optional `--lan --open-firewall` rule remains limited to the local subnet and Private profile. It does not forward your router port.
+
+Press **Enter** to save and stop. Saves remain in `%LOCALAPPDATA%/CoopDungeonHost/saves`; the direct TLS identity is stored separately in `%LOCALAPPDATA%/CoopDungeonHost/tls`. Preserve the latter to keep the same server key. Back up both before upgrading. Only one host may use a save folder at a time. Closing the Windows launcher also stops its server/tunnel child processes; use Enter for a graceful save.
+
+Cloudflare uses Quick Tunnels: the URL changes after restarting, no account/domain is needed, and no uptime guarantee is provided. It remains the account-free fallback when a router or ISP prevents direct hosting.
 
 ### Tunnel performance
 
@@ -146,7 +176,7 @@ response buffering for `/watch` so the live stream flows (nginx: `proxy_bufferin
 
 ### Protocol
 
-The client talks to the server over a plain WebSocket at `/ws` with JSON messages, so writing another client
+The client talks to the server over WebSocket at `/ws` (WSS for HTTPS addresses), with JSON events and an optional compressed snapshot codec, so writing another client
 (web, mobile, bots) is easy. See [`server/net/hub.js`](server/net/hub.js) for the message format. Accounts are
 created through `POST /register` and checked with `POST /login`.
 

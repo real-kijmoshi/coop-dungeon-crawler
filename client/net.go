@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -64,10 +64,7 @@ type frame struct {
 
 // wsURL turns "http://host:port" (or a bare "host:port") into "ws://host:port/ws".
 func wsURL(server string) (string, error) {
-	if !strings.Contains(server, "://") {
-		server = "http://" + server
-	}
-	u, err := url.Parse(server)
+	u, _, err := parseServerAddress(server)
 	if err != nil {
 		return "", err
 	}
@@ -87,7 +84,11 @@ func Dial(server, username, password string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, EnableCompression: true}
+	_, pin, err := parseServerAddress(server)
+	if err != nil {
+		return nil, err
+	}
+	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, EnableCompression: true, Proxy: http.ProxyFromEnvironment, TLSClientConfig: serverTLSConfig(pin)}
 	ws, _, err := dialer.Dial(addr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not reach %s: %w", server, err)
