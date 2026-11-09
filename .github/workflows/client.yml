@@ -5,6 +5,7 @@ on:
     branches: [main]
     tags: ["v*"]
     paths: ["client/**", ".github/workflows/client.yml"]
+  workflow_dispatch:
   pull_request:
     paths: ["client/**", ".github/workflows/client.yml"]
 
@@ -27,6 +28,8 @@ jobs:
         run: go vet ./...
       - name: Build all platforms
         run: ./build.sh "${GITHUB_REF_NAME}"
+      - name: Generate checksums
+        run: cd dist && sha256sum cdc-* > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: cdc-clients

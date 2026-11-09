@@ -1,13 +1,13 @@
 <div align="center">
 
-# Terminal Coop Dungeon Drawler
+# Terminal Coop Dungeon Crawler
 
 <!-- ![Game Preview](https://via.placeholder.com/600x300) -->
 
 A procedurally generated cooperative dungeon crawler that runs in your terminal.
 The server is Node.js; the client is a single small Go binary for Windows, macOS and Linux.
 
-its somewhat working for now all contrributions are welcome
+Early access — contributions and bug reports are welcome.
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -15,6 +15,8 @@ its somewhat working for now all contrributions are welcome
 [![Go Version](https://img.shields.io/badge/client-go%201.24-00ADD8)](https://go.dev)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
+[Website](https://real-kijmoshi.github.io/coop-dungeon-crawler/) •
+[Download](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest) •
 [Features](#features) •
 [Installation](#installation) •
 [Usage](#usage) •
