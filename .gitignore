@@ -141,3 +141,6 @@ server/users.db
 server/users.db-*
 server/utils/map.json
 client/data/
+
+# Bundled Windows host runtime (generated in CI)
+host/assets/bundle.zip

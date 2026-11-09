@@ -10,11 +10,14 @@ const { initMap } = require("./utils/map");
 const { World } = require("./game/World");
 
 const PORT = process.env.PORT || 3143;
+const fs = require("fs");
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ---------------------------------------------------------------------------
 // Database
 // ---------------------------------------------------------------------------
-const db = new Database(path.join(__dirname, "users.db"));
+const db = new Database(path.join(DATA_DIR, "users.db"));
 
 db.prepare(
   `
@@ -307,7 +310,12 @@ const shutdown = () => {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-httpServer.listen(PORT, () => {
+if (process.env.DATA_DIR) {
+  const stopFile = path.join(DATA_DIR, "stop.request");
+  try { fs.unlinkSync(stopFile); } catch {}
+  setInterval(() => { if (fs.existsSync(stopFile)) { fs.unlinkSync(stopFile); shutdown(); } }, 250);
+}
+httpServer.listen(PORT, process.env.HOST || "0.0.0.0", () => {
   console.log(`Game server ready! Open http://localhost:${PORT} for the play launcher.`);
   console.log(`On this computer, connect the client to localhost:${PORT}`);
   let interfaces = {};

@@ -34,7 +34,17 @@ Early access — contributions and bug reports are welcome.
 - Cross-platform compatibility (Windows, macOS, Linux)
 - Custom server hosting capabilities
 
-## Host a server — easy start
+## Host on Windows — single executable
+
+Download [cdc-host-windows-amd64.exe](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-host-windows-amd64.exe), double-click it and choose Internet, LAN or local hosting. Node.js and dependencies are bundled. No runtime installation is needed.
+
+Internet mode prints a full temporary HTTPS URL to share with friends. They enter it in the client's Server field or open it for launch commands. It uses Cloudflare Quick Tunnels, so no inbound firewall rule or router forwarding is needed. Anyone with the URL can reach the server. The URL changes on restart, and Quick Tunnels have no uptime guarantee; use a named tunnel or a reachable host for permanent hosting.
+
+LAN mode prints local addresses. If needed, use `cdc-host-windows-amd64.exe --lan --open-firewall` from an Administrator terminal to add a Windows Private-profile TCP rule limited to the local subnet. This does not configure your router. Public mode does not need Administrator access.
+
+Press **Enter** in the window to save and stop. Saves live in `%LOCALAPPDATA%/CoopDungeonHost/saves`, separately from each bundled runtime version. Back up this folder before upgrades. `--local` binds only to loopback; `--port` and `--data-dir` override defaults.
+
+## Host a server from the ZIP — all platforms
 
 1. Install [Node.js LTS](https://nodejs.org/) once.
 2. Download [cdc-server.zip](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-server.zip) and **extract it**.
