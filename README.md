@@ -91,8 +91,10 @@ npm start
 | Key | Action |
 | --- | ------ |
 | `W/A/S/D` or arrow keys | Move. Walk into a monster to attack, into the Merchant to shop, into a downed ally to revive them |
-| `1` `2` `3` | Skills: **Whirlwind** (Lv 2), **Rally** (Lv 4), **Fireball** (Lv 6) |
+| `1` `2` `3` `4` | Class skills (unlock at level 1, 3, 5 and 8) |
 | `H` | Drink a healing potion |
+| `I` | Inventory: `W/S` select, `E` equip/unequip, `X` sell (at the merchant), `D` drop |
+| `J` | Journal: bounties and achievements, `N` changes your title |
 | `T` or `Enter` | Chat with everyone online (`Enter` sends, `Esc` cancels) |
 | `L` | Leaderboard (Hall of Heroes) |
 | `?` | Help |
@@ -100,39 +102,64 @@ npm start
 
 ### How to play
 
-**The goal:** get strong enough to go deeper than anyone else, take down the lair bosses, and become a **Dragonslayer**.
+**The goal:** loot better gear, finish bounties, collect titles, go deeper than anyone else,
+take down the lair bosses and become a **Dragonslayer**.
 
-- **Depth.** You start in the green **safe room**; monsters can't enter it, and you heal quickly inside.
-  The further you go from it, the deeper you are (shown as *Depth*) and the deadlier it gets:
-  rats & bats → goblins → skeleton archers → orcs → wraiths → trolls → drakes.
-  Every new depth record pays an explorer's bonus in gold. The side panel always points the way home.
-- **Vision.** You only see what's in your line of sight (rooms you stand in are lit). Explored areas stay on
-  your map, dimmed, and monsters only notice you if they can see you.
-- **Combat.** Bump to attack, with random damage and critical hits. Skeletons, wraiths and drakes shoot from range.
-  **Elite** monsters (bold, from depth 2) are tougher and always drop loot.
-- **Bosses** (capital letters) guard **treasure chests** in their lairs and never leave them:
-  Goblin King, Bone Lord, Orc Warlord, Wraith Queen, Troll Chieftain, and the **Ancient Dragon** at depth 8+.
-- **Skills** unlock as you level:
-  - `1` Whirlwind: hit every enemy around you (6s cooldown)
-  - `2` Rally: heal yourself and allies nearby by 30% and revive downed allies (30s)
-  - `3` Fireball: blast the nearest enemy you can see, up to 8 tiles away (9s)
-- **The Merchant** (`M`, in the safe room) sells potions and permanent ATK / DEF / max HP upgrades. Prices rise as you grow.
-- **Loot:**
+#### Classes
 
-  | Symbol | Item |
-  | ------ | ---- |
-  | `$` | Gold |
-  | `!` | Healing potion (heals 40% of max HP, carry up to 9) |
-  | `/` | Sharper blade: ATK +1 |
-  | `]` | Armor plate: DEF +1 |
-  | `♥` | Heart crystal: max HP +5 |
-  | `=` | Treasure chest: lots of gold, a potion and gear |
+You pick a class the first time you play (it's permanent for that hero, so make another account to try another).
 
-- **Co-op.** If you fall while an ally is nearby you go **DOWN** (`%`) instead of dying. They have 20 seconds
-  to walk into you (or use Rally) to bring you back. Allies near a kill share half its XP, and reviving
-  someone earns XP too. Together you can take on lairs that would kill you alone.
-- **Death** drops half your gold where you fell and sends you back to the safe room. Go get it back!
-- Everything is saved on the server: your level, stats, gold, records and position. Check `L` to see who's on top.
+| Class | Style | Skills (level) |
+| ----- | ----- | -------------- |
+| **Warrior** | Tank: most HP and DEF, holds monsters' attention | Cleave (1), War Cry (3, taunt + DEF), Iron Skin (5, -70% damage), Berserk (8, +60% ATK & lifesteal) |
+| **Rogue** | Burst: 20% crit, 12% dodge | Backstab (1, 2.5x, crits unaware foes), Smoke Bomb (3, vanish), Fan of Knives (5), Shadow Strike (8, teleport 4x hit) |
+| **Mage** | Ranged glass cannon | Fireball (1), Frost Nova (3, freeze), Chain Lightning (5), Meteor (8) |
+| **Cleric** | Healer & undead-slayer | Heal (1, also revives), Smite (3, 3x vs undead), Sanctuary (5, party heal/revive/DEF), Holy Nova (8) |
+
+#### Loot
+
+Monsters, chests, bosses and the merchant's gamble drop **randomly generated gear** for three slots
+(weapon `/`, armor `]`, trinket `"`) in five rarities, shown by color:
+**Common**, **Magic** (blue), **Rare** (yellow), **Epic** (purple) and **Legendary** (orange, with a unique name).
+Gear rolls ATK, DEF, HP, crit, dodge, lifesteal, gold find, XP bonus and HP regen. Deeper depths mean
+better item levels. Your backpack holds 15 items. The inventory shows how each item compares to what you
+wear, and you can sell loot to the merchant.
+
+#### The dungeon
+
+- **Depth.** The green **safe room** is home: monsters can't enter it, and you heal fast inside. The further
+  you go from it, the deeper and deadlier the dungeon (rats → goblins → skeletons → orcs → wraiths → golems →
+  trolls → demons → drakes → liches), but loot and XP get better. Depth records pay gold.
+- **Vision.** You only see what's in your line of sight (rooms you stand in are lit). Explored areas stay on your
+  map, dimmed. Monsters only notice you if they can see you, and some shoot from range.
+- **Elites** (bold) are tougher and always drop gear. **Bosses** (capital letters) guard treasure chests in their lairs:
+  Goblin King, Bone Lord, Orc Warlord, Wraith Queen, Troll Chieftain, Demon Prince and the **Ancient Dragon** (depth 8+).
+- **Shrines** `^` give a random buff for a minute or more: Power, Fortune, Wisdom, Haste, Protection or Blood.
+- **Other pickups:** `$` gold, `!` healing potion (up to 9), `♥` heart crystal (+5 max HP permanently),
+  `=` treasure chest (gold, potion and gear).
+
+#### Reasons to keep playing
+
+- **Kill combos:** chain kills within 4 seconds for up to +100% XP.
+- **Bounties:** you always have three, scaled to your progress. Examples: slay 10 goblins, defeat the Bone Lord,
+  reach depth 5, open chests, hit a x6 combo. Each pays gold, XP and often an item, and a new one replaces it.
+- **22 achievements**, each unlocking a title shown on the leaderboard ("the Dragonslayer", "the Unstoppable", ...).
+- **World events** every 6-9 minutes, announced to everyone:
+  **Gold Rush** (double gold), **Blood Moon** (stronger monsters, +75% XP, more loot), **Loot Frenzy** (3x item drops)
+  and **Treasure Goblins** (they run from you and drop piles of loot if you catch them before they escape).
+- **The Merchant** (`M`) sells potions, permanent ATK/DEF/HP upgrades (prices rise each time) and a mystery-item gamble.
+
+#### Co-op
+
+- If you fall while an ally is nearby you go **DOWN** (`%`) instead of dying. They have 20 seconds to walk into you
+  (or use Heal, Sanctuary) to bring you back.
+- Allies near a kill share half its XP. Reviving someone earns XP too.
+- Classes complement each other: a Warrior taunts, a Cleric heals, a Mage freezes and nukes, a Rogue bursts down bosses.
+- **Death** drops half your gold where you fell and sends you back to the safe room. Your gear is safe.
+
+Everything is saved on the server: class, level, gear, backpack, bounties, achievements, records and position.
+
+> Tip for server admins: set `EVENT_INTERVAL_MS` (e.g. `60000`) to make world events happen more often.
 
 ### Quick start (local)
 

@@ -171,7 +171,7 @@ const drawGame = (state, memory, ui) => {
 
     for (const item of state.items || []) {
       const p = toScreen(item.x, item.y);
-      if (p) put(p.sx, p.sy, item.kind === "chest" ? bold(item.color) : fg(item.color), item.char);
+      if (p) put(p.sx, p.sy, item.kind === "chest" || item.kind === "gear" || item.kind === "shrine" ? bold(item.color) : fg(item.color), item.char);
     }
 
     for (const npc of state.npcs || []) {
@@ -182,7 +182,7 @@ const drawGame = (state, memory, ui) => {
     for (const m of state.monsters || []) {
       const p = toScreen(m.x, m.y);
       if (!p) continue;
-      const style = m.hit ? inverse(m.color) : m.boss || m.elite ? bold(m.color) : fg(m.color);
+      const style = m.hit ? inverse(m.color) : m.frozen ? inverse([120, 200, 255]) : m.boss || m.elite ? bold(m.color) : fg(m.color);
       put(p.sx, p.sy, style, m.char);
       const r = m.hp / m.maxHp;
       put(p.sx + 1, p.sy, fg(hpColor(m.hp, m.maxHp)), r > 0.66 ? "▮" : r > 0.33 ? "▯" : ".");
@@ -202,7 +202,7 @@ const drawGame = (state, memory, ui) => {
         }
       }
     };
-    for (const other of state.nearbyPlayers || []) drawActor(other, COLORS.CYAN, other.downed);
+    for (const other of state.nearbyPlayers || []) drawActor(other, other.color || COLORS.CYAN, other.downed);
     drawActor(player, COLORS.YELLOW, !!player.downedUntil);
 
     if (player.downedUntil) {
@@ -217,7 +217,7 @@ const drawGame = (state, memory, ui) => {
   // Overlay box (help, shop, leaderboard)
   if (overlay) {
     const lines = overlay.lines || [];
-    const boxW = Math.min(viewW - 4, Math.max(30, ...lines.map((l) => l.text.length + 4), (overlay.title || "").length + 6));
+    const boxW = Math.min(viewW - 2, Math.max(30, ...lines.map((l) => l.text.length + 4), (overlay.title || "").length + 6, (overlay.footer || "").length + 6));
     const boxH = Math.min(viewH - 2, lines.length + 4);
     const ox = bx0 + Math.floor((viewW - boxW) / 2);
     const oy = by0 + Math.floor((viewH - boxH) / 2);
@@ -246,8 +246,11 @@ const drawGame = (state, memory, ui) => {
     const w = panelWidth - 3;
     let py = topMargin;
     const limit = height - bottomMargin;
-    const line = (str, color = COLORS.WHITE) => {
-      if (py < limit) text(px, py++, fg(color), pad(str, w), w);
+    const line = (str, color = COLORS.WHITE, style = fg) => {
+      if (py < limit) text(px, py++, style(color), pad(str, w), w);
+    };
+    const gap = () => {
+      if (py < limit) py++;
     };
     const barLine = (label, value, max, color) => {
       if (py >= limit) return;
@@ -257,31 +260,43 @@ const drawGame = (state, memory, ui) => {
       text(px + 4 + len, py, fg(COLORS.WHITE), `${Math.max(0, value)}/${max}`, w - len - 4);
       py++;
     };
+    const secs = (until) => Math.max(0, Math.ceil((until - now) / 1000));
 
-    line("COOP DUNGEON CRAWLER", COLORS.YELLOW);
+    if (state && state.event) {
+      line(`★ ${state.event.name} ${secs(state.event.until)}s`, state.event.color, bold);
+    } else {
+      line("COOP DUNGEON CRAWLER", COLORS.YELLOW, bold);
+    }
     if (player) {
       const s = player.stats || {};
-      line(`${player.username}  Lv ${s.level}  Depth ${state.depth ?? 0} (best ${s.maxDepth ?? 0})`);
+      line(`${player.username} ${player.title || ""}`, player.classColor, bold);
+      line(`Lv ${s.level} ${player.className}  Depth ${state.depth ?? 0} (best ${s.maxDepth ?? 0})`);
       barLine("HP", s.hp, s.maxHp, hpColor(s.hp, s.maxHp));
       barLine("XP", s.xp, s.xpNext, COLORS.BLUE);
-      line(`ATK ${s.atk}  DEF ${s.def}  Gold ${s.gold}  Potions ${s.potions}`, COLORS.YELLOW);
-      line(`Kills ${s.kills}  Bosses ${s.bossKills}  Deaths ${s.deaths}`, COLORS.GRAY);
+      const atkStr = player.effAtk !== s.atk ? `${player.effAtk}*` : `${s.atk}`;
+      const defStr = player.effDef !== s.def ? `${player.effDef}*` : `${s.def}`;
+      line(`ATK ${atkStr} DEF ${defStr} Crit ${Math.round(s.crit * 100)}% Dodge ${Math.round(s.dodge * 100)}%`, COLORS.WHITE);
+      line(`Gold ${s.gold}  Potions ${s.potions}  Kills ${s.kills}`, COLORS.YELLOW);
       if (state.home) {
         const dx = state.home.x - player.x;
         const dy = state.home.y - player.y;
         const d = Math.round(Math.hypot(dx, dy));
-        line(player.safe ? "You are in the safe room." : `Safe room: ${d} tiles ${compass(dx, dy)}`, player.safe ? COLORS.GREEN : COLORS.GRAY);
+        line(player.safe ? "In the safe room (M = merchant)" : `Safe room: ${d} tiles ${compass(dx, dy)}`, player.safe ? COLORS.GREEN : COLORS.GRAY);
+      }
+      if (player.combo && player.combo.count >= 2) {
+        line(`COMBO x${player.combo.count}!  ${secs(player.combo.until)}s`, COLORS.ORANGE, bold);
+      }
+      if (player.buffs && player.buffs.length) {
+        line(player.buffs.map((b) => `${b.name} ${secs(b.until)}s`).join(" · "), COLORS.CYAN);
       }
 
-      // Skills
-      if (py < limit) py++;
-      line("Skills:", COLORS.CYAN);
+      gap();
       for (const sk of player.skills || []) {
         if (py >= limit) break;
         let status;
         let color;
         if (s.level < sk.level) {
-          status = `unlocks at Lv ${sk.level}`;
+          status = `Lv ${sk.level}`;
           color = COLORS.DARK;
         } else if (sk.readyAt > now) {
           status = `${Math.ceil((sk.readyAt - now) / 1000)}s`;
@@ -290,39 +305,49 @@ const drawGame = (state, memory, ui) => {
           status = "READY";
           color = COLORS.GREEN;
         }
-        text(px, py, fg(COLORS.WHITE), `[${sk.key}] `);
-        text(px + 4, py, fg(color), pad(`${sk.name}  ${status}`, w - 4), w - 4);
+        text(px, py, fg(color === COLORS.DARK ? COLORS.DARK : COLORS.WHITE), `[${sk.key}]`);
+        text(px + 4, py, fg(color), pad(`${pad(sk.name, 16)}${status}`, w - 4), w - 4);
         py++;
       }
 
-      if (py < limit) py++;
+      gap();
       const enemies = (state.monsters || [])
         .map((m) => ({ ...m, d: Math.abs(m.x - player.x) + Math.abs(m.y - player.y) }))
         .sort((a, b) => b.boss - a.boss || a.d - b.d)
-        .slice(0, 5);
-      line(enemies.length ? "Enemies in sight:" : "No enemies in sight.", COLORS.RED);
-      for (const m of enemies) {
-        if (py >= limit) break;
-        const nameW = Math.max(6, w - 16);
-        text(px, py, m.boss || m.elite ? bold(m.color) : fg(m.color), m.char);
-        text(px + 2, py, fg(m.boss ? COLORS.ORANGE : m.elite ? COLORS.YELLOW : COLORS.WHITE), pad(`${m.name}${m.hunting ? "!" : ""}`, nameW), nameW);
-        text(px + 3 + nameW, py, fg(hpColor(m.hp, m.maxHp)), bar(m.hp, m.maxHp, 6));
-        text(px + 10 + nameW, py, fg(COLORS.GRAY), `${m.hp}`, 5);
-        py++;
+        .slice(0, 4);
+      if (enemies.length) {
+        for (const m of enemies) {
+          if (py >= limit) break;
+          const nameW = Math.max(6, w - 15);
+          text(px, py, m.boss || m.elite ? bold(m.color) : fg(m.color), m.char);
+          const nm = `${m.name}${m.frozen ? "*" : ""}${m.hunting ? "!" : ""}`;
+          text(px + 2, py, fg(m.boss ? COLORS.ORANGE : m.elite ? COLORS.YELLOW : COLORS.WHITE), pad(nm, nameW), nameW);
+          text(px + 3 + nameW, py, fg(hpColor(m.hp, m.maxHp)), bar(m.hp, m.maxHp, 6));
+          text(px + 10 + nameW, py, fg(COLORS.GRAY), `${Math.max(0, m.hp)}`, 5);
+          py++;
+        }
+      } else {
+        line("No enemies in sight.", COLORS.DARK);
       }
 
-      if (py < limit) py++;
-      const online = state.online || [];
-      line(`Party online (${online.length}):`, COLORS.GREEN);
-      for (const o of online.slice(0, 5)) {
-        const me = o.username === player.username;
-        const status = o.downed ? "DOWN!" : `${o.hp}/${o.maxHp}`;
-        line(`${me ? "*" : " "} ${pad(o.username, 11)} Lv${pad(o.level, 3)}D${pad(o.depth, 2)} ${status}`, o.downed ? COLORS.RED : me ? COLORS.YELLOW : COLORS.CYAN);
+      gap();
+      line("Bounties (J):", COLORS.ORANGE);
+      for (const q of player.quests || []) {
+        line(` ${q.have >= q.need ? "✓" : "·"} ${q.desc} ${q.need > 1 ? `${q.have}/${q.need}` : ""}`, q.have >= q.need ? COLORS.GREEN : COLORS.WHITE);
       }
-      if (online.length > 5) line(`  ...and ${online.length - 5} more`, COLORS.GRAY);
+
+      const online = state.online || [];
+      if (online.length > 1) {
+        gap();
+        line(`Party (${online.length}):`, COLORS.GREEN);
+        for (const o of online.slice(0, 4)) {
+          const status = o.downed ? "DOWN!" : `${o.hp}/${o.maxHp}`;
+          line(` ${pad(o.username, 10)} ${pad(o.cls.slice(0, 7), 7)} ${pad("Lv" + o.level, 5)} ${status}`, o.downed ? COLORS.RED : o.color);
+        }
+      }
     }
-    if (py < limit) py++;
-    line("? help  L leaderboard  Q quit", COLORS.GRAY);
+    gap();
+    line("I items  J journal  L ranks  ? help", COLORS.GRAY);
   }
 
   // Message log + input line at the bottom
@@ -335,7 +360,7 @@ const drawGame = (state, memory, ui) => {
   if (input !== null) {
     text(leftMargin, inputY, fg(COLORS.CYAN), `Say: ${input}_`.slice(-width));
   } else {
-    text(leftMargin, inputY, fg(COLORS.DARK), "WASD move/attack · 1-3 skills · H potion · T chat · ? help");
+    text(leftMargin, inputY, fg(COLORS.DARK), "WASD move/attack · 1-4 skills · H potion · I items · J journal · T chat · ? help");
   }
 
   // Flush, only emitting color codes when they change
@@ -356,4 +381,4 @@ const drawGame = (state, memory, ui) => {
   process.stdout.write(out);
 };
 
-module.exports = { drawGame, enterScreen, leaveScreen, MapMemory, COLORS };
+module.exports = { drawGame, enterScreen, leaveScreen, MapMemory, COLORS, pad };

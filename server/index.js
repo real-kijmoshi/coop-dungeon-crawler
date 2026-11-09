@@ -8,7 +8,6 @@ const Database = require("better-sqlite3");
 const { Server } = require("socket.io");
 const { initMap } = require("./utils/map");
 const { World } = require("./game/World");
-const { PLAYER_BASE } = require("./game/data");
 
 const PORT = process.env.PORT || 3143;
 
@@ -26,17 +25,16 @@ db.prepare(
     gold INTEGER DEFAULT 0,
     xp INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1,
-    hp INTEGER DEFAULT ${PLAYER_BASE.maxHp},
-    max_hp INTEGER DEFAULT ${PLAYER_BASE.maxHp},
-    atk INTEGER DEFAULT ${PLAYER_BASE.atk},
-    def INTEGER DEFAULT ${PLAYER_BASE.def},
-    potions INTEGER DEFAULT ${PLAYER_BASE.potions},
+    hp INTEGER DEFAULT 0,
     kills INTEGER DEFAULT 0,
     deaths INTEGER DEFAULT 0,
     max_depth INTEGER DEFAULT 0,
     boss_kills INTEGER DEFAULT 0,
     position_x INTEGER DEFAULT -1,
-    position_y INTEGER DEFAULT -1
+    position_y INTEGER DEFAULT -1,
+    cls TEXT,
+    title TEXT,
+    data TEXT DEFAULT '{}'
   )
 `,
 ).run();
@@ -48,21 +46,27 @@ const insertUser = db.prepare(
 const savePlayerStmt = db.prepare(`
   UPDATE users SET
     position_x = @x, position_y = @y,
-    hp = @hp, max_hp = @maxHp, atk = @atk, def = @def,
-    level = @level, xp = @xp, gold = @gold, potions = @potions,
+    hp = @hp, level = @level, xp = @xp, gold = @gold,
     kills = @kills, deaths = @deaths,
-    max_depth = @maxDepth, boss_kills = @bossKills
+    max_depth = @maxDepth, boss_kills = @bossKills,
+    cls = @cls, title = @title, data = @data
   WHERE id = @id
 `);
 const savePlayers = db.transaction((players) => {
   for (const p of players) {
-    savePlayerStmt.run({ id: p.id, x: p.x, y: p.y, ...p.stats });
+    const s = p.stats;
+    savePlayerStmt.run({
+      id: p.id, x: p.x, y: p.y,
+      hp: s.hp, level: s.level, xp: s.xp, gold: s.gold,
+      kills: s.kills, deaths: s.deaths, maxDepth: s.maxDepth, bossKills: s.bossKills,
+      cls: p.cls, title: p.title, data: JSON.stringify(world.saveData(p)),
+    });
   }
 });
 
 const leaderboardStmt = db.prepare(`
-  SELECT username, level, max_depth AS maxDepth, kills, boss_kills AS bossKills, deaths
-  FROM users ORDER BY level DESC, xp DESC, max_depth DESC LIMIT 10
+  SELECT username, cls, title, level, max_depth AS maxDepth, kills, boss_kills AS bossKills, deaths
+  FROM users WHERE cls IS NOT NULL ORDER BY level DESC, xp DESC, max_depth DESC LIMIT 10
 `);
 
 const checkCredentials = (username, password) => {
@@ -76,7 +80,11 @@ const checkCredentials = (username, password) => {
 // World
 // ---------------------------------------------------------------------------
 const gameMap = initMap();
-const world = new World(gameMap);
+const world = new World(gameMap, {
+  eventInterval: process.env.EVENT_INTERVAL_MS
+    ? [Number(process.env.EVENT_INTERVAL_MS), Number(process.env.EVENT_INTERVAL_MS)]
+    : undefined,
+});
 const sockets = new Map(); // playerId -> socket
 
 let broadcastQueued = false;
@@ -85,6 +93,7 @@ const broadcastStates = () => {
   broadcastQueued = true;
   setImmediate(() => {
     broadcastQueued = false;
+    for (const p of world.takeDirtyProfiles()) sockets.get(p.id)?.emit("profile", world.profileFor(p));
     for (const [id, socket] of sockets) {
       const player = world.players.get(id);
       if (player) socket.emit("gameState", world.stateFor(player));
@@ -190,10 +199,21 @@ io.on("connection", (socket) => {
   console.log(`User connected: ${user.username}`);
 
   sockets.set(user.id, socket);
-  const player = world.addPlayer(user);
+  let data = {};
+  try {
+    data = JSON.parse(user.data || "{}");
+  } catch {
+    data = {};
+  }
+  const player = world.addPlayer(user, data);
+  socket.emit("profile", world.profileFor(player));
   socket.emit("message", {
     text: "Welcome! Press ? for help. Visit the Merchant (M) in the safe room to spend gold.",
     color: [255, 255, 120],
+  });
+
+  socket.on("getProfile", (callback) => {
+    if (typeof callback === "function") callback(world.profileFor(player));
   });
 
   socket.on("getGameState", (callback) => {
@@ -207,7 +227,19 @@ io.on("connection", (socket) => {
 
   socket.on("potion", () => world.drinkPotion(player));
 
-  socket.on("skill", (id) => world.useSkill(player, id));
+  socket.on("skill", (index) => {
+    if (Number.isInteger(index)) world.useSkill(player, index);
+  });
+
+  socket.on("chooseClass", (id, callback) => {
+    const result = world.chooseClass(player, id);
+    if (typeof callback === "function") callback(result);
+  });
+
+  socket.on("inventory", (action, arg, callback) => {
+    const result = world.inventoryAction(player, action, arg);
+    if (typeof callback === "function") callback(result);
+  });
 
   socket.on("buy", (id, callback) => {
     const result = world.buy(player, id);
