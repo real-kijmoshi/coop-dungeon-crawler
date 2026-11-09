@@ -12,7 +12,7 @@ import (
 var version = "dev"
 
 func main() {
-	server := flag.String("server", "", "server address, e.g. localhost:3143 (skips the login screen with -user/-pass)")
+	server := flag.String("server", "", "server address, e.g. play.example.com:3143 (with -user/-pass skips the login screen)")
 	user := flag.String("user", "", "username")
 	pass := flag.String("pass", "", "password")
 	reg := flag.Bool("register", false, "create the account first (with -server/-user/-pass)")
@@ -69,7 +69,11 @@ func main() {
 
 	if conn == nil {
 		var ok bool
-		conn, acc, ok = runLogin(cv)
+		srv := ""
+		if *server != "" {
+			srv = normalizeServer(*server)
+		}
+		conn, acc, ok = runLogin(cv, srv)
 		if !ok {
 			return
 		}

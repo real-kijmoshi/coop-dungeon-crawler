@@ -28,12 +28,31 @@ type loginUI struct {
 }
 
 // runLogin shows the account picker / login form and returns a live connection.
-func runLogin(cv *Canvas) (*Conn, Account, bool) {
+// server, if set, is the server the player asked for (e.g. from the launch script).
+func runLogin(cv *Canvas, server string) (*Conn, Account, bool) {
 	ui := &loginUI{cv: cv, accounts: loadAccounts(), mode: "list"}
-	ui.fields[0] = defaultServer
+	ui.fields[0] = preferredServer()
+	if server != "" {
+		ui.fields[0] = server
+		// Put this server's heroes first; go straight to the form if there are none.
+		known := false
+		for _, a := range ui.accounts {
+			if a.Server == server {
+				known = true
+			}
+		}
+		if !known {
+			ui.mode = "form"
+			ui.register = true
+			ui.focus = 1
+		}
+	}
 	if len(ui.accounts) == 0 {
 		ui.mode = "form"
 		ui.register = true
+		if ui.focus == 0 && ui.fields[0] != defaultServer {
+			ui.focus = 1
+		}
 	}
 	for {
 		ui.draw()

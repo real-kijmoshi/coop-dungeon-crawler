@@ -129,8 +129,12 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get("/", (req, res) => {
-  res.json({ name: "coop-dungeon-crawler", players: world.players.size });
+require("./web/routes").register(app, {
+  world,
+  leaderboard: () => {
+    flushPlayers();
+    return leaderboardStmt.all();
+  },
 });
 
 app.post("/register", (req, res) => {

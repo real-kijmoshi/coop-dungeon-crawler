@@ -32,6 +32,24 @@ its somewhat working for now all contrributions are welcome
 - Cross-platform compatibility (Windows, macOS, Linux)
 - Custom server hosting capabilities
 
+## Play in one command
+
+Every server hosts its own landing page and launchers. With the official server (or your own) at `<server>`:
+
+```bash
+curl -fsSL <server>/play | sh          # macOS / Linux: download (once) and start the game
+irm <server>/play.ps1 | iex            # Windows PowerShell
+curl -fsSL <server>/install | sh       # install a `cdc` command instead
+curl <server>/watch                    # watch the dungeon live in your terminal, no install
+curl <server>                          # all of the above, as colored text
+```
+
+Open `<server>` in a browser for the landing page with copy buttons, live stats and the Hall of Heroes.
+
+> **Why `| sh` and not plain `curl` like parrot.live?** A curl stream is one-way: it can show you
+> frames but can't send your key presses back. So `/watch` works exactly like parrot.live (live
+> spectator view), while playing needs the tiny client the launcher downloads and caches for you.
+
 ## Installation
 
 ### Client
@@ -76,6 +94,20 @@ Or skip the login screen:
 
 Saved accounts live in your user config folder (`~/.config/coop-dungeon-crawler/` on Linux,
 `~/Library/Application Support/coop-dungeon-crawler/` on macOS, `%AppData%\coop-dungeon-crawler\` on Windows).
+
+### Hosting the launchers and downloads
+
+The server serves the client binaries from `client/dist/` (build them with `client/build.sh`) at `/dl/...`.
+If they aren't built, `/dl/...` redirects to the latest GitHub release instead.
+
+| Variable | Description | Default |
+| -------- | ----------- | ------- |
+| `PUBLIC_URL` | Public address used in the scripts and landing page, e.g. `https://play.example.com` | taken from the request |
+| `CLIENT_DIST` | Folder with the client binaries | `../client/dist` |
+| `GITHUB_REPO` | Repository for the release fallback | `real-kijmoshi/coop-dungeon-crawler` |
+
+Behind a reverse proxy, pass the `Host` and `X-Forwarded-Proto` headers (or set `PUBLIC_URL`), and turn off
+response buffering for `/watch` so the live stream flows (nginx: `proxy_buffering off;`).
 
 ### Protocol
 

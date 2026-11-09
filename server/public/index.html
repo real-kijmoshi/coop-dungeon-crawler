@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coop Dungeon Crawler</title>
+<meta name="description" content="A co-op dungeon crawler for your terminal. One command to play: curl -fsSL __BASE__/play | sh">
+<meta property="og:title" content="Coop Dungeon Crawler">
+<meta property="og:description" content="A co-op dungeon crawler for your terminal. One command to play.">
+<meta property="og:image" content="__BASE__/assets/screenshot.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+<style>
+  :root {
+    --bg: #0e0e14;
+    --bg2: #14141d;
+    --panel: #1a1a26;
+    --border: #2e2e42;
+    --text: #e4e4ea;
+    --muted: #8d8da3;
+    --gold: #ffd778;
+    --orange: #ff9a50;
+    --red: #ff5a5a;
+    --green: #5ae66e;
+    --blue: #8cb0ff;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.55; }
+  a { color: var(--gold); }
+  code, pre, .mono { font-family: var(--mono); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* hero */
+  header.hero {
+    padding: 56px 0 36px;
+    background:
+      radial-gradient(900px 380px at 50% -60px, rgba(255, 150, 80, .16), transparent 70%),
+      radial-gradient(600px 300px at 85% 10%, rgba(140, 110, 255, .10), transparent 70%);
+    text-align: center;
+  }
+  .logo {
+    display: inline-block; margin: 0 auto 6px; font-size: clamp(7px, 1.7vw, 15px); line-height: 1.12;
+    font-weight: 700; text-align: left; white-space: pre; overflow: hidden; max-width: 100%;
+  }
+  .logo span:nth-child(1) { color: #ffd778; } .logo span:nth-child(2) { color: #ffb45a; }
+  .logo span:nth-child(3) { color: #ff8c46; } .logo span:nth-child(4) { color: #e66446; }
+  .logo span:nth-child(5) { color: #be465a; }
+  .tagline { color: var(--muted); font-size: 1.15rem; margin: 6px 0 22px; }
+  .status {
+    display: inline-flex; gap: 10px; align-items: center; padding: 6px 14px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--border); font-size: .92rem; color: var(--muted);
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #555; box-shadow: 0 0 0 0 rgba(90,230,110,.6); }
+  .dot.live { background: var(--green); animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(90,230,110,.55); } 70% { box-shadow: 0 0 0 9px rgba(90,230,110,0); } 100% { box-shadow: 0 0 0 0 rgba(90,230,110,0); } }
+  .event { color: var(--gold); font-weight: 600; }
+
+  /* play box */
+  .play { max-width: 760px; margin: 30px auto 0; text-align: left; }
+  .tabs { display: flex; gap: 6px; margin-bottom: -1px; }
+  .tab {
+    font: inherit; font-size: .92rem; color: var(--muted); background: transparent; cursor: pointer;
+    border: 1px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0; padding: 8px 16px;
+  }
+  .tab[aria-selected="true"] { color: var(--text); background: var(--panel); border-color: var(--border); }
+  .tab:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 0 12px 12px 12px; padding: 20px; }
+  .panel[hidden] { display: none; }
+  .cmd {
+    display: flex; align-items: center; gap: 10px; background: #0b0b11; border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 12px 12px 16px; margin: 8px 0 4px;
+  }
+  .cmd code { flex: 1; font-size: 1rem; color: var(--gold); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+  .cmd code .p { color: var(--muted); user-select: none; }
+  .copy {
+    flex: none; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; border-radius: 8px;
+    border: 1px solid #5a4a2a; background: #2a2416; color: var(--gold); padding: 6px 12px;
+  }
+  .copy:hover { background: #3a3220; }
+  .copy.done { color: var(--green); border-color: #2f5a36; background: #16261a; }
+  .label { font-size: .85rem; color: var(--muted); margin-top: 14px; }
+  .label:first-child { margin-top: 0; }
+  .hint { font-size: .85rem; color: var(--muted); margin: 4px 0 0; }
+
+  /* screenshot */
+  .term {
+    margin: 48px auto 0; max-width: 1000px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
+    background: var(--bg2); box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.02);
+  }
+  .term-bar { display: flex; gap: 7px; padding: 10px 12px; background: #1c1c28; border-bottom: 1px solid var(--border); align-items: center; }
+  .term-bar i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .term-bar i:nth-child(1) { background: #ff5f57; } .term-bar i:nth-child(2) { background: #febc2e; } .term-bar i:nth-child(3) { background: #28c840; }
+  .term-bar span { margin-left: 10px; font-family: var(--mono); font-size: .8rem; color: var(--muted); }
+  .term img { display: block; width: 100%; height: auto; }
+
+  section { padding: 64px 0 8px; }
+  h2 { font-size: 1.6rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 26px; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 1.05rem; display: flex; gap: 10px; align-items: center; }
+  .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+  .glyph { font-family: var(--mono); font-weight: 700; font-size: 1.1rem; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: #0b0b11; border: 1px solid var(--border); }
+
+  .classes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .class { border-top: 3px solid var(--c); }
+  .class h3 { color: var(--c); }
+  .class ul { margin: 10px 0 0; padding: 0; list-style: none; font-size: .88rem; color: var(--muted); }
+  .class li { display: flex; justify-content: space-between; border-top: 1px dashed var(--border); padding: 4px 0; }
+  .class li b { color: var(--text); font-weight: 500; }
+
+  .rarities { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .rarity { font-family: var(--mono); font-size: .8rem; padding: 3px 9px; border-radius: 6px; background: #0b0b11; border: 1px solid var(--border); }
+
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: .85rem; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); text-align: center; padding: 22px; }
+  .two { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+  .online-list { list-style: none; margin: 0; padding: 0; }
+  .online-list li { padding: 7px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; font-size: .93rem; }
+  .online-list li span { color: var(--muted); }
+
+  .downloads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .dl { display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .dl:hover { border-color: #5a4a2a; }
+  .dl small { color: var(--muted); font-family: var(--mono); }
+
+  pre.block { background: #0b0b11; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; color: var(--text); font-size: .9rem; }
+  footer { padding: 56px 0 40px; color: var(--muted); font-size: .9rem; text-align: center; }
+
+  @media (max-width: 900px) { .grid, .downloads { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 720px) {
+    .grid, .downloads { grid-template-columns: 1fr; }
+    header.hero { padding-top: 36px; }
+    .two { grid-template-columns: 1fr; }
+    .cmd code { font-size: .85rem; }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+<pre class="logo mono" aria-label="Coop Dungeon"><span>   ___                    ___                                </span>
+<span>  / __|___  ___ _ __     |   \ _  _ _ _  __ _ ___ ___ _ _   </span>
+<span> | (__/ _ \/ _ \ '_ \    | |) | || | ' \/ _` / -_) _ \ ' \  </span>
+<span>  \___\___/\___/ .__/    |___/ \_,_|_||_\__, \___\___/_||_| </span>
+<span>               |_|                       |___/              </span></pre>
+    <p class="tagline">A co-op dungeon crawler for your terminal. Grab friends, pick a class, go deep.</p>
+    <div class="status" id="status"><span class="dot" id="dot"></span><span id="status-text">Checking the dungeon…</span></div>
+
+    <div class="play">
+      <div class="tabs" role="tablist" aria-label="Your system">
+        <button class="tab" role="tab" id="tab-unix" aria-controls="panel-unix" aria-selected="true">macOS / Linux</button>
+        <button class="tab" role="tab" id="tab-win" aria-controls="panel-win" aria-selected="false">Windows</button>
+      </div>
+      <div class="panel" role="tabpanel" id="panel-unix" aria-labelledby="tab-unix">
+        <div class="label">Play now — one command, nothing to set up</div>
+        <div class="cmd"><code><span class="p">$ </span>curl -fsSL __BASE__/play | sh</code><button class="copy" data-copy="curl -fsSL __BASE__/play | sh">Copy</button></div>
+        <div class="label">Install the <code>cdc</code> command</div>
+        <div class="cmd"><code><span class="p">$ </span>curl -fsSL __BASE__/install | sh</code><button class="copy" data-copy="curl -fsSL __BASE__/install | sh">Copy</button></div>
+        <div class="label">Just watch — live, right in your terminal</div>
+        <div class="cmd"><code><span class="p">$ </span>curl __BASE__/watch</code><button class="copy" data-copy="curl __BASE__/watch">Copy</button></div>
+        <p class="hint">The launcher downloads a ~7 MB client once, caches it, and connects you to this server.</p>
+      </div>
+      <div class="panel" role="tabpanel" id="panel-win" aria-labelledby="tab-win" hidden>
+        <div class="label">Play now — paste into PowerShell</div>
+        <div class="cmd"><code><span class="p">PS&gt; </span>irm __BASE__/play.ps1 | iex</code><button class="copy" data-copy="irm __BASE__/play.ps1 | iex">Copy</button></div>
+        <div class="label">Install the <code>cdc</code> command</div>
+        <div class="cmd"><code><span class="p">PS&gt; </span>irm __BASE__/install.ps1 | iex</code><button class="copy" data-copy="irm __BASE__/install.ps1 | iex">Copy</button></div>
+        <div class="label">Just watch — live, in Windows Terminal</div>
+        <div class="cmd"><code><span class="p">PS&gt; </span>curl.exe __BASE__/watch</code><button class="copy" data-copy="curl.exe __BASE__/watch">Copy</button></div>
+        <p class="hint">Works best in Windows Terminal. The client is a single .exe with no installer.</p>
+      </div>
+    </div>
+
+    <div class="term">
+      <div class="term-bar"><i></i><i></i><i></i><span>cdc — depth 2</span></div>
+      <img src="/assets/screenshot.png" width="1110" height="700" alt="The game in a terminal: a mage casting Fireball for a critical hit of 82 at depth 2, with the sidebar showing HP, minimap, bounties and party.">
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>Pick your class</h2>
+    <p class="sub">Four classes, each with four skills that unlock as you level. Mix them in a party.</p>
+    <div class="classes">
+      <div class="card class" style="--c:#ff7850">
+        <h3>Warrior</h3><p>Tough front-liner. Most HP and armor, keeps monsters on himself.</p>
+        <ul><li><b>Cleave</b><span>Lv 1</span></li><li><b>War Cry</b><span>Lv 3</span></li><li><b>Iron Skin</b><span>Lv 5</span></li><li><b>Berserk</b><span>Lv 8</span></li></ul>
+      </div>
+      <div class="card class" style="--c:#b4ff78">
+        <h3>Rogue</h3><p>Deadly and slippery. 20% crit, 12% dodge, huge burst damage.</p>
+        <ul><li><b>Backstab</b><span>Lv 1</span></li><li><b>Smoke Bomb</b><span>Lv 3</span></li><li><b>Fan of Knives</b><span>Lv 5</span></li><li><b>Shadow Strike</b><span>Lv 8</span></li></ul>
+      </div>
+      <div class="card class" style="--c:#8caaff">
+        <h3>Mage</h3><p>Glass cannon. Weak in melee, devastating spells from range.</p>
+        <ul><li><b>Fireball</b><span>Lv 1</span></li><li><b>Frost Nova</b><span>Lv 3</span></li><li><b>Chain Lightning</b><span>Lv 5</span></li><li><b>Meteor</b><span>Lv 8</span></li></ul>
+      </div>
+      <div class="card class" style="--c:#fff096">
+        <h3>Cleric</h3><p>Healer and undead-slayer. Keeps the whole party standing.</p>
+        <ul><li><b>Heal</b><span>Lv 1</span></li><li><b>Smite</b><span>Lv 3</span></li><li><b>Sanctuary</b><span>Lv 5</span></li><li><b>Holy Nova</b><span>Lv 8</span></li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Why you'll keep playing</h2>
+    <p class="sub">An endless dungeon that gets deadlier — and richer — the further you go.</p>
+    <div class="grid">
+      <div class="card"><h3><span class="glyph" style="color:#ff8c00">/</span>Random loot</h3>
+        <p>Weapons, armor and trinkets with rolled stats: crit, lifesteal, dodge, gold find and more.</p>
+        <div class="rarities"><span class="rarity" style="color:#d2d2d2">Common</span><span class="rarity" style="color:#6496ff">Magic</span><span class="rarity" style="color:#ffe646">Rare</span><span class="rarity" style="color:#c864ff">Epic</span><span class="rarity" style="color:#ff8c00">Legendary</span></div></div>
+      <div class="card"><h3><span class="glyph" style="color:#ff5a5a">D</span>Bosses & lairs</h3>
+        <p>Goblin King, Bone Lord, Wraith Queen, Demon Prince… and the Ancient Dragon at depth 8.</p></div>
+      <div class="card"><h3><span class="glyph" style="color:#5ae66e">%</span>Real co-op</h3>
+        <p>Go down instead of dying when friends are near — they have 20 seconds to revive you. Shared XP.</p></div>
+      <div class="card"><h3><span class="glyph" style="color:#ffd778">★</span>World events</h3>
+        <p>Gold Rush, Blood Moon, Loot Frenzy and Treasure Goblins that run away with piles of loot.</p></div>
+      <div class="card"><h3><span class="glyph" style="color:#ffb46e">◇</span>Bounties & titles</h3>
+        <p>Three bounties always on the board, 22 achievements and titles to show off on the leaderboard.</p></div>
+      <div class="card"><h3><span class="glyph" style="color:#8cb0ff">⚡</span>Tiny & fast</h3>
+        <p>A single ~7 MB binary. True-color terminal UI that only redraws what changed — smooth even over SSH.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Hall of Heroes</h2>
+    <p class="sub">Live from this server.</p>
+    <div class="two">
+      <div class="card" style="padding:6px 8px">
+        <table>
+          <thead><tr><th>#</th><th>Hero</th><th class="hide-sm">Class</th><th class="num">Lv</th><th class="num">Depth</th><th class="num hide-sm">Kills</th><th class="num hide-sm">Bosses</th></tr></thead>
+          <tbody id="top"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px">In the dungeon now</h3>
+        <ul class="online-list" id="online"><li><span>Loading…</span></li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Manual download</h2>
+    <p class="sub">Prefer to grab the binary yourself? Each is a single file, no installer.</p>
+    <div class="downloads">
+      <a class="dl" href="/dl/cdc-windows-amd64.exe">Windows <small>x64</small></a>
+      <a class="dl" href="/dl/cdc-windows-arm64.exe">Windows <small>ARM64</small></a>
+      <a class="dl" href="/dl/cdc-darwin-arm64">macOS <small>Apple Silicon</small></a>
+      <a class="dl" href="/dl/cdc-darwin-amd64">macOS <small>Intel</small></a>
+      <a class="dl" href="/dl/cdc-linux-amd64">Linux <small>x64</small></a>
+      <a class="dl" href="/dl/cdc-linux-arm64">Linux <small>ARM64</small></a>
+    </div>
+    <p class="hint" style="margin-top:14px">Then run it with this server:</p>
+<pre class="block">chmod +x cdc-*            # macOS / Linux
+./cdc-linux-amd64 -server __BASE__</pre>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    Open source under the MIT license · <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler">GitHub</a> · made by <a href="https://kijmoshi.xyz">kijmoshi.xyz</a>
+  </div>
+</footer>
+
+<script>
+  // Tabs: preselect Windows for Windows visitors.
+  const tabs = [document.getElementById("tab-unix"), document.getElementById("tab-win")];
+  const select = (tab) => {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute("aria-selected", on);
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    }
+  };
+  tabs.forEach((t) => t.addEventListener("click", () => select(t)));
+  if (/Windows/i.test(navigator.userAgent)) select(tabs[1]);
+
+  // Copy buttons
+  document.querySelectorAll(".copy").forEach((b) => {
+    b.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(b.dataset.copy);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = b.dataset.copy; document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); } catch {}
+        ta.remove();
+      }
+      b.textContent = "Copied!"; b.classList.add("done");
+      setTimeout(() => { b.textContent = "Copy"; b.classList.remove("done"); }, 1600);
+    });
+  });
+
+  // Live status
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const refresh = async () => {
+    try {
+      const r = await fetch("/api/status", { cache: "no-store" });
+      const s = await r.json();
+      const n = s.players;
+      document.getElementById("dot").classList.toggle("live", n > 0);
+      document.getElementById("status-text").innerHTML =
+        (n > 0 ? `<b>${n}</b> hero${n === 1 ? "" : "es"} in the dungeon right now` : "The dungeon is quiet — be the first in") +
+        (s.event ? ` · <span class="event">★ ${esc(s.event.name)}</span>` : "");
+      document.getElementById("top").innerHTML = s.top.length
+        ? s.top.map((h, i) => `<tr><td>${i + 1}</td><td><b>${esc(h.username)}</b> <span style="color:var(--muted)">${esc(h.title || "")}</span></td><td class="hide-sm">${esc(h.cls || "")}</td><td class="num">${h.level}</td><td class="num">${h.maxDepth}</td><td class="num hide-sm">${h.kills}</td><td class="num hide-sm">${h.bossKills}</td></tr>`).join("")
+        : `<tr><td colspan="7" class="empty">No heroes yet. Yours could be first.</td></tr>`;
+      document.getElementById("online").innerHTML = s.online.length
+        ? s.online.map((p) => `<li><b>${esc(p.username)}</b><span>${esc(p.cls)} · Lv ${p.level} · depth ${p.depth}</span></li>`).join("")
+        : `<li><span>Nobody right now.</span></li>`;
+    } catch {
+      document.getElementById("status-text").textContent = "Server status unavailable";
+    }
+  };
+  refresh();
+  setInterval(refresh, 10000);
+</script>
+</body>
+</html>

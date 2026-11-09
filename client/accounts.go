@@ -20,12 +20,28 @@ type Account struct {
 	Password string `json:"password"`
 }
 
-func accountsPath() string {
+func configDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		dir = "."
 	}
-	return filepath.Join(dir, "coop-dungeon-crawler", "accounts.json")
+	return filepath.Join(dir, "coop-dungeon-crawler")
+}
+
+func accountsPath() string {
+	return filepath.Join(configDir(), "accounts.json")
+}
+
+// preferredServer is the server the installer set as default, if any.
+func preferredServer() string {
+	raw, err := os.ReadFile(filepath.Join(configDir(), "server"))
+	if err != nil {
+		return defaultServer
+	}
+	if s := strings.TrimSpace(string(raw)); s != "" {
+		return normalizeServer(s)
+	}
+	return defaultServer
 }
 
 func loadAccounts() []Account {
