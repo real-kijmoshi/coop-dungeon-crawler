@@ -4,12 +4,20 @@ const { start } = require("./src/game");
 
 (async () => {
   const account = await selectAccount();
+  if (!account) {
+    console.error("No account selected.");
+    process.exit(1);
+  }
+
+  console.log(`Connecting to ${account.server}...`);
   const ws = new WSClient(account.server, account.username, account.password);
 
-  ws.connect();
+  try {
+    await ws.connect();
+  } catch (error) {
+    console.error(`Could not join the game: ${error.message}`);
+    process.exit(1);
+  }
 
-  ws.socket.once("connect", () => {
-    console.clear();
-    start(account, ws);
-  });
+  start(account, ws);
 })();

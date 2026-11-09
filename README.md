@@ -74,7 +74,7 @@ cd server
 2. Create a `.env` file:
 
 ```bash
-echo "PORT=3000" > .env
+echo "PORT=3143" > .env
 ```
 
 3. Install server dependencies and start:
@@ -88,8 +88,18 @@ npm start
 
 ### Game Controls
 
-- `W/A/S/D` - Move character
-- `Esc` - Exit game
+- `W/A/S/D` or arrow keys - Move character
+- `Q`, `Esc` or `Ctrl+C` - Exit game
+
+### Quick start (local)
+
+1. Start the server: `cd server && npm install && npm start`
+2. In another terminal start the client: `cd client && npm install && npm start`
+3. Choose **register**, keep the default server address (`http://localhost:3143`) and pick a username/password.
+4. Start more clients (with other accounts) to play together - you'll see each other on the map.
+
+The map is saved to `server/utils/map.json` and accounts to `server/users.db`.
+Delete both to start a fresh world.
 
 ### Server Configuration
 
@@ -97,7 +107,7 @@ The server can be configured using the following environment variables:
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
-| `PORT`   | Server port | 3000    |
+| `PORT`   | Server port | 3143    |
 
 ## Contributing
 

@@ -3,29 +3,38 @@ const axios = require("axios").default;
 const { existsSync, writeFileSync, readFileSync, mkdirSync } = require("fs");
 const path = require("path");
 
-const ACCOUNTS_FILE = path.join(__dirname, "..", "..", "data", "accounts.json");
+const DATA_DIR = path.join(__dirname, "..", "..", "data");
+const ACCOUNTS_FILE = path.join(DATA_DIR, "accounts.json");
+const DEFAULT_SERVER = "http://localhost:3143";
 
-if(!existsSync(path.join(__dirname, "..", "..", "data"))) {
-  mkdirSync(path.join(__dirname, "..", "..", "data"));
+if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+if (!existsSync(ACCOUNTS_FILE)) writeFileSync(ACCOUNTS_FILE, "[]");
+
+let accounts = [];
+try {
+  accounts = JSON.parse(readFileSync(ACCOUNTS_FILE, "utf8"));
+  if (!Array.isArray(accounts)) accounts = [];
+} catch {
+  accounts = [];
 }
-
-if (!existsSync(ACCOUNTS_FILE)) {
-  writeFileSync(ACCOUNTS_FILE, "[]");
-}
-
-let accounts = JSON.parse(readFileSync(ACCOUNTS_FILE, "utf8"));
 
 const saveAccounts = () => {
-  writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts));
+  writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2));
 };
 
-const login = async () => {
-  console.clear();
-  const { server, username, password } = await inquirer.prompt([
+const normalizeServer = (server) => {
+  server = server.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(server)) server = `http://${server}`;
+  return server;
+};
+
+const askCredentials = () =>
+  inquirer.prompt([
     {
       type: "input",
       name: "server",
       message: "Server address:",
+      default: DEFAULT_SERVER,
       validate: (input) =>
         input.trim() !== "" || "Server address cannot be empty",
     },
@@ -39,78 +48,35 @@ const login = async () => {
       type: "password",
       name: "password",
       message: "Password:",
+      mask: "*",
       validate: (input) => input.trim() !== "" || "Password cannot be empty",
     },
   ]);
 
-  console.log(`Logging in to ${server} as ${username}...`);
+const errorMessage = (error) =>
+  error?.response?.data?.message || error.message || String(error);
 
-  try {
-    const res = await axios.post(`${server}/login`, {
-      username,
-      password,
-    });
-
-    if (res?.data?.message === "Login successful.") {
-      console.clear();
-      console.log("Success!");
-      return {
-        username,
-        password,
-        server,
-      };
-    }
-  } catch (error) {
-    console.error("Error while logging in:", error.message);
-  }
-
-  return false;
-};
-
-const register = async () => {
+const authenticate = async (action) => {
   console.clear();
-  const { server, username, password } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "server",
-      message: "Server address:",
-      validate: (input) =>
-        input.trim() !== "" || "Server address cannot be empty",
-    },
-    {
-      type: "input",
-      name: "username",
-      message: "Username:",
-      validate: (input) => input.trim() !== "" || "Username cannot be empty",
-    },
-    {
-      type: "password",
-      name: "password",
-      message: "Password:",
-      validate: (input) => input.trim() !== "" || "Password cannot be empty",
-    },
-  ]);
+  let { server, username, password } = await askCredentials();
+  server = normalizeServer(server);
+  username = username.trim();
 
   try {
-    const res = await axios.post(`${server}/register`, {
-      username,
-      password,
-    });
-
-    if (res?.data?.message === "Registration successful.") {
-      console.clear();
-      console.log("Registration successful!");
-      return {
-        username,
-        password,
-        server,
-      };
+    if (action === "register") {
+      console.log(`Registering ${username} on ${server}...`);
+      await axios.post(`${server}/register`, { username, password });
     }
+    console.log(`Logging in to ${server} as ${username}...`);
+    await axios.post(`${server}/login`, { username, password });
+    return { username, password, server };
   } catch (error) {
-    console.error("Error while registering:", error.message);
+    console.error(`Failed to ${action}: ${errorMessage(error)}`);
+    await inquirer.prompt([
+      { type: "input", name: "ok", message: "Press enter to continue" },
+    ]);
+    return false;
   }
-
-  return false;
 };
 
 const newAccount = async () => {
@@ -123,53 +89,46 @@ const newAccount = async () => {
     },
   ]);
 
-  const res = action === "login" ? await login() : await register();
+  const res = await authenticate(action);
+  if (!res) return false;
 
-  if (res) {
-    accounts.push(res);
-    saveAccounts();
-    return res;
-  }
-  return false;
+  accounts = accounts.filter(
+    (a) => !(a.username === res.username && a.server === res.server),
+  );
+  accounts.push(res);
+  saveAccounts();
+  return res;
 };
 
 const loop = async () => {
   console.clear();
-  const { account } = await inquirer.prompt([
+  const { index } = await inquirer.prompt([
     {
       type: "list",
-      name: "account",
+      name: "index",
       message: "Which account do you want to use?",
       choices: [
-        ...accounts.map((a) => `${a.username} - ${a.server}`),
-        "new account",
+        ...accounts.map((a, i) => ({
+          name: `${a.username} - ${a.server}`,
+          value: i,
+        })),
+        { name: "new account", value: -1 },
       ],
     },
   ]);
 
-  if (account === "new account") {
+  if (index === -1) {
     const result = await newAccount();
-    if (!result) {
-      console.log("Failed to create new account. Please try again.");
-      return loop();
-    }
-    return result;
+    return result || loop();
   }
-
-  const [username, server] = account.split(" - ");
-  const selectedAccount = accounts.find(
-    (a) => a.username === username && a.server === server,
-  );
-  return selectedAccount || loop();
+  return accounts[index];
 };
 
 const accountManager = async () => {
   try {
     if (!accounts.length) {
-      const newAcc = await newAccount();
-      if (newAcc) {
-        return await loop();
-      }
+      const acc = await newAccount();
+      if (acc) return acc;
     }
     return await loop();
   } catch (error) {
