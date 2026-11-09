@@ -158,7 +158,7 @@ class Grid {
     
     generateChunk(chunkX, chunkY) {
         const chunkId = this.getChunkId(chunkX, chunkY);
-        if (this.loadedChunks.has(chunkId)) return;
+        if (this.loadedChunks.has(chunkId)) return false;
 
         
         const chunkSeed = this.seed + chunkX * 10000 + chunkY;
@@ -187,6 +187,24 @@ class Grid {
         }
 
         this.loadedChunks.add(chunkId);
+        return true;
+    }
+
+    // Persist the map shortly after changes, batching many chunk generations.
+    scheduleSave(delay = 2000) {
+        if (this.saveTimer || !this.filepath) return;
+        this.saveTimer = setTimeout(() => {
+            this.saveTimer = null;
+            this.saveToFile(this.filepath);
+        }, delay);
+    }
+
+    saveNow() {
+        if (this.saveTimer) {
+            clearTimeout(this.saveTimer);
+            this.saveTimer = null;
+        }
+        if (this.filepath) this.saveToFile(this.filepath);
     }
 
     movePlayer(newX, newY) {
@@ -311,11 +329,12 @@ const MAP_FILE = path.join(__dirname, 'map.json');
 
 const loadMap = () => {
     try {
-        const mapClass = new Grid(20, 20, 100);
+        const mapClass = new Grid(20, 20, 400);
         const loaded = mapClass.loadFromFile(MAP_FILE);
         if (!loaded) {
             throw new Error('Failed to load map data');
         }
+        mapClass.filepath = MAP_FILE;
         console.log('Map loaded successfully');
         return mapClass;
     } catch (error) {
@@ -326,7 +345,8 @@ const loadMap = () => {
 
 const createMap = () => {
     try {
-        const mapClass = new Grid(20, 20, 100, Date.now());
+        const mapClass = new Grid(20, 20, 400, Date.now());
+        mapClass.filepath = MAP_FILE;
         mapClass.generateInitialRoom();
         mapClass.saveToFile(MAP_FILE);
         console.log('New map created successfully');

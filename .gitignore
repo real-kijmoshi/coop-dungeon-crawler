@@ -135,3 +135,9 @@ accounts.json
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Game runtime data
+server/users.db
+server/users.db-*
+server/utils/map.json
+client/data/
