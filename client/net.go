@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"compress/flate"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 	"sync"
@@ -11,6 +14,29 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+const maxStateBytes = 4 * 1024 * 1024
+
+// Application compression remains effective when a tunnel does not negotiate
+// WebSocket permessage-deflate. Legacy JSON text frames still work unchanged.
+func decodeWireMessage(messageType int, raw []byte) ([]byte, error) {
+	if messageType == websocket.TextMessage {
+		return raw, nil
+	}
+	if messageType != websocket.BinaryMessage || !bytes.HasPrefix(raw, []byte("CDC1")) {
+		return nil, errors.New("unsupported binary game frame")
+	}
+	r := flate.NewReader(bytes.NewReader(raw[4:]))
+	defer r.Close()
+	decoded, err := io.ReadAll(io.LimitReader(r, maxStateBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(decoded) > maxStateBytes {
+		return nil, errors.New("game frame exceeds decompression limit")
+	}
+	return decoded, nil
+}
 
 // NetEvent is something that arrived from the server, delivered to the game loop.
 type NetEvent struct {
@@ -66,9 +92,11 @@ func Dial(server, username, password string) (*Conn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not reach %s: %w", server, err)
 	}
+	ws.SetReadLimit(maxStateBytes)
 	auth, _ := json.Marshal(map[string]any{
-		"t": "auth",
-		"d": map[string]string{"username": username, "password": password},
+		"t":        "auth",
+		"d":        map[string]string{"username": username, "password": password},
+		"features": []string{"state-deflate-v1"},
 	})
 	if err := ws.WriteMessage(websocket.TextMessage, auth); err != nil {
 		ws.Close()
@@ -103,10 +131,15 @@ func Dial(server, username, password string) (*Conn, error) {
 
 func (c *Conn) readLoop() {
 	defer func() {
+		c.ws.Close()
 		c.Events <- NetEvent{T: "_closed"}
 	}()
 	for {
-		_, raw, err := c.ws.ReadMessage()
+		messageType, raw, err := c.ws.ReadMessage()
+		if err != nil {
+			return
+		}
+		raw, err = decodeWireMessage(messageType, raw)
 		if err != nil {
 			return
 		}

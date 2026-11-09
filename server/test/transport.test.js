@@ -3,11 +3,17 @@ const assert = require('node:assert/strict');
 const { EventEmitter, once } = require('node:events');
 const http = require('node:http');
 const { WebSocket } = require('ws');
+const { inflateRawSync } = require('node:zlib');
 const { Conn, createHub } = require('../net/hub');
 
 class SlowSocket extends EventEmitter {
   OPEN = 1; readyState = 1; bufferedAmount = 0; frames = []; completions = [];
-  send(raw, cb) { this.frames.push(JSON.parse(raw)); if (cb) this.completions.push(cb); }
+  send(raw, options, cb) {
+    if (typeof options === 'function') cb = options;
+    const compressed = Buffer.isBuffer(raw) && raw.subarray(0,4).toString() === 'CDC1';
+    this.frames.push(JSON.parse(compressed ? inflateRawSync(raw.subarray(4)) : raw));
+    if (cb) this.completions.push(cb);
+  }
   terminate() { this.readyState = 3; this.emit('close'); }
   drain() { this.completions.shift()?.(); }
 }
@@ -81,4 +87,46 @@ test('real WebSockets negotiate compression, preserve replies and accept legacy 
     assert.deepEqual(frames.find(f => f.t === 'reply'), { t: 'reply', id: 7, d: 'value' });
     ws.close(); await once(ws, 'close');
   }
+});
+
+
+test('application compression survives a WebSocket path with no extension support', { timeout: 5000 }, async t => {
+  const server = http.createServer();
+  createHub(server, { authenticate: () => ({ id: 1 }), onConnection: c => {
+    c.sendState(() => ({ n: -1, grid: Array.from({ length: 25 }, () => Array(25).fill(1)) }));
+    c.on('burst', () => {
+      for(let n=0;n<1000;n++) c.sendState(() => ({ n, grid: Array.from({ length: 25 }, () => Array(25).fill(1)) }));
+      c.emit('message', { text: 'reliable event' });
+    });
+  }});
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  t.after(() => server.close());
+  const ws = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws`, { perMessageDeflate: false });
+  const frames = []; let binaryFrames = 0;
+  ws.on('message', (raw, binary) => {
+    if (binary) { assert.equal(raw.subarray(0,4).toString(), 'CDC1'); raw = inflateRawSync(raw.subarray(4)); binaryFrames++; }
+    frames.push(JSON.parse(raw));
+  });
+  await once(ws, 'open');
+  assert.equal(ws.extensions, '');
+  const startBytes = ws._socket.bytesRead;
+  ws.send(JSON.stringify({ t:'auth', d:{}, features:['state-deflate-v1'] }));
+  while (!frames.some(f=>f.t==='gameState')) await new Promise(r=>setTimeout(r,5));
+  assert.equal(binaryFrames, 1);
+  assert.ok(ws._socket.bytesRead-startBytes < 250);
+  ws.send(JSON.stringify({t:'burst'}));
+  while (!frames.some(f=>f.t==='gameState' && f.d.n===999)) await new Promise(r=>setTimeout(r,5));
+  assert.ok(frames.some(f=>f.t==='message' && f.d.text==='reliable event'));
+  assert.deepEqual(frames.filter(f=>f.t==='gameState').map(f=>f.d.n), [-1,0,999]);
+  ws.close(); await once(ws,'close');
+});
+
+test('disconnect during application compression does not write or restart the queue', async () => {
+  const ws = new SlowSocket(); const c = new Conn(ws); c.stateCompression = true;
+  c.sendState(() => ({ grid: Array.from({ length: 25 }, () => Array(25).fill(1)) }));
+  c.sendState(() => ({ grid: Array.from({ length: 25 }, () => Array(25).fill(2)) }));
+  ws.terminate(); await new Promise(r=>setTimeout(r,30));
+  assert.equal(ws.frames.length, 0);
+  assert.equal(c.statePending, null);
+  assert.equal(c.stateSending, false);
 });

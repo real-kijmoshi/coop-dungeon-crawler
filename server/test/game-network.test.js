@@ -7,6 +7,7 @@ const path = require('node:path');
 const net = require('node:net');
 const { once } = require('node:events');
 const { WebSocket } = require('ws');
+const { inflateRawSync } = require('node:zlib');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn) {
   const deadline = Date.now() + 10000;
@@ -43,11 +44,14 @@ test('four compressed clients authenticate, choose classes, move and chat on a r
     const registered = await fetch(base + '/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username, password: 'test-password' }) });
     assert.equal(registered.status, 201);
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-    const c = { ws, frames: [] }; clients.push(c);
-    ws.on('message', raw => c.frames.push(JSON.parse(raw)));
+    const c = { ws, frames: [], applicationCompressedFrames: 0 }; clients.push(c);
+    ws.on('message', (raw, binary) => {
+      if (binary) { assert.equal(raw.subarray(0,4).toString(),'CDC1'); raw=inflateRawSync(raw.subarray(4)); c.applicationCompressedFrames++; }
+      c.frames.push(JSON.parse(raw));
+    });
     await once(ws, 'open');
     assert.ok(ws.extensions.includes('permessage-deflate'));
-    ws.send(JSON.stringify({ t: 'auth', d: { username, password: 'test-password' } }));
+    ws.send(JSON.stringify({ t: 'auth', d: { username, password: 'test-password' }, features: n%2 ? [] : ['state-deflate-v1'] }));
     await until(() => c.frames.some(f => f.t === 'welcome'));
     ws.send(JSON.stringify({ t: 'chooseClass', a: ['warrior'], id: 1 }));
     await until(() => c.frames.some(f => f.t === 'reply' && f.id === 1 && f.d.ok));
@@ -61,6 +65,8 @@ test('four compressed clients authenticate, choose classes, move and chat on a r
     }
     await sleep(125);
   }
+  assert.ok(clients[0].applicationCompressedFrames>0 && clients[2].applicationCompressedFrames>0);
+  assert.equal(clients[1].applicationCompressedFrames+clients[3].applicationCompressedFrames,0);
   clients[0].ws.send(JSON.stringify({ t: 'chat', a: ['transport-test'] }));
   for (const c of clients) {
     await until(() => c.frames.some(f => f.t === 'message' && f.d.text.includes('transport-test')));

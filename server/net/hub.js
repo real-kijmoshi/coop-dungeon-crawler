@@ -1,13 +1,17 @@
 // Minimal WebSocket + JSON transport.
 //
-// Protocol (all frames are JSON text):
+// Protocol (JSON text, plus opt-in binary compressed snapshots):
 //   client -> server  {"t":"auth","d":{"username":"..","password":".."}}   (first frame)
 //   server -> client  {"t":"welcome"}  or  {"t":"error","d":"reason"} + close
 //   client -> server  {"t":"<event>","a":[...args],"id":7}   ("id" only when a reply is wanted)
 //   server -> client  {"t":"<event>","d":<data>}
 //   server -> client  {"t":"reply","id":7,"d":<data>}
+// Auth may advertise features:["state-deflate-v1"]. Snapshot binary frames then
+// contain ASCII "CDC1" followed by raw DEFLATE of the usual JSON gameState.
 const { EventEmitter } = require("events");
 const { WebSocketServer } = require("ws");
+const { deflateRaw } = require("node:zlib");
+const STATE_MAGIC = Buffer.from("CDC1");
 
 const AUTH_TIMEOUT_MS = 10000;
 const PING_MS = 25000;
@@ -20,6 +24,7 @@ class Conn extends EventEmitter {
     this.statePending = null;
     this.stateSending = false;
     this.stateRetry = null;
+    this.stateCompression = false;
     ws.on("close", () => {
       clearTimeout(this.stateRetry);
       this.statePending = null;
@@ -58,11 +63,27 @@ class Conn extends EventEmitter {
     const data = build();
     if (!data) return; // Player disconnected while this snapshot was pending.
     this.stateSending = true;
-    this.ws.send(JSON.stringify({ t: "gameState", d: data }), (err) => {
+    const raw = JSON.stringify({ t: "gameState", d: data });
+    const done = (err) => {
       this.stateSending = false;
       if (err) this.ws.terminate();
       else this.flushState();
-    });
+    };
+    // Some tunnel paths do not negotiate permessage-deflate. Compress inside
+    // our protocol so the saving survives any transparent WebSocket proxy.
+    // Only one compression/write per connection can be in flight at a time.
+    if (this.stateCompression && Buffer.byteLength(raw) >= 1024) {
+      deflateRaw(raw, { level: 1 }, (err, compressed) => {
+        if (err) return done(err);
+        if (this.ws.readyState !== this.ws.OPEN) {
+          this.stateSending = false;
+          return;
+        }
+        this.ws.send(Buffer.concat([STATE_MAGIC, compressed]), { binary: true, compress: false }, done);
+      });
+    } else {
+      this.ws.send(raw, done);
+    }
   }
 
   // Dispatch an incoming client event to handlers registered with on().
@@ -140,6 +161,7 @@ const createHub = (server, { authenticate, onConnection }) => {
           return;
         }
         conn.user = user;
+        conn.stateCompression = Array.isArray(msg.features) && msg.features.includes("state-deflate-v1");
         conns.add(conn);
         conn.emit("welcome");
         onConnection(conn);

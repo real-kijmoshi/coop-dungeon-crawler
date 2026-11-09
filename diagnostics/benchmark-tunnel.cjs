@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const { performance } = require('node:perf_hooks');
+const { inflateRawSync } = require('node:zlib');
 const { WebSocket } = require('../server/node_modules/ws');
 const { createHub } = require('../server/net/hub');
 const { Grid } = require('../server/utils/map');
@@ -54,7 +55,7 @@ async function startTunnel(port, protocol) {
 
 async function measure(base, label, round, negotiatedProtocol) {
   const clients=[]; const rtts=[]; const ages=[]; const errors=[];
-  let disconnected=0; let frames=0; let finished=false; let sampling=false; let compressed=true;
+  let applicationCompressedFrames=0; let disconnected=0; let frames=0; let finished=false; let sampling=false; let compressed=true;
   const probeTimers=[];
   try {
     for(let n=0;n<4;n++) {
@@ -63,6 +64,7 @@ async function measure(base, label, round, negotiatedProtocol) {
       ws.on('error', e => errors.push(e.message));
       ws.on('close',()=>{if(!finished)disconnected++;activeClients.delete(ws);});
       ws.on('message', raw=>{
+        if(raw.subarray(0,4).toString()==='CDC1'){raw=inflateRawSync(raw.subarray(4));if(sampling)applicationCompressedFrames++;}
         const f=JSON.parse(raw);
         if(f.t==='gameState') { c.lastStateAt=performance.now(); if(sampling){frames++;ages.push(Date.now()-f.d.now);} }
         if(f.t==='reply' && c.pending.has(f.id)) { const sent=c.pending.get(f.id); c.pending.delete(f.id); if(sampling)rtts.push(performance.now()-sent); }
@@ -74,7 +76,7 @@ async function measure(base, label, round, negotiatedProtocol) {
         const listener=raw=>{const f=JSON.parse(raw);if(f.t==='welcome'){clearTimeout(timer);ws.off('message',listener);resolve();}else if(f.t==='error'){clearTimeout(timer);ws.off('message',listener);reject(Error(f.d));}};
         ws.on('message',listener);
       });
-      ws.send(JSON.stringify({t:'auth',d:{username:`bench${n}`,password}}));await welcome;
+      ws.send(JSON.stringify({t:'auth',d:{username:`bench${n}`,password},features:['state-deflate-v1']}));await welcome;
       probeTimers.push(setInterval(()=>{if(ws.readyState!==WebSocket.OPEN)return;const id=++c.next;c.pending.set(id,performance.now());ws.send(JSON.stringify({t:'benchProbe',id}));},250));
       let step=0;probeTimers.push(setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({t:'move',a:[step++%2?'west':'east']}));},150));
     }
@@ -84,7 +86,7 @@ async function measure(base, label, round, negotiatedProtocol) {
     sampling=true; const began=performance.now();
     await sleep(duration); const elapsed=(performance.now()-began)/1000; sampling=false;
     const bytes=clients.reduce((n,c)=>n+c.ws._socket.bytesRead-c.initialBytes,0);
-    const result={label,round,negotiatedProtocol,compression:compressed,measuredSeconds:Math.round(elapsed*10)/10,rttMs:summary(rtts),snapshotAgeMs:summary(ages),snapshots:frames,snapshotsPerSecondPerPlayer:Math.round(frames/elapsed/4*10)/10,websocketBytesReceived:bytes,websocketKiBPerSecondAllPlayers:Math.round(bytes/elapsed/1024*10)/10,disconnects:disconnected,errors,clientStateSilenceMs:clients.map(c=>Math.round(performance.now()-c.lastStateAt))};
+    const result={label,round,negotiatedProtocol,compression:compressed,applicationCompressedFrames,measuredSeconds:Math.round(elapsed*10)/10,rttMs:summary(rtts),snapshotAgeMs:summary(ages),snapshots:frames,snapshotsPerSecondPerPlayer:Math.round(frames/elapsed/4*10)/10,websocketBytesReceived:bytes,websocketKiBPerSecondAllPlayers:Math.round(bytes/elapsed/1024*10)/10,disconnects:disconnected,errors,clientStateSilenceMs:clients.map(c=>Math.round(performance.now()-c.lastStateAt))};
     console.log('TUNNEL_RESULT '+JSON.stringify(result));return result;
   } finally {
     finished=true;probeTimers.forEach(clearInterval);clients.forEach(c=>c.ws.terminate());
