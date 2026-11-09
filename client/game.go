@@ -738,13 +738,13 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 			if animating || now.Sub(lastDraw) > 250*time.Millisecond {
 				dirty = true
 			}
-		}
-		// Network bursts mark the screen dirty, but never force extra terminal
-		// redraws between frames. Input and reliable events remain responsive.
-		if dirty && time.Since(lastDraw) >= 33*time.Millisecond {
-			g.draw()
-			lastDraw = time.Now()
-			dirty = false
+			// Only the frame ticker redraws. Network bursts and input can mark
+			// the screen dirty without forcing extra terminal work.
+			if dirty {
+				g.draw()
+				lastDraw = time.Now()
+				dirty = false
+			}
 		}
 	}
 	g.conn.Close()
