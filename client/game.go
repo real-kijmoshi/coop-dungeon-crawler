@@ -713,6 +713,14 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 			g.requestInitial()
 			dirty = true
 		case <-ticker.C:
+			// Parse only the newest snapshot once per frame, rather than every
+			// intermediate state delivered together by a congested connection.
+			select {
+			case ev := <-g.conn.States:
+				g.handleNet(ev)
+				dirty = true
+			default:
+			}
 			// prune animations
 			now := time.Now()
 			kept := g.floaters[:0]
@@ -730,11 +738,13 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 			if animating || now.Sub(lastDraw) > 250*time.Millisecond {
 				dirty = true
 			}
-		}
-		if dirty {
-			g.draw()
-			lastDraw = time.Now()
-			dirty = false
+			// Only the frame ticker redraws. Network bursts and input can mark
+			// the screen dirty without forcing extra terminal work.
+			if dirty {
+				g.draw()
+				lastDraw = time.Now()
+				dirty = false
+			}
 		}
 	}
 	g.conn.Close()

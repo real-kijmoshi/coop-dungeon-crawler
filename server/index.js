@@ -95,14 +95,18 @@ let broadcastQueued = false;
 const broadcastStates = () => {
   if (broadcastQueued) return;
   broadcastQueued = true;
-  setImmediate(() => {
+  // Coalesce changes from several players into at most 20 snapshots/second.
+  // Simulation and action handling still run immediately.
+  setTimeout(() => {
     broadcastQueued = false;
     for (const p of world.takeDirtyProfiles()) sockets.get(p.id)?.emit("profile", world.profileFor(p));
     for (const [id, socket] of sockets) {
-      const player = world.players.get(id);
-      if (player) socket.emit("gameState", world.stateFor(player));
+      socket.sendState(() => {
+        const player = world.players.get(id);
+        return player ? world.stateFor(player) : null;
+      });
     }
-  });
+  }, 50);
 };
 
 world.on("changed", broadcastStates);

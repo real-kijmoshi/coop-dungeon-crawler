@@ -17,6 +17,13 @@ class Conn extends EventEmitter {
     super();
     this.ws = ws;
     this.user = null;
+    this.statePending = null;
+    this.stateSending = false;
+    this.stateRetry = null;
+    ws.on("close", () => {
+      clearTimeout(this.stateRetry);
+      this.statePending = null;
+    });
   }
 
   // Send an event to this client (same shape as socket.io's emit).
@@ -25,6 +32,37 @@ class Conn extends EventEmitter {
     if (this.ws.readyState !== this.ws.OPEN) return false;
     this.ws.send(JSON.stringify(data === undefined ? { t: event } : { t: event, d: data }));
     return true;
+  }
+
+  // Snapshots replace each other; replies, chat, loot and combat events do not.
+  // Build the newest state only when the previous write has drained, rather
+  // than serializing and queueing every intermediate world update.
+  sendState(build) {
+    if (this.ws.readyState !== this.ws.OPEN) return;
+    this.statePending = build;
+    this.flushState();
+  }
+
+  flushState() {
+    if (this.stateSending || this.stateRetry || !this.statePending) return;
+    if (this.ws.readyState !== this.ws.OPEN) return;
+    if (this.ws.bufferedAmount > 16 * 1024) {
+      this.stateRetry = setTimeout(() => {
+        this.stateRetry = null;
+        this.flushState();
+      }, 25);
+      return;
+    }
+    const build = this.statePending;
+    this.statePending = null;
+    const data = build();
+    if (!data) return; // Player disconnected while this snapshot was pending.
+    this.stateSending = true;
+    this.ws.send(JSON.stringify({ t: "gameState", d: data }), (err) => {
+      this.stateSending = false;
+      if (err) this.ws.terminate();
+      else this.flushState();
+    });
   }
 
   // Dispatch an incoming client event to handlers registered with on().
@@ -55,7 +93,18 @@ class Conn extends EventEmitter {
  * @param {(conn: Conn) => void} onConnection
  */
 const createHub = (server, { authenticate, onConnection }) => {
-  const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 16 * 1024 });
+  const wss = new WebSocketServer({
+    server, path: "/ws", maxPayload: 16 * 1024,
+    perMessageDeflate: {
+      // Gorilla supports compression without context takeover. Keep small
+      // events cheap and compress the repetitive JSON/grid in snapshots.
+      serverNoContextTakeover: true,
+      clientNoContextTakeover: true,
+      threshold: 1024,
+      concurrencyLimit: 4,
+      zlibDeflateOptions: { level: 1 },
+    },
+  });
   const conns = new Set();
 
   wss.on("connection", (ws) => {
@@ -118,6 +167,7 @@ const createHub = (server, { authenticate, onConnection }) => {
     }
   }, PING_MS);
   wss.on("close", () => clearInterval(pinger));
+  server.on("close", () => wss.close());
 
   return {
     broadcast(event, data) {
@@ -127,4 +177,4 @@ const createHub = (server, { authenticate, onConnection }) => {
   };
 };
 
-module.exports = { createHub };
+module.exports = { createHub, Conn };
