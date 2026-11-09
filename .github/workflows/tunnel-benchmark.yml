@@ -1,0 +1,32 @@
+name: Real Cloudflare tunnel benchmark
+on:
+  push:
+    branches: [diagnostics/tunnel-benchmark]
+    paths: ['diagnostics/**', '.github/workflows/tunnel-benchmark.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install diagnostic dependencies
+        working-directory: server
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Download the same cloudflared version as the Windows host
+        run: |
+          curl -fsSL --retry 2 https://github.com/cloudflare/cloudflared/releases/download/2026.10.7/cloudflared-linux-amd64 -o /tmp/cloudflared
+          chmod +x /tmp/cloudflared
+          /tmp/cloudflared --version
+      - name: Measure local, HTTP2 tunnel and automatic tunnel with four clients
+        run: node diagnostics/benchmark-tunnel.cjs --cloudflared=/tmp/cloudflared --duration=30 --rounds=2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-tunnel-benchmark
+          path: diagnostics/results/
