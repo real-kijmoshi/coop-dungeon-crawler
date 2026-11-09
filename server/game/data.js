@@ -105,6 +105,8 @@ const BOSSES = [
   { type: "troll_chief", name: "Troll Chieftain", char: "T", color: [80, 230, 160], hp: 260, atk: 19, def: 8, xp: 480, gold: [160, 260], tier: 6, speed: 3, aggro: 9, verb: "flattens" },
   { type: "demon_prince", name: "Demon Prince", char: "P", color: [255, 40, 90], hp: 320, atk: 22, def: 9, xp: 700, gold: [250, 400], tier: 7, speed: 1, aggro: 11, ranged: 5, verb: "rains hellfire on" },
   { type: "ancient_dragon", name: "Ancient Dragon", char: "D", color: [255, 50, 20], hp: 550, atk: 26, def: 11, xp: 1500, gold: [600, 1000], tier: 8, speed: 2, aggro: 12, ranged: 5, verb: "engulfs in flames" },
+  // The final boss, on the Throne of the Abyss.
+  { type: "abyss_lord", name: "Abyss Lord", char: "A", color: [255, 215, 80], hp: 1600, atk: 34, def: 14, xp: 6000, gold: [2000, 3000], tier: 12, speed: 2, aggro: 13, ranged: 6, verb: "unmakes", final: true },
 ];
 
 // --------------------------------------------------------------- floor items
@@ -115,6 +117,7 @@ const ITEMS = {
   chest: { name: "treasure chest", char: "=", color: [230, 170, 60] },
   shrine: { name: "shrine", char: "^", color: [120, 255, 255] },
   gear: { name: "gear", char: "?", color: [255, 255, 255] }, // char/color depend on the item
+  lore: { name: "lore scroll", char: "§", color: [240, 220, 170] },
 };
 
 // ---------------------------------------------------------------- equipment
@@ -175,7 +178,9 @@ const SHOP = [
   { id: "def", name: "Reinforced plating (+1 DEF)", price: (b) => 60 + 35 * b.def },
   { id: "hp", name: "Vitality tonic (+10 max HP)", price: (b) => 50 + 30 * (b.hp / 10) },
   { id: "gamble", name: "Mystery item (gamble!)", price: (b, lvl) => 60 + 20 * lvl },
+  { id: "rebirth", name: "REBIRTH (Lv 15+): restart stronger", price: () => 0 },
 ];
+const REBIRTH_LEVEL = 15;
 
 // ------------------------------------------------------------------ shrines
 const SHRINES = [
@@ -221,6 +226,13 @@ const ACHIEVEMENTS = [
   { id: "quests10", name: "Bounty Hunter", desc: "Complete 10 bounties", title: "the Bounty Hunter", check: (p) => (p.counters.quests || 0) >= 10 },
   { id: "goblin", name: "Goblin Mugger", desc: "Catch a treasure goblin", title: "the Mugger", check: (p) => (p.counters.kinds.treasure_goblin || 0) >= 1 },
   { id: "deathless", name: "Survivor", desc: "Reach level 8 without dying", title: "the Undying", check: (p) => p.stats.level >= 8 && p.stats.deaths === 0 },
+  { id: "loremaster", name: "Loremaster", desc: "Find every lore scroll", title: "the Loremaster", check: (p) => (p.lore || []).length >= 12 },
+  { id: "fellowship", name: "Fellowship", desc: "Defeat a boss in a party of 3+", title: "of the Fellowship", check: (p) => (p.counters.partyBosses || 0) >= 1 },
+  { id: "savior10", name: "Lifeline", desc: "Revive allies 25 times", title: "the Lifeline", check: (p) => (p.counters.revives || 0) >= 25 },
+  { id: "traveler", name: "Wayfinder", desc: "Discover 6 waystones", title: "the Wayfinder", check: (p) => (p.waystones || []).length >= 6 },
+  { id: "smith", name: "Master Smith", desc: "Upgrade an item to +10", title: "the Smith", check: (p) => (p.counters.bestPlus || 0) >= 10 },
+  { id: "reborn", name: "Reborn", desc: "Complete a rebirth", title: "the Reborn", check: (p) => (p.prestige || 0) >= 1 },
+  { id: "abyss", name: "Abyss Conqueror", desc: "Defeat the Abyss Lord", title: "the Conqueror", check: (p) => (p.counters.kinds.abyss_lord || 0) >= 1 },
 ];
 
 // ------------------------------------------------------------- progression
@@ -246,6 +258,7 @@ module.exports = {
   PCT_STATS,
   LEGENDARY_NAMES,
   SHOP,
+  REBIRTH_LEVEL,
   SHRINES,
   EVENTS,
   EVENT_INTERVAL,

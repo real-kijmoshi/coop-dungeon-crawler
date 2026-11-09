@@ -43,17 +43,19 @@ func fmtStats(stats map[string]float64) string {
 }
 
 func (g *Game) showHelp() {
+	k := g.settings.keyLabel
+	move := k("up") + k("left") + k("down") + k("right")
 	lines := []Line{
 		L("Explore an endless dungeon with your friends. The further from the", cWhite),
 		L("safe room, the deeper and deadlier it gets - and the better the loot.", cWhite),
 		L("", cWhite),
-		L("WASD / arrows  move - walk into monsters to attack", cCyan),
-		L("1 2 3 4        class skills (unlock at Lv 1, 3, 5, 8)", cCyan),
-		L("H potion   I inventory   J journal (bounties & achievements)", cCyan),
-		L("T / Enter chat    L leaderboard    ? help    Q / Esc quit", cCyan),
+		L(fmt.Sprintf("%-6s / arrows  move - walk into monsters to attack", move), cCyan),
+		L(fmt.Sprintf("%s %s %s %s        class skills (unlock at Lv 1, 3, 5, 8)", k("skill1"), k("skill2"), k("skill3"), k("skill4")), cCyan),
+		L(fmt.Sprintf("%s potion   %s inventory   %s journal   %s party   %s travel", k("potion"), k("inventory"), k("journal"), k("party"), k("travel")), cCyan),
+		L(fmt.Sprintf("%s ping   %s chat   %s party chat   %s ranks   %s settings   %s quit", k("ping"), k("chat"), k("partychat"), k("leaderboard"), k("settings"), k("quit")), cCyan),
 		L("", cWhite),
-		L("M Merchant: upgrades, potions, gambling, sell loot (in the safe room)", cOrange),
-		L("$ gold  ! potion  ♥ heart  = chest  ^ shrine (temporary buff)", cYellow),
+		L("M Merchant & blacksmith (safe room): potions, upgrades, +N gear, rebirth", cOrange),
+		L("$ gold  ! potion  ♥ heart  = chest  ^ shrine  § lore scroll  Ω waystone", cYellow),
 		L("/ ] \" gear - color shows rarity:", cYellow),
 		{Segs: []Seg{
 			{Text: "   "},
@@ -63,14 +65,14 @@ func (g *Game) showHelp() {
 			{Text: "Epic  ", Color: rarityColors["epic"], Bold: true},
 			{Text: "LEGENDARY", Color: rarityColors["legendary"], Bold: true},
 		}},
-		L("Capital letters are BOSSES guarding treasure. Bold = elite.", cOrange),
+		L("Capital letters are BOSSES. When one glows and the floor turns red, MOVE!", cOrange),
 		L("", cWhite),
-		L("Chain kills within 4s for COMBO XP. Finish bounties for big rewards.", cGreen),
-		L("Co-op: fall near an ally and you go DOWN (%) - they have 20s to", cGreen),
-		L("walk into you and revive you. Allies near a kill share its XP.", cGreen),
-		L("Watch for WORLD EVENTS: gold rush, blood moon, treasure goblins!", cRed),
+		L("Party up (P): shared XP, personal boss loot, travel to friends, pings.", cGreen),
+		L("Fall near an ally and you go DOWN (%) - they have 20s to revive you.", cGreen),
+		L("Waystones (Ω) let you travel back deep. Reach Lv 15 to be REBORN stronger.", cGreen),
+		L("Somewhere past depth 12 the Abyss Lord waits. Bring friends.", cRed),
 	}
-	g.overlay = &Overlay{Kind: "help", Title: "HOW TO PLAY", Lines: lines, Footer: "any key to close"}
+	g.overlay = &Overlay{Kind: "help", Title: "HOW TO PLAY", Lines: lines, Footer: "any key to close · " + k("settings") + " settings"}
 }
 
 func (g *Game) showClassSelect() {
@@ -92,13 +94,36 @@ func (g *Game) showShop(s *Shop, note *Line) {
 		return
 	}
 	g.lastShop = s
-	lines := []Line{L("\"Welcome, traveller! Gold for steel, steel for glory.\"", cOrange), L("", cWhite)}
+	greeting := s.Greeting
+	if greeting == "" {
+		greeting = "\"Welcome, traveller!\""
+	}
+	lines := []Line{L(greeting, cOrange), L("", cWhite)}
+	lvl := 0
+	if g.state != nil {
+		lvl = g.state.Player.Stats.Level
+	}
+	rebirthAt := 15
+	if g.world != nil {
+		rebirthAt = g.world.RebirthLevel
+	}
 	for _, it := range s.Items {
 		c := cWhite
 		if s.Gold < it.Price {
 			c = cDark
 		}
+		if it.ID == "rebirth" {
+			c = Color{255, 215, 120}
+			if lvl < rebirthAt {
+				c = cDark
+			}
+			lines = append(lines, L(fmt.Sprintf("[%s] %s", it.Key, it.Name), c))
+			continue
+		}
 		lines = append(lines, L(fmt.Sprintf("[%s] %s %5d g", it.Key, pad(it.Name, 30), int(it.Price)), c))
+	}
+	if s.Prestige > 0 {
+		lines = append(lines, L(fmt.Sprintf("    Rebirths: ✦%d (+%d%% ATK/HP, +%d%% XP)", s.Prestige, 5*s.Prestige, 10*s.Prestige), Color{255, 215, 120}))
 	}
 	lines = append(lines,
 		L("[X] Sell all Common & Magic items", cYellow),
@@ -109,7 +134,8 @@ func (g *Game) showShop(s *Shop, note *Line) {
 	if note != nil {
 		lines = append(lines, *note)
 	}
-	g.overlay = &Overlay{Kind: "shop", Title: "MERCHANT", Lines: lines, Footer: "1-5 buy · X sell junk · I inventory · Esc close", shop: s}
+	lines = append(lines, L("[I] Blacksmith: open inventory, U upgrade (+1..+10), R reforge stats", cYellow))
+	g.overlay = &Overlay{Kind: "shop", Title: "MERCHANT & BLACKSMITH", Lines: lines, Footer: "1-6 buy · X sell junk · I inventory/smith · Esc close", shop: s}
 }
 
 type invEntry struct {
@@ -161,7 +187,7 @@ func (g *Game) showInventory(note *Line) {
 		}
 		label, ilvl, col := "(empty)", "", cDark
 		if e.item != nil {
-			label, ilvl, col = e.item.Name, fmt.Sprintf("ilvl %d", e.item.Ilvl), rarityColors[e.item.Rarity]
+			label, ilvl, col = e.item.DisplayName(), fmt.Sprintf("ilvl %d", e.item.Ilvl), rarityColors[e.item.Rarity]
 		}
 		line := Line{Segs: []Seg{{Text: fmt.Sprintf("%s %s %s %s", cur, pad(e.slot, 8), pad(label, 34), ilvl), Color: col, Bold: i == g.invCursor}}}
 		if i == g.invCursor {
@@ -221,13 +247,27 @@ func (g *Game) showInventory(note *Line) {
 				}
 				lines = append(lines, L("vs equipped: "+txt, c))
 			}
-			lines = append(lines, L(fmt.Sprintf("Sell value: %d gold", int(it.Value)), cYellow))
+			smith := ""
+			if g.profile.Smith != nil {
+				if c, ok := g.profile.Smith[it.UID]; ok {
+					if c.Upgrade != nil {
+						smith = fmt.Sprintf("   ·   U upgrade to +%d: %dg   ·   R reforge: %dg", it.Plus+1, int(*c.Upgrade), int(c.Reforge))
+					} else {
+						smith = fmt.Sprintf("   ·   max +10   ·   R reforge: %dg", int(c.Reforge))
+					}
+				}
+			}
+			lines = append(lines, L(fmt.Sprintf("Sell value: %d gold%s", int(it.Value), smith), cYellow))
 		}
 	}
 	if note != nil {
 		lines = append(lines, *note)
 	}
-	g.overlay = &Overlay{Kind: "inventory", Title: "INVENTORY", Lines: lines, Footer: "W/S select · E equip/unequip · X sell · D drop · Esc close"}
+	footer := "↑/↓ select · E equip · X sell · D drop · Esc close"
+	if g.state != nil && g.state.Player.Safe {
+		footer = "↑/↓ select · E equip · X sell · D drop · U upgrade · R reforge · Esc"
+	}
+	g.overlay = &Overlay{Kind: "inventory", Title: "INVENTORY", Lines: lines, Footer: footer}
 }
 
 func (g *Game) showJournal() {
@@ -235,6 +275,10 @@ func (g *Game) showJournal() {
 		return
 	}
 	p := g.profile
+	if g.journalPage == 1 {
+		g.overlay = &Overlay{Kind: "journal", Title: "JOURNAL · LORE", Lines: g.loreLines(), Footer: "Tab bounties & achievements · any key to close"}
+		return
+	}
 	lines := []Line{L("BOUNTIES - always 3 active, new ones appear when you finish one", cOrange)}
 	for _, q := range p.Quests {
 		mark := "·"
@@ -274,11 +318,16 @@ func (g *Game) showJournal() {
 		}
 		lines = append(lines, Line{Segs: segs})
 	}
-	g.overlay = &Overlay{Kind: "journal", Title: "JOURNAL", Lines: lines, Footer: "N change title · any key to close"}
+	g.overlay = &Overlay{Kind: "journal", Title: "JOURNAL", Lines: lines, Footer: "Tab lore · N change title · any key to close"}
 }
 
 func (g *Game) showLeaderboard(rows []LeaderRow) {
-	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Level > rows[j].Level })
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].Prestige != rows[j].Prestige {
+			return rows[i].Prestige > rows[j].Prestige
+		}
+		return rows[i].Level > rows[j].Level
+	})
 	lines := []Line{L("#  Name           Class     Lv  Depth Kills Bosses  Title", cGray)}
 	me := ""
 	if g.state != nil {
@@ -296,7 +345,11 @@ func (g *Game) showLeaderboard(rows []LeaderRow) {
 		if r.Username == me {
 			c = cYellow
 		}
-		lines = append(lines, L(fmt.Sprintf("%s %s %s %3d %5d %5d %6d  %s", pad(fmt.Sprint(i+1), 2), pad(r.Username, 14), pad(cls, 8), r.Level, r.MaxDepth, r.Kills, r.BossKills, title), c))
+		name := r.Username
+		if r.Prestige > 0 {
+			name = fmt.Sprintf("✦%d %s", r.Prestige, r.Username)
+		}
+		lines = append(lines, L(fmt.Sprintf("%s %s %s %3d %5d %5d %6d  %s", pad(fmt.Sprint(i+1), 2), pad(name, 14), pad(cls, 8), r.Level, r.MaxDepth, r.Kills, r.BossKills, title), c))
 	}
 	if len(rows) == 0 {
 		lines = append(lines, L("No heroes yet.", cWhite))

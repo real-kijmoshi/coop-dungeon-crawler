@@ -137,14 +137,15 @@ const watchFrame = ({ world, target, W, H, tick, base, news, top }) => {
       const wy = camY + ty;
       const c = world.cell(wx, wy);
       let t;
+      const biome = world.biomeAt(wx, wy);
       if (c === 0) {
         let edge = false;
         for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1 && !edge; dx++) if (open(wx + dx, wy + dy)) edge = true;
         if (!edge) continue;
-        t = TILE.wall;
-      } else if (c === -1) t = TILE.corridor;
+        t = { bg: biome.wall, fg: biome.wall, ch: "  " };
+      } else if (c === -1) t = { ...biome.corridor, ch: "  " };
       else if (c === safeId) t = TILE.safe;
-      else t = TILE.floor;
+      else t = { ...biome.floor, ch: " ·" };
       const d = Math.hypot(wx - target.x, wy - target.y);
       const light = clamp(1.15 - d / 22, 0.3, 1.1);
       const warm = [255, 220, 170];

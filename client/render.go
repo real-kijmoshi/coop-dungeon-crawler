@@ -78,13 +78,16 @@ func (g *Game) draw() {
 	border := theme.border
 	if g.flash != nil && now.Before(g.flashUntil) {
 		border = *g.flash
-	} else if st != nil && st.Player.Stats.HP > 0 && st.Player.Stats.HP/st.Player.Stats.MaxHP < 0.3 {
+	} else if g.settings.LowHPPulse && st != nil && st.Player.Stats.HP > 0 && st.Player.Stats.HP/st.Player.Stats.MaxHP < 0.3 {
 		pulse := 0.5 + 0.5*math.Sin(float64(now.UnixMilli())/160)
 		border = mix(Color{90, 30, 30}, Color{255, 60, 60}, pulse)
 	}
 	title, titleColor, right := "CONNECTING", Color{200, 160, 255}, ""
 	if st != nil {
 		title = fmt.Sprintf("DEPTH %d", st.Depth)
+		if st.Biome.Name != "" {
+			title += " · " + strings.ToUpper(st.Biome.Name)
+		}
 		if st.Player.Safe {
 			title, titleColor = "SAFE ROOM", cGreen
 		}
@@ -99,6 +102,11 @@ func (g *Game) draw() {
 			g.drawSidebar(rect{mapW, top, sidebarW, mapH + 1 + logH})
 		}
 		g.drawHotbar(rect{0, top + mapH, mapW, 1})
+		if st.Invite != nil {
+			secs := int(math.Max(0, math.Ceil((st.Invite.Until-g.serverNow())/1000)))
+			msg := fmt.Sprintf("  ✉ %s invites you to their party  ·  %s accept  ·  %s decline  (%ds)  ", st.Invite.From, g.settings.keyLabel("accept"), g.settings.keyLabel("decline"), secs)
+			cv.Text(inner.x+maxi(0, (inner.w-runeLen(msg))/2), inner.y+inner.h-1, msg, Color{15, 15, 20}, ptr(Color{140, 220, 255}), true, inner.w)
+		}
 	} else {
 		t := "Entering the dungeon..."
 		cv.Text((mapW-runeLen(t))/2, top+mapH/2, t, theme.muted, &theme.bg, false, -1)
@@ -128,9 +136,10 @@ func (g *Game) drawTopBar(w int, compact bool) {
 		titleText = "⚔ CDC"
 	}
 	left := 1 + cv.Text(1, 0, titleText, theme.title, &bg, true, -1) + 2
-	right := "? help "
+	k := g.settings.keyLabel
+	right := k("help") + " help "
 	if w > 110 {
-		right = "I items · J journal · L ranks · ? help "
+		right = fmt.Sprintf("%s items · %s journal · %s party · %s settings · %s help ", k("inventory"), k("journal"), k("party"), k("settings"), k("help"))
 	}
 	rightX := w - runeLen(right)
 	st := g.state
@@ -192,6 +201,20 @@ func (g *Game) drawMap(r rect) {
 		return ok && c != 0
 	}
 	warm := Color{255, 220, 170}
+	pulse := 0.5 + 0.5*math.Sin(float64(time.Now().UnixMilli())/110)
+
+	// Red danger zone around bosses that are about to slam.
+	danger := map[[2]int]bool{}
+	for _, m := range st.Monsters {
+		if !m.Charging {
+			continue
+		}
+		for dy := -2; dy <= 2; dy++ {
+			for dx := -2; dx <= 2; dx++ {
+				danger[[2]int{m.X + dx, m.Y + dy}] = true
+			}
+		}
+	}
 
 	for ty := 0; ty < r.h; ty++ {
 		for tx := 0; tx < cols; tx++ {
@@ -231,20 +254,34 @@ func (g *Game) drawMap(r rect) {
 			default:
 				t = tileFloor
 			}
+			// Each depth band (biome) has its own colors.
+			if b := g.biomeFor(wx, wy); b != nil && t != tileSafe {
+				switch t {
+				case tileWall:
+					t = tileStyle{b.Wall, b.Wall, t.chars}
+				case tileCorridor:
+					t = tileStyle{b.Corridor.FG, b.Corridor.BG, t.chars}
+				default:
+					t = tileStyle{b.Floor.FG, b.Floor.BG, t.chars}
+				}
+			}
 
 			jitter := 0.9 + hash2(wx, wy)*0.2
 			var fg, bg Color
 			if visible {
 				d := math.Hypot(float64(wx-p.X), float64(wy-p.Y))
-				light := clampf(1.15-d/float64(sight+3), 0.35, 1.1) * jitter
+				light := clampf(1.15-d/float64(sight+3), 0.35, 1.1) * jitter * activePalette.light
 				fg = mix(scale(t.fg, light), warm, 0.08*light)
 				bg = mix(scale(t.bg, light), warm, 0.05*light)
 				if cell == 0 && isOpen(wx, wy+1) {
 					bg = mix(bg, warm, 0.12)
 				}
 			} else {
-				fg = mix(scale(t.fg, 0.32*jitter), Color{40, 50, 90}, 0.35)
-				bg = mix(scale(t.bg, 0.32*jitter), Color{16, 20, 40}, 0.4)
+				fg = mix(scale(t.fg, activePalette.memory*jitter), Color{40, 50, 90}, 0.35)
+				bg = mix(scale(t.bg, activePalette.memory*jitter), Color{16, 20, 40}, 0.4)
+			}
+			if danger[[2]int{wx, wy}] && cell != 0 {
+				bg = mix(bg, Color{255, 40, 30}, 0.35+0.3*pulse)
 			}
 			cv.Put(sx, sy, t.chars[0], fg, &bg, false)
 			cv.Put(sx+1, sy, t.chars[1], fg, &bg, false)
@@ -265,11 +302,23 @@ func (g *Game) drawMap(r rect) {
 		}
 	}
 	for _, n := range st.NPCs {
-		if sx, sy, ok := toScreen(n.X, n.Y); ok {
+		sx, sy, ok := toScreen(n.X, n.Y)
+		if !ok {
+			continue
+		}
+		if n.Name == "Merchant" {
 			bg := Color{70, 50, 20}
 			cv.Put(sx, sy, firstRune(n.Char), n.Color, &bg, true)
 			cv.Put(sx+1, sy, '$', Color{255, 215, 0}, &bg, false)
+			continue
 		}
+		// Waystone: bright when attuned, dim when not yet discovered.
+		bg, col := Color{20, 60, 70}, n.Color
+		if n.Known == nil || !*n.Known {
+			bg, col = Color{20, 36, 44}, scale(n.Color, 0.6+0.4*pulse)
+		}
+		cv.Put(sx, sy, firstRune(n.Char), col, &bg, true)
+		cv.Put(sx+1, sy, ' ', col, &bg, false)
 	}
 	for _, m := range st.Monsters {
 		sx, sy, ok := toScreen(m.X, m.Y)
@@ -280,6 +329,10 @@ func (g *Game) drawMap(r rect) {
 		switch {
 		case m.Hit:
 			bg = ptr(Color{200, 200, 200})
+		case m.Charging:
+			bg = ptr(mix(Color{150, 30, 30}, Color{255, 200, 60}, pulse))
+		case m.Enraged:
+			bg = ptr(Color{150, 20, 20})
 		case m.Frozen:
 			bg = ptr(Color{40, 90, 140})
 		case m.Boss:
@@ -322,7 +375,7 @@ func (g *Game) drawMap(r rect) {
 		}
 		cv.Put(sx, sy, glyph, gcol, &bg, true)
 		cv.Put(sx+1, sy, ' ', col, &bg, false)
-		if me || sy-1 < r.y {
+		if me || sy-1 < r.y || !g.settings.NameTags {
 			return
 		}
 		tag := name
@@ -350,6 +403,14 @@ func (g *Game) drawMap(r rect) {
 		drawActor(a.X, a.Y, a.Username, col, a.Downed, false)
 	}
 	drawActor(p.X, p.Y, p.Username, Color{255, 230, 120}, p.DownedUntil != nil, true)
+
+	// Pings: blinking markers from you and your party.
+	for _, pg := range st.Pings {
+		if sx, sy, ok := toScreen(pg.X, pg.Y); ok {
+			bg := mix(Color{20, 80, 110}, Color{120, 230, 255}, pulse)
+			cv.Put(sx+1, sy, '!', Color{10, 20, 30}, &bg, true)
+		}
+	}
 
 	// Floating combat text
 	now := time.Now()
@@ -403,6 +464,19 @@ func (g *Game) drawMinimap(r rect) {
 	if st.Home != nil {
 		marks[[2]int{st.Home.X, st.Home.Y}] = Color{80, 220, 120}
 	}
+	if st.Party != nil {
+		for _, m := range st.Party.Members {
+			marks[[2]int{m.X, m.Y}] = m.Color
+		}
+	}
+	for _, pg := range st.Pings {
+		marks[[2]int{pg.X, pg.Y}] = Color{120, 230, 255}
+	}
+	for _, n := range st.NPCs {
+		if n.Name != "Merchant" {
+			marks[[2]int{n.X, n.Y}] = n.Color
+		}
+	}
 	marks[[2]int{p.X, p.Y}] = Color{255, 230, 80}
 	colorAt := func(x, y int) Color {
 		if c, ok := marks[[2]int{x, y}]; ok {
@@ -417,6 +491,9 @@ func (g *Game) drawMinimap(r rect) {
 		case g.mem.hasSafe && v == g.mem.safeRoom:
 			return Color{50, 120, 70}
 		default:
+			if b := g.biomeFor(x, y); b != nil {
+				return mix(b.Floor.FG, b.Wall, 0.4)
+			}
 			return Color{120, 100, 75}
 		}
 	}
@@ -461,7 +538,11 @@ func (g *Game) drawSidebar(r rect) {
 		}
 	}
 	row(func(yy int) {
-		n := cv.Text(x+2, yy, p.Username, p.ClassColor, &pb, true, inner)
+		name := p.Username
+		if p.Prestige > 0 {
+			name = fmt.Sprintf("✦%d %s", p.Prestige, p.Username)
+		}
+		n := cv.Text(x+2, yy, name, p.ClassColor, &pb, true, inner)
 		if p.Title != "" {
 			cv.Text(x+3+n, yy, p.Title, theme.muted, &pb, false, inner-n-1)
 		}
@@ -538,7 +619,7 @@ func (g *Game) drawSidebar(r rect) {
 	y += ch
 
 	// Minimap
-	if mmH := mini(9, bottom-y-2); mmH >= 4 {
+	if mmH := mini(9, bottom-y-2); mmH >= 4 && g.settings.Minimap {
 		cv.Box(x, y, w, mmH+2, BoxOpts{Color: theme.border, BG: pb, Title: "MAP", TitleColor: ptr(theme.title)})
 		g.drawMinimap(rect{x + 1, y + 1, w - 2, mmH})
 		y += mmH + 2
@@ -619,8 +700,36 @@ func (g *Game) drawSidebar(r rect) {
 		y += qh
 	}
 
-	// Party
-	if ph := mini(len(st.Online)+2, bottom-y); ph >= 3 {
+	// Party (when in one): members with distance and direction.
+	if st.Party != nil {
+		if ph := mini(len(st.Party.Members)+2, bottom-y); ph >= 3 {
+			cv.Box(x, y, w, ph, BoxOpts{Color: theme.border, BG: pb, Title: "PARTY", TitleColor: ptr(cGreen), RightTitle: fmt.Sprintf("%d/4 · %d online", len(st.Party.Members), len(st.Online)), RightColr: ptr(theme.muted)})
+			for i, m := range st.Party.Members {
+				if i >= ph-2 {
+					break
+				}
+				yy := y + 1 + i
+				me := m.Username == p.Username
+				lead := "  "
+				if m.Username == st.Party.Leader {
+					lead = "♛ "
+				}
+				cv.Text(x+2, yy, pad(lead+m.Username, 12), m.Color, &pb, me, 12)
+				where := "you"
+				if !me {
+					dx, dy := m.X-p.X, m.Y-p.Y
+					where = fmt.Sprintf("%d%s", int(math.Hypot(float64(dx), float64(dy))), strings.Fields(compass(dx, dy))[0])
+				}
+				cv.Text(x+14, yy, pad(where, 6), theme.muted, &pb, false, -1)
+				if m.Downed {
+					cv.Text(x+21, yy, "DOWN!", cRed, &pb, true, -1)
+				} else {
+					cv.Bar(x+21, yy, maxi(3, w-23), m.HP, m.MaxHP, hpColor(m.HP, m.MaxHP), "")
+				}
+			}
+			y += ph
+		}
+	} else if ph := mini(len(st.Online)+2, bottom-y); ph >= 3 {
 		cv.Box(x, y, w, ph, BoxOpts{Color: theme.border, BG: pb, Title: "PARTY", TitleColor: ptr(cGreen), RightTitle: fmt.Sprintf("%d online", len(st.Online)), RightColr: ptr(theme.muted)})
 		for i, o := range st.Online {
 			if i >= ph-2 {
@@ -723,9 +832,12 @@ func (g *Game) drawHotbar(r rect) {
 func (g *Game) drawLog(r rect) {
 	cv := g.cv
 	pb := theme.panel
-	title, hint := "LOG", "T chat"
+	title, hint := "LOG", g.settings.keyLabel("chat")+" chat · "+g.settings.keyLabel("partychat")+" party chat"
 	if g.chatting {
-		title, hint = "CHAT", "Enter send · Esc cancel"
+		title, hint = "CHAT", "Enter send · Tab channel · Esc cancel"
+		if g.partyChannel {
+			title = "PARTY CHAT"
+		}
 	}
 	cv.Box(r.x, r.y, r.w, r.h, BoxOpts{Color: theme.border, BG: pb, Title: title, TitleColor: ptr(theme.title), RightTitle: hint, RightColr: ptr(theme.faint)})
 	lines := r.h - 2
@@ -751,6 +863,9 @@ func (g *Game) drawLog(r rect) {
 	for i, m := range rows {
 		age := len(rows) - 1 - i
 		fade := clampf(1-float64(age)*0.13, 0.45, 1)
+		if !activePalette.logFade {
+			fade = 1
+		}
 		text := m.Text
 		if m.count > 1 {
 			text = fmt.Sprintf("%s (x%d)", text, m.count)
@@ -820,4 +935,20 @@ func (g *Game) drawToast(r rect) {
 	bg := scale(t.Color, 0.25)
 	cv.Box(x, y, w, 3, BoxOpts{Color: c, BG: bg})
 	cv.Text(x+1+maxi(0, (w-2-runeLen(text))/2), y+1, text, c, &bg, true, w-2)
+}
+
+// biomeFor returns the biome a world tile belongs to (by its distance from home).
+func (g *Game) biomeFor(x, y int) *BiomeInfo {
+	if g.world == nil || g.state == nil || g.state.Home == nil || g.world.TierDistance <= 0 {
+		return nil
+	}
+	d := math.Hypot(float64(x-g.state.Home.X), float64(y-g.state.Home.Y))
+	tier := int(d / g.world.TierDistance)
+	for i := range g.world.Biomes {
+		b := &g.world.Biomes[i]
+		if tier >= b.From && tier <= b.To {
+			return b
+		}
+	}
+	return nil
 }

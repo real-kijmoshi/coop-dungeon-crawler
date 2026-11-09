@@ -30,6 +30,7 @@ db.prepare(
     deaths INTEGER DEFAULT 0,
     max_depth INTEGER DEFAULT 0,
     boss_kills INTEGER DEFAULT 0,
+    prestige INTEGER DEFAULT 0,
     position_x INTEGER DEFAULT -1,
     position_y INTEGER DEFAULT -1,
     cls TEXT,
@@ -48,7 +49,7 @@ const savePlayerStmt = db.prepare(`
     position_x = @x, position_y = @y,
     hp = @hp, level = @level, xp = @xp, gold = @gold,
     kills = @kills, deaths = @deaths,
-    max_depth = @maxDepth, boss_kills = @bossKills,
+    max_depth = @maxDepth, boss_kills = @bossKills, prestige = @prestige,
     cls = @cls, title = @title, data = @data
   WHERE id = @id
 `);
@@ -59,14 +60,14 @@ const savePlayers = db.transaction((players) => {
       id: p.id, x: p.x, y: p.y,
       hp: s.hp, level: s.level, xp: s.xp, gold: s.gold,
       kills: s.kills, deaths: s.deaths, maxDepth: s.maxDepth, bossKills: s.bossKills,
-      cls: p.cls, title: p.title, data: JSON.stringify(world.saveData(p)),
+      cls: p.cls, title: p.title, prestige: p.prestige || 0, data: JSON.stringify(world.saveData(p)),
     });
   }
 });
 
 const leaderboardStmt = db.prepare(`
-  SELECT username, cls, title, level, max_depth AS maxDepth, kills, boss_kills AS bossKills, deaths
-  FROM users WHERE cls IS NOT NULL ORDER BY level DESC, xp DESC, max_depth DESC LIMIT 10
+  SELECT username, cls, title, prestige, level, max_depth AS maxDepth, kills, boss_kills AS bossKills, deaths
+  FROM users WHERE cls IS NOT NULL ORDER BY prestige DESC, level DESC, xp DESC, max_depth DESC LIMIT 10
 `);
 
 const checkCredentials = (username, password) => {
@@ -110,6 +111,7 @@ world.on("floater", (f) => {
   }
 });
 world.on("shop", (id, shop) => sockets.get(id)?.emit("shop", shop));
+world.on("story", (id) => sockets.get(id)?.emit("story", world.worldInfo().story));
 world.on("message", ({ to, text, color }) => {
   const msg = { text, color };
   if (to === null) hub.broadcast("message", msg);
@@ -229,6 +231,27 @@ const onConnection = (socket) => {
     if (Number.isInteger(index)) world.useSkill(player, index);
   });
 
+  socket.on("party", (action, arg, callback) => {
+    const result = world.partyAction(player, action, arg);
+    if (typeof callback === "function") callback(result);
+  });
+
+  socket.on("ping", () => world.ping(player));
+
+  socket.on("travelOptions", (callback) => {
+    if (typeof callback === "function") callback(world.travelOptions(player));
+  });
+
+  socket.on("travel", (dest, callback) => {
+    const result = world.travel(player, dest);
+    if (typeof callback === "function") callback(result);
+  });
+
+  socket.on("smith", (action, uid, callback) => {
+    const result = world.smith(player, action, uid);
+    if (typeof callback === "function") callback(result);
+  });
+
   socket.on("chooseClass", (id, callback) => {
     const result = world.chooseClass(player, id);
     if (typeof callback === "function") callback(result);
@@ -254,6 +277,11 @@ const onConnection = (socket) => {
     if (typeof text !== "string") return;
     text = text.replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, 120);
     if (!text) return;
+    if (text.startsWith("/p ")) {
+      const msg = text.slice(3).trim();
+      if (msg) world.partyChat(player, msg);
+      return;
+    }
     hub.broadcast("message", { text: `<${player.username}> ${text}`, color: [140, 200, 255] });
   });
 

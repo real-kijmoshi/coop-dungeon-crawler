@@ -19,6 +19,9 @@ const {
 } = require("./data");
 const { generateItem, describeStats, itemLabel, floorLook, rarityById } = require("./loot");
 const { generateQuest, progressQuests } = require("./quests");
+const { MERCHANT_LINES } = require("./lore");
+const coop = require("./coop");
+const endgame = require("./endgame");
 
 const TICK_MS = 300;
 const SIGHT = 12; // vision radius in tiles
@@ -76,6 +79,10 @@ class World extends EventEmitter {
     this.dirtyPlayers = new Set();
     this.dirtyProfiles = new Set();
     this.event = null;
+    this.parties = new Map(); // partyId -> { id, leader, members:Set<playerId> }
+    this.nextPartyId = 1;
+    this.pings = [];
+    this.waystones = new Map(); // depth -> { tier, x, y }
     this.eventInterval = opts.eventInterval || EVENT_INTERVAL;
     this.nextEventAt = Date.now() + rand(...this.eventInterval);
 
@@ -260,14 +267,16 @@ class World extends EventEmitter {
     for (let i = 0; i < 25; i++) {
       const x = rand(room.x, room.x + room.width - 1);
       const y = rand(room.y, room.y + room.height - 1);
-      if (this.monsterCanEnter(x, y) && !this.items.has(key(x, y))) return { x, y };
+      if (this.monsterCanEnter(x, y) && !this.items.has(key(x, y)) && !this.isWaystone(x, y)) return { x, y };
     }
     return null;
   }
 
   bossForTier(tier) {
-    const options = BOSSES.filter((b) => b.tier <= tier && b.tier >= tier - 1);
-    if (!options.length) return tier >= 8 ? BOSSES[BOSSES.length - 1] : null;
+    const final = BOSSES.find((b) => b.final);
+    if (tier >= final.tier) return final;
+    const options = BOSSES.filter((b) => !b.final && b.tier <= tier && b.tier >= tier - 1);
+    if (!options.length) return tier >= 8 ? BOSSES.find((b) => b.type === "ancient_dragon") : null;
     return options[options.length - 1];
   }
 
@@ -296,7 +305,14 @@ class World extends EventEmitter {
     const c = this.roomCenter(room);
     if (dist(c, this.spawn) < 10) return;
     const tier = this.tierAt(c.x, c.y);
+    this.maybePlaceWaystone(room, tier);
 
+    // The final boss always waits in the first room of the Throne.
+    const finalTier = BOSSES.find((b) => b.final).tier;
+    if (tier >= finalTier && !this.finalLairPlaced && this.tryMakeLair(room, tier)) {
+      this.finalLairPlaced = true;
+      return;
+    }
     if (tier >= 2 && chance(0.1) && this.tryMakeLair(room, tier)) return;
 
     const count = rand(0, 2) + (tier >= 3 ? 1 : 0);
@@ -315,6 +331,7 @@ class World extends EventEmitter {
     place({ kind: "chest", tier }, 0.04);
     place({ kind: "shrine" }, 0.05);
     place({ kind: "gear", item: generateItem(tier + 1) }, 0.06);
+    place({ kind: "lore" }, 0.03 + tier * 0.004);
   }
 
   pickMonsterType(tier) {
@@ -410,6 +427,11 @@ class World extends EventEmitter {
       quests: Array.isArray(data.quests) ? data.quests : [],
       achievements: Array.isArray(data.achievements) ? data.achievements : [],
       counters: { kinds: {}, ...(data.counters || {}) },
+      lore: Array.isArray(data.lore) ? data.lore : [],
+      waystones: Array.isArray(data.waystones) ? data.waystones : [],
+      prestige: user.prestige || 0,
+      partyId: null,
+      pendingInvite: null,
       cooldowns: {},
       buffs: {},
       combo: { count: 0, until: 0 },
@@ -423,6 +445,11 @@ class World extends EventEmitter {
     p.stats.hp = Math.min(p.stats.hp, p.stats.maxHp);
     while (p.quests.length < 3) p.quests.push(generateQuest(p, p.quests));
 
+    // New heroes (no saved position) start at the spawn; don't generate the map corner.
+    if (!this.inBounds(p.x, p.y)) {
+      p.x = this.spawn.x;
+      p.y = this.spawn.y;
+    }
     this.ensureChunksAround(p.x, p.y);
     if (!this.isFloor(p.x, p.y) || this.isMerchant(p.x, p.y)) {
       p.x = this.spawn.x;
@@ -430,6 +457,7 @@ class World extends EventEmitter {
       this.ensureChunksAround(p.x, p.y);
     }
     this.players.set(p.id, p);
+    this.checkBiome(p);
     this.markProfile(p);
     this.announce(`${this.displayName(p)} entered the dungeon.`, C.good);
     if (this.event) this.notify(p, `Event in progress: ${this.event.name} - ${this.event.desc}`, this.event.color);
@@ -447,6 +475,8 @@ class World extends EventEmitter {
       quests: p.quests,
       achievements: p.achievements,
       counters: p.counters,
+      lore: p.lore,
+      waystones: p.waystones,
     };
   }
 
@@ -469,8 +499,9 @@ class World extends EventEmitter {
       if (!item) continue;
       for (const [k, v] of Object.entries(item.stats)) gear[k] = (gear[k] || 0) + v;
     }
-    s.maxHp = Math.round(c.base.maxHp + c.growth.maxHp * L) + p.bonus.hp + (gear.maxHp || 0);
-    s.atk = Math.round(c.base.atk + c.growth.atk * L) + p.bonus.atk + (gear.atk || 0);
+    const prestige = 1 + 0.05 * (p.prestige || 0); // rebirth bonus
+    s.maxHp = Math.round((Math.round(c.base.maxHp + c.growth.maxHp * L) + p.bonus.hp + (gear.maxHp || 0)) * prestige);
+    s.atk = Math.round((Math.round(c.base.atk + c.growth.atk * L) + p.bonus.atk + (gear.atk || 0)) * prestige);
     s.def = Math.floor(c.base.def + c.growth.def * L) + p.bonus.def + (gear.def || 0);
     s.crit = Math.min(0.75, c.crit + (gear.crit || 0));
     s.dodge = Math.min(0.5, c.dodge + (gear.dodge || 0));
@@ -494,6 +525,7 @@ class World extends EventEmitter {
     p.stats.hp = p.stats.maxHp;
     this.announce(`${p.username} takes up the path of the ${c.name}!`, c.color);
     this.notify(p, `You are a ${c.name}. Your first skill, ${c.skills[0].name}, is on key [1].`, C.skill);
+    this.emit("story", p.id);
     this.markProfile(p);
     this.changed();
     return { ok: true };
@@ -503,6 +535,7 @@ class World extends EventEmitter {
     const p = this.players.get(id);
     if (!p) return null;
     if (p.downed) this.killPlayer(p, p.downed.by);
+    if (p.partyId) this.leaveParty(p, true);
     this.players.delete(id);
     this.announce(`${p.username} left the dungeon.`, [180, 180, 180]);
     this.changed();
@@ -582,6 +615,8 @@ class World extends EventEmitter {
     this.ensureChunksAround(nx, ny);
     this.pickUp(player);
     this.checkDepthRecord(player);
+    this.checkBiome(player);
+    this.discoverWaystones(player);
     this.markDirty(player);
     this.changed();
     return { ok: true, reason: "move" };
@@ -756,6 +791,9 @@ class World extends EventEmitter {
             this.notify(player, "Your inventory is full! Sell or drop something (I).", C.bad);
           }
           break;
+        case "lore":
+          this.readLore(player);
+          break;
         case "chest": {
           const tier = item.tier || 0;
           const gold = rand(15, 30) * (tier + 1);
@@ -812,6 +850,8 @@ class World extends EventEmitter {
   shopFor(player) {
     return {
       gold: player.stats.gold,
+      greeting: pick(MERCHANT_LINES),
+      prestige: player.prestige || 0,
       items: SHOP.map((i, idx) => ({
         key: String(idx + 1),
         id: i.id,
@@ -827,6 +867,13 @@ class World extends EventEmitter {
     }
     const entry = SHOP.find((i) => i.id === id);
     if (!entry) return { ok: false, message: "Unknown item." };
+    if (id === "rebirth") {
+      const r = this.rebirth(player);
+      if (!r.ok) return r;
+      this.markProfile(player);
+      this.changed();
+      return { ok: true, shop: this.shopFor(player) };
+    }
     const s = player.stats;
     const price = Math.round(entry.price(player.bonus, s.level));
     if (s.gold < price) return { ok: false, message: `Not enough gold (need ${price}).` };
@@ -1095,19 +1142,24 @@ class World extends EventEmitter {
 
     const xpMult =
       (1 + k.xpBonus) * (this.hasBuff(killer, "wisdom") ? 1.5 : 1) * (this.eventActive("bloodmoon") ? 1.75 : 1);
-    const xp = Math.round(monster.xp * xpMult * comboMult);
+    // Party bonus: +10% XP for each party member fighting nearby.
+    const partyNear = this.partyMembers(killer).filter((m) => m !== killer && !m.downed && dist(m, monster) <= 30);
+    const partyMult = 1 + 0.1 * partyNear.length;
+    const xp = Math.round(monster.xp * xpMult * comboMult * partyMult);
     const comboText = combo.count >= 3 ? `  COMBO x${combo.count}! (+${Math.round((comboMult - 1) * 100)}% XP)` : "";
     this.notify(killer, `You slay the ${monster.name}! +${xp} XP${comboText}`, combo.count >= 3 ? C.crit : C.good);
     this.gainXp(killer, xp);
 
-    // Co-op: allies nearby share half the XP.
-    const shared = Math.max(1, Math.floor((monster.xp * xpMult) / 2));
+    // Co-op XP: party members within 30 tiles get 60%, other heroes within 12 get 35%.
     for (const ally of this.players.values()) {
-      if (ally === killer || ally.downed) continue;
-      if (dist(ally, monster) <= 12) {
-        this.notify(ally, `${killer.username} slays the ${monster.name}. +${shared} XP`, [120, 220, 120]);
-        this.gainXp(ally, shared);
-      }
+      if (ally === killer || ally.downed || !ally.cls) continue;
+      const inParty = this.sameParty(ally, killer);
+      const range = inParty ? 30 : 12;
+      if (dist(ally, monster) > range) continue;
+      const share = Math.max(1, Math.floor(monster.xp * xpMult * (inParty ? 0.6 * partyMult : 0.35)));
+      this.notify(ally, `${killer.username} slays the ${monster.name}. +${share} XP`, [120, 220, 120]);
+      this.gainXp(ally, share);
+      if (inParty) this.questEvent(ally, "kill", { type: monster.type, elite: monster.elite, depth: this.tierAt(monster.x, monster.y) });
     }
 
     const tier = this.tierAt(monster.x, monster.y);
@@ -1119,14 +1171,34 @@ class World extends EventEmitter {
     const dropGear = (boost) => this.dropItem(monster.x, monster.y, { kind: "gear", item: generateItem(tier + 1, { boost }) });
 
     if (monster.boss) {
-      k.bossKills++;
       this.dropItem(monster.x, monster.y, { kind: "chest", tier: tier + 1 });
       this.dropItem(monster.x, monster.y, { kind: "potion" });
+      this.dropItem(monster.x, monster.y, { kind: "lore" });
       dropGear(5);
-      dropGear(5);
-      this.announce(`*** ${killer.username} has defeated the ${monster.name}! ***`, C.epic);
-      this.fx(killer, "toast", `${monster.name.toUpperCase()} DEFEATED!`, C.epic);
-      if (monster.type === "ancient_dragon") this.announce(`${killer.username} is a DRAGONSLAYER!`, C.epic);
+      // Personal loot: everyone who fought gets their own reward, no loot stealing.
+      const fighters = Array.from(this.players.values()).filter((p) => p.cls && !p.downed && dist(p, monster) <= 15);
+      if (!fighters.includes(killer)) fighters.push(killer);
+      const party3 = fighters.filter((p) => this.sameParty(p, killer)).length >= 3;
+      for (const f of fighters) {
+        f.stats.bossKills++;
+        if (f !== killer) {
+          f.counters.kinds[monster.type] = (f.counters.kinds[monster.type] || 0) + 1;
+          this.questEvent(f, "kill", { type: monster.type, elite: false, depth: tier });
+        }
+        if (party3 && this.sameParty(f, killer)) f.counters.partyBosses = (f.counters.partyBosses || 0) + 1;
+        const loot = generateItem(tier + 1, { boost: monster.final ? 12 : 5 });
+        if (!this.giveItem(f, loot)) this.dropItem(f.x, f.y, { kind: "gear", item: loot });
+        this.fx(f, "toast", `${monster.name.toUpperCase()} DEFEATED!`, C.epic);
+        this.checkAchievements(f);
+        this.markProfile(f);
+      }
+      const names = fighters.map((f) => f.username).join(", ");
+      this.announce(`*** ${monster.name} has been defeated by ${names}! ***`, C.epic);
+      if (monster.type === "ancient_dragon") this.announce(`${names}: DRAGONSLAYER${fighters.length > 1 ? "S" : ""}!`, C.epic);
+      if (monster.final) {
+        this.announce(`*** THE ABYSS LORD HAS FALLEN. The darkness sleeps again. Glory to ${names}! ***`, [255, 215, 80]);
+        for (const p of this.players.values()) this.fx(p, "toast", "★ THE ABYSS LORD HAS FALLEN ★", [255, 215, 80]);
+      }
     } else if (monster.flees) {
       dropGear(3);
       dropGear(3);
@@ -1148,7 +1220,7 @@ class World extends EventEmitter {
 
   gainXp(player, amount) {
     const s = player.stats;
-    s.xp += amount;
+    s.xp += Math.round(amount * (1 + 0.1 * (player.prestige || 0)));
     while (s.xp >= xpToNext(s.level)) {
       s.xp -= xpToNext(s.level);
       s.level++;
@@ -1298,6 +1370,7 @@ class World extends EventEmitter {
     for (const p of this.players.values()) nearestDist = Math.min(nearestDist, dist(p, monster));
     if (nearestDist > ACTIVE_RANGE) return false;
     if (monster.frozenUntil > now) return false;
+    if (monster.boss && this.bossMechanics(monster, now)) return true;
 
     if (monster.cooldown > 0) {
       monster.cooldown--;
@@ -1513,6 +1586,16 @@ class World extends EventEmitter {
       quests: p.quests,
       title: p.title,
       bonus: p.bonus,
+      prestige: p.prestige || 0,
+      lore: this.loreFor(p),
+      waystones: p.waystones.length,
+      world: this.worldInfo(),
+      smith: Object.fromEntries(
+        [...Object.values(p.equipment).filter(Boolean), ...p.inventory].map((i) => [
+          i.uid,
+          { upgrade: (i.plus || 0) >= this.MAX_PLUS ? null : this.upgradeCostOf(i), reforge: this.reforgeCostOf(i) },
+        ]),
+      ),
       achievements: ACHIEVEMENTS.map((a) => ({
         id: a.id,
         name: a.name,
@@ -1561,6 +1644,8 @@ class World extends EventEmitter {
         boss: m.boss,
         elite: m.elite,
         frozen: m.frozenUntil > now,
+        charging: m.charging > 0,
+        enraged: !!m.enraged,
         hit: now - m.lastHit < 250,
         hunting: m.target === player.id,
       });
@@ -1578,6 +1663,9 @@ class World extends EventEmitter {
 
     const npcs = [];
     if (this.merchant && isVisible(this.merchant)) npcs.push(this.merchant);
+    for (const w of this.waystones.values()) {
+      if (isVisible(w)) npcs.push({ x: w.x, y: w.y, ...this.WAYSTONE_LOOK, known: player.waystones.includes(w.tier) });
+    }
 
     const nearbyPlayers = [];
     for (const p of this.players.values()) {
@@ -1590,18 +1678,42 @@ class World extends EventEmitter {
           hp: p.stats.hp,
           maxHp: p.stats.maxHp,
           downed: !!p.downed,
+          party: this.sameParty(p, player),
           color: this.classOf(p).color || [120, 220, 255],
         });
       }
     }
 
     const c = this.classOf(player);
+    const party = this.partyOf(player);
+    const biome = this.biomeAt(player.x, player.y);
     return {
       now,
+      biome: { id: biome.id, name: biome.name },
+      party: party
+        ? {
+            leader: this.players.get(party.leader)?.username || "",
+            members: this.partyMembers(player).map((m) => ({
+              username: m.username,
+              cls: this.classOf(m).name,
+              color: this.classOf(m).color || [200, 200, 200],
+              level: m.stats.level,
+              hp: m.stats.hp,
+              maxHp: m.stats.maxHp,
+              downed: !!m.downed,
+              x: m.x,
+              y: m.y,
+              depth: this.tierAt(m.x, m.y),
+            })),
+          }
+        : null,
+      invite: player.pendingInvite && player.pendingInvite.until > now ? { from: player.pendingInvite.from, until: player.pendingInvite.until } : null,
+      pings: this.pingsFor(player),
       player: {
         id: player.id,
         username: player.username,
         title: player.title,
+        prestige: player.prestige || 0,
         cls: player.cls,
         className: c.name,
         classColor: c.color || [255, 255, 255],
@@ -1637,6 +1749,8 @@ class World extends EventEmitter {
       nearbyPlayers,
       online: Array.from(this.players.values()).map((p) => ({
         username: p.username,
+        prestige: p.prestige || 0,
+        party: this.sameParty(p, player),
         cls: this.classOf(p).name,
         color: this.classOf(p).color || [200, 200, 200],
         level: p.stats.level,
@@ -1648,5 +1762,10 @@ class World extends EventEmitter {
     };
   }
 }
+
+// Mix in co-op (parties, pings, travel, boss mechanics) and endgame/setting systems.
+Object.assign(World.prototype, coop, endgame);
+World.prototype.upgradeCostOf = endgame.upgradeCost;
+World.prototype.reforgeCostOf = endgame.reforgeCost;
 
 module.exports = { World, TICK_MS };

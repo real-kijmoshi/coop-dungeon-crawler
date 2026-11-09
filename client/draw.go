@@ -238,11 +238,11 @@ func hpColor(hp, max float64) Color {
 	}
 	switch {
 	case r > 0.6:
-		return Color{80, 220, 100}
+		return activePalette.hpHigh
 	case r > 0.3:
-		return Color{240, 200, 60}
+		return activePalette.hpMid
 	default:
-		return Color{240, 70, 70}
+		return activePalette.hpLow
 	}
 }
 

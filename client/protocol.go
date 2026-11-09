@@ -57,6 +57,7 @@ type PlayerState struct {
 	ID          int          `json:"id"`
 	Username    string       `json:"username"`
 	Title       string       `json:"title"`
+	Prestige    int          `json:"prestige"`
 	Cls         string       `json:"cls"`
 	ClassName   string       `json:"className"`
 	ClassColor  Color        `json:"classColor"`
@@ -92,19 +93,21 @@ type View struct {
 }
 
 type Monster struct {
-	ID      int     `json:"id"`
-	Name    string  `json:"name"`
-	Char    string  `json:"char"`
-	Color   Color   `json:"color"`
-	X       int     `json:"x"`
-	Y       int     `json:"y"`
-	HP      float64 `json:"hp"`
-	MaxHP   float64 `json:"maxHp"`
-	Boss    bool    `json:"boss"`
-	Elite   bool    `json:"elite"`
-	Frozen  bool    `json:"frozen"`
-	Hit     bool    `json:"hit"`
-	Hunting bool    `json:"hunting"`
+	ID       int     `json:"id"`
+	Name     string  `json:"name"`
+	Char     string  `json:"char"`
+	Color    Color   `json:"color"`
+	X        int     `json:"x"`
+	Y        int     `json:"y"`
+	HP       float64 `json:"hp"`
+	MaxHP    float64 `json:"maxHp"`
+	Boss     bool    `json:"boss"`
+	Elite    bool    `json:"elite"`
+	Frozen   bool    `json:"frozen"`
+	Charging bool    `json:"charging"`
+	Enraged  bool    `json:"enraged"`
+	Hit      bool    `json:"hit"`
+	Hunting  bool    `json:"hunting"`
 }
 
 type FloorItem struct {
@@ -121,6 +124,7 @@ type NPC struct {
 	Name  string `json:"name"`
 	Char  string `json:"char"`
 	Color Color  `json:"color"`
+	Known *bool  `json:"known"`
 }
 
 type Ally struct {
@@ -131,11 +135,14 @@ type Ally struct {
 	HP       float64 `json:"hp"`
 	MaxHP    float64 `json:"maxHp"`
 	Downed   bool    `json:"downed"`
+	Party    bool    `json:"party"`
 	Color    *Color  `json:"color"`
 }
 
 type Online struct {
 	Username string  `json:"username"`
+	Prestige int     `json:"prestige"`
+	Party    bool    `json:"party"`
 	Cls      string  `json:"cls"`
 	Color    Color   `json:"color"`
 	Level    int     `json:"level"`
@@ -145,8 +152,48 @@ type Online struct {
 	Depth    int     `json:"depth"`
 }
 
+type Biome struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type PartyMember struct {
+	Username string  `json:"username"`
+	Cls      string  `json:"cls"`
+	Color    Color   `json:"color"`
+	Level    int     `json:"level"`
+	HP       float64 `json:"hp"`
+	MaxHP    float64 `json:"maxHp"`
+	Downed   bool    `json:"downed"`
+	X        int     `json:"x"`
+	Y        int     `json:"y"`
+	Depth    int     `json:"depth"`
+}
+
+type PartyState struct {
+	Leader  string        `json:"leader"`
+	Members []PartyMember `json:"members"`
+}
+
+type Invite struct {
+	From  string  `json:"from"`
+	Until float64 `json:"until"`
+}
+
+type Ping struct {
+	X     int     `json:"x"`
+	Y     int     `json:"y"`
+	By    string  `json:"by"`
+	Label string  `json:"label"`
+	Until float64 `json:"until"`
+}
+
 type GameState struct {
 	Now           float64     `json:"now"`
+	Biome         Biome       `json:"biome"`
+	Party         *PartyState `json:"party"`
+	Invite        *Invite     `json:"invite"`
+	Pings         []Ping      `json:"pings"`
 	Player        PlayerState `json:"player"`
 	Event         *Event      `json:"event"`
 	Depth         int         `json:"depth"`
@@ -169,6 +216,15 @@ type GearItem struct {
 	Ilvl   int                `json:"ilvl"`
 	Stats  map[string]float64 `json:"stats"`
 	Value  float64            `json:"value"`
+	Plus   int                `json:"plus"`
+}
+
+// DisplayName is the item name with its upgrade level.
+func (g GearItem) DisplayName() string {
+	if g.Plus > 0 {
+		return g.Name + " +" + itoa(g.Plus)
+	}
+	return g.Name
 }
 
 type QuestReward struct {
@@ -205,7 +261,46 @@ type ClassInfo struct {
 	Skills []string `json:"skills"`
 }
 
+type TilePalette struct {
+	BG Color `json:"bg"`
+	FG Color `json:"fg"`
+}
+
+type BiomeInfo struct {
+	ID       string      `json:"id"`
+	Name     string      `json:"name"`
+	From     int         `json:"from"`
+	To       int         `json:"to"`
+	Floor    TilePalette `json:"floor"`
+	Corridor TilePalette `json:"corridor"`
+	Wall     Color       `json:"wall"`
+}
+
+type WorldInfo struct {
+	TierDistance float64     `json:"tierDistance"`
+	Biomes       []BiomeInfo `json:"biomes"`
+	Story        []string    `json:"story"`
+	LoreTotal    int         `json:"loreTotal"`
+	RebirthLevel int         `json:"rebirthLevel"`
+}
+
+type LoreEntry struct {
+	N     int    `json:"n"`
+	Title string `json:"title"`
+	Text  string `json:"text"`
+}
+
+type SmithCost struct {
+	Upgrade *float64 `json:"upgrade"`
+	Reforge float64  `json:"reforge"`
+}
+
 type Profile struct {
+	Prestige      int                  `json:"prestige"`
+	Lore          []LoreEntry          `json:"lore"`
+	Waystones     int                  `json:"waystones"`
+	World         *WorldInfo           `json:"world"`
+	Smith         map[string]SmithCost `json:"smith"`
 	Cls           *string              `json:"cls"`
 	Equipment     map[string]*GearItem `json:"equipment"`
 	Inventory     []GearItem           `json:"inventory"`
@@ -224,8 +319,10 @@ type ShopItem struct {
 }
 
 type Shop struct {
-	Gold  float64    `json:"gold"`
-	Items []ShopItem `json:"items"`
+	Greeting string     `json:"greeting"`
+	Prestige int        `json:"prestige"`
+	Gold     float64    `json:"gold"`
+	Items    []ShopItem `json:"items"`
 }
 
 type Fx struct {
@@ -252,7 +349,20 @@ type Result struct {
 	Shop    *Shop  `json:"shop"`
 }
 
+type TravelDest struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Kind  string `json:"kind"`
+}
+
+type TravelOptions struct {
+	Can          bool         `json:"can"`
+	Reason       *string      `json:"reason"`
+	Destinations []TravelDest `json:"destinations"`
+}
+
 type LeaderRow struct {
+	Prestige  int     `json:"prestige"`
 	Username  string  `json:"username"`
 	Cls       *string `json:"cls"`
 	Title     *string `json:"title"`

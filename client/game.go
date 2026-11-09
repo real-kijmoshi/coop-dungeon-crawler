@@ -99,6 +99,15 @@ type Game struct {
 	reconnectCh chan *Conn
 	quit        bool
 	exitReason  string
+
+	settings       Settings
+	world          *WorldInfo
+	partyChannel   bool   // chat goes to the party
+	confirmSellUID string // second X press confirms selling a rare+ item
+	rebinding      string // action waiting for a new key
+	menuCursor     int    // cursor for settings / party / travel menus
+	journalPage    int
+	travelOpts     *TravelOptions
 }
 
 func nowMs() float64 { return float64(time.Now().UnixMilli()) }
@@ -106,6 +115,9 @@ func nowMs() float64 { return float64(time.Now().UnixMilli()) }
 func (g *Game) serverNow() float64 { return nowMs() + g.clockOffset }
 
 func (g *Game) log(text string, c Color) {
+	if !g.settings.CombatLog && isCombatSpam(text) {
+		return
+	}
 	g.msgs = append(g.msgs, Msg{text, c})
 	if len(g.msgs) > 200 {
 		g.msgs = g.msgs[len(g.msgs)-200:]
@@ -148,6 +160,11 @@ func (g *Game) handleNet(ev NetEvent) {
 			}
 			g.log(m.Text, c)
 		}
+	case "story":
+		var lines []string
+		if json.Unmarshal(ev.D, &lines) == nil {
+			g.showStory(lines)
+		}
 	case "fx":
 		var fx Fx
 		if json.Unmarshal(ev.D, &fx) == nil {
@@ -166,13 +183,17 @@ func (g *Game) handleNet(ev NetEvent) {
 				g.flash = &c
 			}
 			g.flashUntil = time.Now().Add(dur)
-			if fx.Text != "" {
+			if !g.settings.ScreenFlash {
+				g.flash = nil
+			}
+			if fx.Text != "" && g.settings.Banners {
 				g.toast = &Toast{fx.Text, c, time.Now()}
 			}
 		}
 	case "floater":
 		var f Floater
-		if json.Unmarshal(ev.D, &f) == nil {
+		if json.Unmarshal(ev.D, &f) == nil && g.settings.Floaters {
+			f.Color = themeFloater(f.Color)
 			now := time.Now()
 			stack := 0
 			for _, o := range g.floaters {
@@ -211,6 +232,9 @@ func (g *Game) reconnect() {
 
 func (g *Game) onProfile(p *Profile) {
 	g.profile = p
+	if p.World != nil {
+		g.world = p.World
+	}
 	if p.Cls == nil {
 		g.showClassSelect()
 	} else if g.overlay != nil && g.overlay.Kind == "class" {
@@ -222,6 +246,8 @@ func (g *Game) onProfile(p *Profile) {
 			g.showInventory(nil)
 		case "journal":
 			g.showJournal()
+		case "party":
+			g.showParty(nil)
 		}
 	}
 }
@@ -249,22 +275,6 @@ func (g *Game) invAction(action string, arg any) {
 }
 
 // ------------------------------------------------------------------ input
-var moveKeys = map[rune]string{'w': "north", 's': "south", 'a': "west", 'd': "east"}
-
-func arrowDir(k tcell.Key) string {
-	switch k {
-	case tcell.KeyUp:
-		return "north"
-	case tcell.KeyDown:
-		return "south"
-	case tcell.KeyLeft:
-		return "west"
-	case tcell.KeyRight:
-		return "east"
-	}
-	return ""
-}
-
 func (g *Game) handleKey(ev *tcell.EventKey) {
 	if ev.Key() == tcell.KeyCtrlC {
 		g.quit = true
@@ -284,9 +294,14 @@ func (g *Game) chatKey(ev *tcell.EventKey) {
 	switch ev.Key() {
 	case tcell.KeyEnter:
 		if t := strings.TrimSpace(g.chat); t != "" {
+			if g.partyChannel && !strings.HasPrefix(t, "/") {
+				t = "/p " + t
+			}
 			g.conn.Send("chat", t)
 		}
 		g.chatting, g.chat = false, ""
+	case tcell.KeyTab:
+		g.partyChannel = !g.partyChannel
 	case tcell.KeyEscape:
 		g.chatting, g.chat = false, ""
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
@@ -301,53 +316,100 @@ func (g *Game) chatKey(ev *tcell.EventKey) {
 }
 
 func (g *Game) gameKey(ev *tcell.EventKey) {
-	if ev.Key() == tcell.KeyEscape {
-		g.quit = true
+	name := keyName(ev)
+	if name == "Esc" { // Esc opens the menu instead of quitting by accident
+		g.menuCursor = 0
+		g.showSettings()
 		return
 	}
-	if ev.Key() == tcell.KeyEnter {
-		g.chatting = true
+	if name == "Enter" {
+		g.openChat(false)
 		return
 	}
-	if d := arrowDir(ev.Key()); d != "" {
-		g.move(d)
-		return
-	}
-	if ev.Key() != tcell.KeyRune {
-		return
-	}
-	r := ev.Rune()
-	lr := []rune(strings.ToLower(string(r)))[0]
-	switch {
-	case lr == 'q':
-		g.quit = true
-	case r == '?' || r == '/':
-		g.showHelp()
-	case lr == 'l':
-		g.conn.Request("leaderboard", func(raw json.RawMessage) {
-			var rows []LeaderRow
-			_ = json.Unmarshal(raw, &rows)
-			g.showLeaderboard(rows)
-		})
-	case lr == 'i':
+	switch g.settings.actionFor(name) {
+	case "up":
+		g.move("north")
+	case "down":
+		g.move("south")
+	case "left":
+		g.move("west")
+	case "right":
+		g.move("east")
+	case "skill1", "skill2", "skill3", "skill4":
+		g.conn.Send("skill", int(g.settings.actionFor(name)[5]-'1'))
+	case "potion":
+		g.conn.Send("potion")
+	case "inventory":
 		g.invCursor = 0
 		if g.profile != nil && len(g.profile.Inventory) > 0 {
 			g.invCursor = 3
 		}
 		g.showInventory(nil)
-	case lr == 'j':
+	case "journal":
+		g.journalPage = 0
 		g.showJournal()
-	case lr == 't':
-		g.chatting = true
-	case lr == 'h':
-		g.conn.Send("potion")
-	case r >= '1' && r <= '4':
-		g.conn.Send("skill", int(r-'1'))
-	default:
-		if d, ok := moveKeys[lr]; ok {
-			g.move(d)
+	case "party":
+		g.menuCursor = 0
+		g.showParty(nil)
+	case "travel":
+		g.openTravel()
+	case "ping":
+		g.conn.Send("ping")
+	case "chat":
+		g.openChat(false)
+	case "partychat":
+		g.openChat(true)
+	case "leaderboard":
+		g.conn.Request("leaderboard", func(raw json.RawMessage) {
+			var rows []LeaderRow
+			_ = json.Unmarshal(raw, &rows)
+			g.showLeaderboard(rows)
+		})
+	case "help":
+		g.showHelp()
+	case "settings":
+		g.menuCursor = 0
+		g.showSettings()
+	case "accept":
+		if g.state != nil && g.state.Invite != nil {
+			g.partyRequest("accept", nil)
 		}
+	case "decline":
+		if g.state != nil && g.state.Invite != nil {
+			g.partyRequest("decline", nil)
+		}
+	case "quit":
+		g.quit = true
 	}
+}
+
+func (g *Game) openChat(party bool) {
+	g.chatting = true
+	g.partyChannel = party && g.state != nil && g.state.Party != nil
+}
+
+func (g *Game) partyRequest(action string, arg any) {
+	g.conn.Request("party", func(raw json.RawMessage) {
+		var r Result
+		if json.Unmarshal(raw, &r) == nil && !r.OK {
+			if g.overlay != nil && g.overlay.Kind == "party" {
+				g.showParty(&Line{Segs: []Seg{{Text: r.Message, Color: cRed}}})
+			} else {
+				g.log(r.Message, cRed)
+			}
+		}
+	}, action, arg)
+}
+
+func (g *Game) openTravel() {
+	g.conn.Request("travelOptions", func(raw json.RawMessage) {
+		var t TravelOptions
+		if json.Unmarshal(raw, &t) == nil {
+			g.travelOpts = &t
+			g.menuCursor = 0
+			g.showTravel(nil)
+		}
+	})
 }
 
 func (g *Game) move(dir string) {
@@ -358,12 +420,18 @@ func (g *Game) move(dir string) {
 
 func (g *Game) overlayKey(ev *tcell.EventKey) {
 	o := g.overlay
+	name := keyName(ev)
+	act := g.settings.actionFor(name)
+	up := name == "Up" || act == "up"
+	down := name == "Down" || act == "down"
+	closeKey := name == "Esc" || name == "q"
 	r := ev.Rune()
 	isRune := ev.Key() == tcell.KeyRune
 	lr := r
 	if isRune {
 		lr = []rune(strings.ToLower(string(r)))[0]
 	}
+
 	switch o.Kind {
 	case "class":
 		if isRune && lr == 'q' {
@@ -375,14 +443,14 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 			if i < len(g.profile.Classes) {
 				g.conn.Request("chooseClass", func(raw json.RawMessage) {
 					var res Result
-					if json.Unmarshal(raw, &res) == nil && res.OK {
+					if json.Unmarshal(raw, &res) == nil && res.OK && g.overlay != nil && g.overlay.Kind == "class" {
 						g.overlay = nil
-						g.showHelp()
 					}
 				}, g.profile.Classes[i].ID)
 			}
 		}
 		return
+
 	case "shop":
 		if isRune && r >= '1' && r <= '9' && o.shop != nil {
 			for _, it := range o.shop.Items {
@@ -394,7 +462,7 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 							return
 						}
 						if res.OK && res.Shop != nil {
-							g.showShop(res.Shop, &Line{Segs: []Seg{{Text: "Bought " + item.Name + "!", Color: cGreen}}})
+							g.showShop(res.Shop, &Line{Segs: []Seg{{Text: "Done: " + item.Name, Color: cGreen}}})
 						} else {
 							g.showShop(g.lastShop, &Line{Segs: []Seg{{Text: res.Message, Color: cRed}}})
 						}
@@ -412,6 +480,7 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 			g.showInventory(nil)
 			return
 		}
+
 	case "inventory":
 		entries := g.inventoryEntries()
 		var sel *invEntry
@@ -419,15 +488,17 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 			sel = &entries[g.invCursor]
 		}
 		switch {
-		case ev.Key() == tcell.KeyUp || (isRune && lr == 'w'):
+		case up:
 			g.invCursor = maxi(0, g.invCursor-1)
+			g.confirmSellUID = ""
 			g.showInventory(nil)
 			return
-		case ev.Key() == tcell.KeyDown || (isRune && lr == 's'):
+		case down:
 			g.invCursor = mini(len(entries)-1, g.invCursor+1)
+			g.confirmSellUID = ""
 			g.showInventory(nil)
 			return
-		case ev.Key() == tcell.KeyEnter || (isRune && lr == 'e'):
+		case name == "Enter" || (isRune && lr == 'e'):
 			if sel != nil && sel.item != nil {
 				if sel.equipped {
 					g.invAction("unequip", sel.slot)
@@ -438,6 +509,13 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 			return
 		case isRune && lr == 'x':
 			if sel != nil && sel.item != nil && !sel.equipped {
+				rare := sel.item.Rarity == "rare" || sel.item.Rarity == "epic" || sel.item.Rarity == "legendary"
+				if g.settings.ConfirmSell && rare && g.confirmSellUID != sel.item.UID {
+					g.confirmSellUID = sel.item.UID
+					g.showInventory(&Line{Segs: []Seg{{Text: "Sell this " + sel.item.Rarity + " item? Press X again to confirm.", Color: cYellow, Bold: true}}})
+					return
+				}
+				g.confirmSellUID = ""
 				g.invAction("sell", sel.item.UID)
 			}
 			return
@@ -446,16 +524,140 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 				g.invAction("drop", sel.item.UID)
 			}
 			return
-		case ev.Key() == tcell.KeyEscape || (isRune && (lr == 'i' || lr == 'q')):
+		case isRune && (lr == 'u' || lr == 'r'):
+			if sel != nil && sel.item != nil {
+				action := "upgrade"
+				if lr == 'r' {
+					action = "reforge"
+				}
+				g.conn.Request("smith", func(raw json.RawMessage) {
+					var res Result
+					if json.Unmarshal(raw, &res) == nil && !res.OK {
+						g.showInventory(&Line{Segs: []Seg{{Text: res.Message, Color: cRed}}})
+					}
+				}, action, sel.item.UID)
+			}
+			return
+		case closeKey || (isRune && lr == 'i'):
 			// close below
 		default:
 			return
 		}
+
 	case "journal":
 		if isRune && lr == 'n' {
 			g.invAction("title", nil)
 			return
 		}
+		if name == "Tab" || name == "Right" || name == "Left" {
+			g.journalPage = 1 - g.journalPage
+			g.showJournal()
+			return
+		}
+
+	case "settings":
+		n := len(settingRows)
+		switch {
+		case up:
+			g.menuCursor = (g.menuCursor - 1 + n) % n
+		case down:
+			g.menuCursor = (g.menuCursor + 1) % n
+		case name == "Enter" || name == "Space" || name == "Right" || name == "Left":
+			g.changeSetting(settingRows[g.menuCursor], name == "Left")
+			if g.quit || (g.overlay != nil && g.overlay.Kind != "settings") {
+				return // opened another screen (key bindings) or quit
+			}
+		case closeKey || name == g.settings.Keys["settings"]:
+			g.settings.save()
+			g.overlay = nil
+			return
+		}
+		g.showSettings()
+		return
+
+	case "keys":
+		if g.rebinding != "" {
+			if name != "" && name != "Esc" {
+				g.settings.bind(g.rebinding, name)
+				g.settings.save()
+			}
+			g.rebinding = ""
+			g.showKeys()
+			return
+		}
+		n := len(actions)
+		switch {
+		case name == "Up":
+			g.menuCursor = (g.menuCursor - 1 + n) % n
+		case name == "Down":
+			g.menuCursor = (g.menuCursor + 1) % n
+		case name == "Enter":
+			g.rebinding = actions[g.menuCursor].ID
+		case closeKey:
+			g.menuCursor = len(settingRows) - 2
+			g.showSettings()
+			return
+		}
+		g.showKeys()
+		return
+
+	case "party":
+		cands := g.partyCandidates()
+		switch {
+		case up:
+			g.menuCursor = maxi(0, g.menuCursor-1)
+		case down:
+			g.menuCursor = mini(maxi(0, len(cands)-1), g.menuCursor+1)
+		case name == "Enter":
+			if g.menuCursor < len(cands) {
+				g.partyRequest("invite", cands[g.menuCursor])
+			}
+		case isRune && lr == 'l':
+			g.partyRequest("leave", nil)
+		case isRune && lr == 'k':
+			if g.menuCursor < len(cands) {
+				g.partyRequest("kick", cands[g.menuCursor])
+			}
+		case isRune && lr == 'c':
+			g.overlay = nil
+			g.openChat(true)
+			return
+		case closeKey || act == "party":
+			g.overlay = nil
+			return
+		}
+		g.showParty(nil)
+		return
+
+	case "travel":
+		if g.travelOpts == nil {
+			break
+		}
+		n := len(g.travelOpts.Destinations)
+		switch {
+		case up:
+			g.menuCursor = (g.menuCursor - 1 + n) % n
+		case down:
+			g.menuCursor = (g.menuCursor + 1) % n
+		case name == "Enter":
+			dest := g.travelOpts.Destinations[g.menuCursor]
+			g.conn.Request("travel", func(raw json.RawMessage) {
+				var res Result
+				if json.Unmarshal(raw, &res) == nil {
+					if res.OK {
+						g.overlay = nil
+					} else {
+						g.showTravel(&Line{Segs: []Seg{{Text: res.Message, Color: cRed}}})
+					}
+				}
+			}, dest.ID)
+			return
+		case closeKey || act == "travel":
+			g.overlay = nil
+			return
+		}
+		g.showTravel(nil)
+		return
 	}
 	g.overlay = nil
 }
@@ -467,6 +669,7 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 		conn:        conn,
 		account:     acc,
 		mem:         Memory{cells: map[[2]int]int{}},
+		settings:    loadSettings(),
 		connected:   true,
 		reconnectCh: make(chan *Conn, 1),
 	}
@@ -520,7 +723,7 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 			}
 			g.floaters = kept
 			animating := len(g.floaters) > 0 || (g.toast != nil && now.Sub(g.toast.Born) < 3*time.Second) || now.Before(g.flashUntil.Add(100*time.Millisecond))
-			if g.state != nil && g.state.Player.Stats.MaxHP > 0 && g.state.Player.Stats.HP/g.state.Player.Stats.MaxHP < 0.3 {
+			if g.settings.LowHPPulse && g.state != nil && g.state.Player.Stats.MaxHP > 0 && g.state.Player.Stats.HP/g.state.Player.Stats.MaxHP < 0.3 {
 				animating = true
 			}
 			// Timers (cooldowns, buffs, events) tick a few times a second.

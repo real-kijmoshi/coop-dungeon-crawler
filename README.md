@@ -132,22 +132,57 @@ iTerm2, Kitty, WezTerm, Alacritty or GNOME Terminal, at 100×30 or larger):
 
 ### Game Controls
 
+These are the default (**WASD**) keys. Press `O` (or `Esc`) for the menu, where you can switch to the **Vim (hjkl)**
+or **Arrows** layout, or rebind every key yourself.
+
 | Key | Action |
 | --- | ------ |
 | `W/A/S/D` or arrow keys | Move. Walk into a monster to attack, into the Merchant to shop, into a downed ally to revive them |
 | `1` `2` `3` `4` | Class skills (unlock at level 1, 3, 5 and 8) |
 | `H` | Drink a healing potion |
-| `I` | Inventory: `W/S` select, `E` equip/unequip, `X` sell (at the merchant), `D` drop |
-| `J` | Journal: bounties and achievements, `N` changes your title |
-| `T` or `Enter` | Chat with everyone online (`Enter` sends, `Esc` cancels) |
+| `I` | Inventory: `E` equip, `X` sell, `D` drop; at the merchant also `U` upgrade and `R` reforge |
+| `J` | Journal: bounties and achievements, `Tab` for lore, `N` changes your title |
+| `P` | Party: invite heroes, see your party, leave |
+| `V` | Travel to the safe room, discovered waystones or party members |
+| `G` | Ping: marks the nearest enemy (or your spot) for your party |
+| `T` / `Enter` | Chat with everyone (`Tab` switches to party chat) |
+| `Tab` | Party chat |
+| `Y` / `N` | Accept / decline a party invite |
 | `L` | Leaderboard (Hall of Heroes) |
+| `O` / `Esc` | Menu and settings |
 | `?` | Help |
-| `Q`, `Esc` or `Ctrl+C` | Quit |
+| `Q` or `Ctrl+C` | Quit |
+
+### Settings
+
+The menu (`O` or `Esc`) saves to your config folder and applies right away:
+
+- **Color themes:** Classic, High contrast, and Colorblind-friendly (blue/yellow/magenta instead of green/red)
+- **Key layout:** WASD, Vim (hjkl) or Arrows, plus per-action rebinding
+- **Toggles:** floating combat numbers, screen flash, low-HP pulse, big banners, combat messages in the log,
+  confirm before selling Rare+ items, minimap, name tags
 
 ### How to play
 
-**The goal:** loot better gear, finish bounties, collect titles, go deeper than anyone else,
-take down the lair bosses and become a **Dragonslayer**.
+**The goal:** go down through six biomes, uncover the story of Emberfall, take down the lair bosses, and defeat
+the **Abyss Lord** waiting past depth 12. Then be reborn and do it again, stronger.
+
+#### The world of Emberfall
+
+The town of Emberfall sits on top of old wine cellars. Last winter the ground shook, fire rose from the wells,
+and the things below began to climb out. Each depth band is its own **biome** with its own look:
+
+| Depth | Biome | |
+| ----- | ----- | - |
+| 0-1 | The Old Cellars | damp stone, rats and slimes |
+| 2-3 | The Fungal Caverns | glowing mushrooms, goblins and spiders |
+| 4-5 | The Sunken Crypts | tombs, skeletons, zombies and wraiths |
+| 6-7 | The Infernal Halls | fire and brimstone, demons and trolls |
+| 8-11 | The Dragon's Abyss | drakes, liches and the Ancient Dragon |
+| 12+ | The Throne of the Abyss | the Abyss Lord |
+
+**Lore scrolls** (`§`) are scattered through the dungeon (more common deeper down, and every boss drops one).
+Each one reveals the next part of the story, 12 in all. Read them in the journal (`J`, then `Tab`).
 
 #### Classes
 
@@ -160,48 +195,59 @@ You pick a class the first time you play (it's permanent for that hero, so make 
 | **Mage** | Ranged glass cannon | Fireball (1), Frost Nova (3, freeze), Chain Lightning (5), Meteor (8) |
 | **Cleric** | Healer & undead-slayer | Heal (1, also revives), Smite (3, 3x vs undead), Sanctuary (5, party heal/revive/DEF), Holy Nova (8) |
 
-#### Loot
+#### Co-op
+
+- **Parties** of up to 4 (`P` to invite, `Y` to accept). Party members get **+10% XP for each member fighting
+  nearby**, a 60% share of every kill within 30 tiles, a party panel showing where everyone is, party chat (`Tab`),
+  and each other's positions on the minimap.
+- **Pings** (`G`) mark the nearest enemy (bosses first) or your position, for everyone in your party, with distance and
+  direction in their log.
+- **Travel to your party:** from the safe room or a waystone, `V` takes you straight to a party member.
+- **Going down instead of dying:** if you fall while an ally is nearby you go **DOWN** (`%`). They have 20 seconds to
+  walk into you (or use Heal / Sanctuary) to bring you back.
+- **Bosses are built for groups:** they introduce themselves, get tougher for each hero they face, **telegraph a ground
+  slam** (the boss glows and the floor around it turns red: get out!) and **enrage** at low health. Everyone who
+  fought gets **personal loot** and boss credit, so there's no loot stealing.
+
+#### Loot and the blacksmith
 
 Monsters, chests, bosses and the merchant's gamble drop **randomly generated gear** for three slots
 (weapon `/`, armor `]`, trinket `"`) in five rarities, shown by color:
 **Common**, **Magic** (blue), **Rare** (yellow), **Epic** (purple) and **Legendary** (orange, with a unique name).
 Gear rolls ATK, DEF, HP, crit, dodge, lifesteal, gold find, XP bonus and HP regen. Deeper depths mean
-better item levels. Your backpack holds 15 items. The inventory shows how each item compares to what you
-wear, and you can sell loot to the merchant.
+better item levels. Your backpack holds 15 items, and the inventory compares each item to what you wear.
+
+At the merchant, the **blacksmith** can **upgrade** any item up to **+10** (each step improves every stat) or
+**reforge** it to re-roll its stats while keeping its rarity and upgrades.
 
 #### The dungeon
 
 - **Depth.** The green **safe room** is home: monsters can't enter it, and you heal fast inside. The further
-  you go from it, the deeper and deadlier the dungeon (rats → goblins → skeletons → orcs → wraiths → golems →
-  trolls → demons → drakes → liches), but loot and XP get better. Depth records pay gold.
+  you go from it, the deeper and deadlier the dungeon, but loot and XP get better. Depth records pay gold.
+- **Waystones** (`Ω`) sit in each new depth. Step next to one to attune, then travel back to it from the safe room or
+  any other waystone (`V`), so you never have to walk all the way down again.
 - **Vision.** You only see what's in your line of sight (rooms you stand in are lit). Explored areas stay on your
   map, dimmed. Monsters only notice you if they can see you, and some shoot from range.
 - **Elites** (bold) are tougher and always drop gear. **Bosses** (capital letters) guard treasure chests in their lairs:
-  Goblin King, Bone Lord, Orc Warlord, Wraith Queen, Troll Chieftain, Demon Prince and the **Ancient Dragon** (depth 8+).
+  Goblin King, Bone Lord, Orc Warlord, Wraith Queen, Troll Chieftain, Demon Prince, the **Ancient Dragon** (depth 8+)
+  and the **Abyss Lord** (depth 12+).
 - **Shrines** `^` give a random buff for a minute or more: Power, Fortune, Wisdom, Haste, Protection or Blood.
 - **Other pickups:** `$` gold, `!` healing potion (up to 9), `♥` heart crystal (+5 max HP permanently),
-  `=` treasure chest (gold, potion and gear).
+  `=` treasure chest (gold, potion and gear), `§` lore scroll.
 
-#### Reasons to keep playing
+#### Endgame and reasons to keep playing
 
+- **Rebirth:** at level 15 the merchant can **rebirth** you: back to level 1, but you keep your gear and gold and gain a
+  permanent **+5% ATK and HP and +10% XP** per rebirth (shown as `✦N` next to your name and on the leaderboard).
 - **Kill combos:** chain kills within 4 seconds for up to +100% XP.
-- **Bounties:** you always have three, scaled to your progress. Examples: slay 10 goblins, defeat the Bone Lord,
-  reach depth 5, open chests, hit a x6 combo. Each pays gold, XP and often an item, and a new one replaces it.
-- **22 achievements**, each unlocking a title shown on the leaderboard ("the Dragonslayer", "the Unstoppable", ...).
-- **World events** every 6-9 minutes, announced to everyone:
-  **Gold Rush** (double gold), **Blood Moon** (stronger monsters, +75% XP, more loot), **Loot Frenzy** (3x item drops)
-  and **Treasure Goblins** (they run from you and drop piles of loot if you catch them before they escape).
-- **The Merchant** (`M`) sells potions, permanent ATK/DEF/HP upgrades (prices rise each time) and a mystery-item gamble.
-
-#### Co-op
-
-- If you fall while an ally is nearby you go **DOWN** (`%`) instead of dying. They have 20 seconds to walk into you
-  (or use Heal, Sanctuary) to bring you back.
-- Allies near a kill share half its XP. Reviving someone earns XP too.
-- Classes complement each other: a Warrior taunts, a Cleric heals, a Mage freezes and nukes, a Rogue bursts down bosses.
+- **Bounties:** you always have three, scaled to your progress. Each pays gold, XP and often an item.
+- **29 achievements**, each unlocking a title ("the Dragonslayer", "the Loremaster", "of the Fellowship", ...).
+- **World events** every 6-9 minutes: **Gold Rush**, **Blood Moon**, **Loot Frenzy** and **Treasure Goblins**.
+- **The Merchant** (`M`) sells potions, permanent ATK/DEF/HP upgrades and a mystery-item gamble.
 - **Death** drops half your gold where you fell and sends you back to the safe room. Your gear is safe.
 
-Everything is saved on the server: class, level, gear, backpack, bounties, achievements, records and position.
+Everything is saved on the server: class, level, rebirths, gear, backpack, bounties, achievements, lore, waystones,
+records and position.
 
 > Tip for server admins: set `EVENT_INTERVAL_MS` (e.g. `60000`) to make world events happen more often.
 
