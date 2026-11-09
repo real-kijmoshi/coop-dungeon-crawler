@@ -6,7 +6,8 @@ const {
   MapMemory,
   COLORS,
   pad,
-} = require("./utils/console");
+  invalidate,
+} = require("./ui/render");
 
 const MOVE_KEYS = {
   w: "north",
@@ -55,7 +56,17 @@ const HELP = [
   { text: "M Merchant: upgrades, potions, gambling, sell loot (in the safe room)", color: COLORS.ORANGE },
   { text: "$ gold  ! potion  ♥ heart  = chest  ^ shrine (temporary buff)", color: COLORS.YELLOW },
   { text: "/ ] \" gear - color shows rarity:", color: COLORS.YELLOW },
-  { text: "   Common  Magic  Rare  Epic  LEGENDARY", color: RARITY_COLORS.rare },
+  {
+    text: "   Common  Magic  Rare  Epic  LEGENDARY",
+    segments: [
+      { text: "   " },
+      { text: "Common  ", color: RARITY_COLORS.common, bold: true },
+      { text: "Magic  ", color: RARITY_COLORS.magic, bold: true },
+      { text: "Rare  ", color: RARITY_COLORS.rare, bold: true },
+      { text: "Epic  ", color: RARITY_COLORS.epic, bold: true },
+      { text: "LEGENDARY", color: RARITY_COLORS.legendary, bold: true },
+    ],
+  },
   { text: "Capital letters are BOSSES guarding treasure. Bold = elite.", color: COLORS.ORANGE },
   { text: "" },
   { text: "Chain kills within 4s for COMBO XP. Finish bounties for big rewards.", color: COLORS.GREEN },
@@ -74,6 +85,8 @@ let invCursor = 0;
 let lastShop = null;
 let flash = null;
 let flashUntil = 0;
+let toast = null; // { text, color, born }
+let floaters = []; // { x, y, text, color, born }
 let clockOffset = 0; // server time - local time
 let dirty = true;
 
@@ -151,6 +164,8 @@ const showInventory = (note) => {
     lines.push({
       text: `${cur} ${tag} ${pad(label, 34)} ${e.item ? "ilvl " + e.item.ilvl : ""}`,
       color: e.item ? RARITY_COLORS[e.item.rarity] : COLORS.DARK,
+      bg: i === invCursor ? [55, 50, 80] : undefined,
+      bold: i === invCursor,
     });
   });
   if (!profile.inventory.length) lines.push({ text: "  (empty - go find some loot!)", color: COLORS.DARK });
@@ -256,9 +271,21 @@ const start = (account, ws) => {
   };
   socket.on("profile", onProfile);
   socket.on("message", (msg) => msg && log(msg.text, msg.color));
-  socket.on("fx", (type) => {
-    flash = type === "hurt" ? COLORS.RED : type === "legendary" ? RARITY_COLORS.legendary : COLORS.YELLOW;
-    flashUntil = Date.now() + (type === "hurt" ? 180 : 800);
+  socket.on("fx", (fx) => {
+    if (!fx) return;
+    const type = fx.type;
+    flash = type === "hurt" || type === "death" ? COLORS.RED : fx.color || COLORS.YELLOW;
+    flashUntil = Date.now() + (type === "hurt" ? 160 : 700);
+    if (fx.text) toast = { text: fx.text, color: fx.color || COLORS.YELLOW, born: Date.now() };
+    dirty = true;
+  });
+  socket.on("floater", (f) => {
+    if (!f) return;
+    const now = Date.now();
+    // Stack numbers that pop at the same spot so they don't overlap.
+    const stack = floaters.filter((o) => o.x === f.x && o.y === f.y && now - o.born < 450).length;
+    floaters.push({ ...f, born: now, stack });
+    if (floaters.length > 40) floaters.shift();
     dirty = true;
   });
   socket.on("shop", (shop) => showShop(shop));
@@ -400,6 +427,7 @@ const start = (account, ws) => {
   });
 
   process.stdout.on("resize", () => {
+    invalidate();
     dirty = true;
   });
 
@@ -411,6 +439,11 @@ const start = (account, ws) => {
       flash = null;
       dirty = true;
     }
+    if (floaters.length) {
+      floaters = floaters.filter((f) => t - f.born < 1000);
+      dirty = true; // animate
+    }
+    if (gameState && gameState.player.stats.hp / gameState.player.stats.maxHp < 0.3) dirty = true; // low-HP pulse
     if (t - lastClockRedraw > 250) {
       lastClockRedraw = t;
       dirty = true;
@@ -422,6 +455,8 @@ const start = (account, ws) => {
       input: chatInput,
       overlay,
       flash,
+      toast,
+      floaters,
       now: t + clockOffset,
     });
   }, interval);

@@ -86,6 +86,19 @@ npm start
 
 ## Documentation
 
+### The interface
+
+The client is a full-screen true-color terminal UI (works best in a modern terminal such as Windows Terminal,
+iTerm2, Kitty, WezTerm, Alacritty or GNOME Terminal, at 100×30 or larger):
+
+- **Map** with torchlight that fades with distance, cool-blue memory of explored areas and outlined rooms
+- **Floating combat text** for damage, crits, heals, dodges and gold, and big banners for level-ups,
+  achievements, legendary drops, bounties and death
+- **Sidebar** with your character (smooth HP/XP bars, stats, buffs, combo timer), a **minimap**, enemies in sight,
+  bounties and your party; on small terminals it collapses into a compact top bar
+- **Skill bar** with cooldown sweeps, a message log that stacks repeats, and a chat line
+- Only changed cells are redrawn each frame, so it stays smooth even over SSH
+
 ### Game Controls
 
 | Key | Action |

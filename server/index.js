@@ -102,7 +102,13 @@ const broadcastStates = () => {
 };
 
 world.on("changed", broadcastStates);
-world.on("fx", (id, type) => sockets.get(id)?.emit("fx", type));
+world.on("fx", (id, fx) => sockets.get(id)?.emit("fx", fx));
+world.on("floater", (f) => {
+  for (const [id, socket] of sockets) {
+    const p = world.players.get(id);
+    if (p && Math.abs(p.x - f.x) <= 20 && Math.abs(p.y - f.y) <= 14) socket.emit("floater", f);
+  }
+});
 world.on("shop", (id, shop) => sockets.get(id)?.emit("shop", shop));
 world.on("message", ({ to, text, color }) => {
   const msg = { text, color };

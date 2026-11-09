@@ -18,6 +18,24 @@ try {
   accounts = [];
 }
 
+const LOGO = [
+  "   ___                    ___                                ",
+  "  / __|___  ___ _ __     |   \\ _  _ _ _  __ _ ___ ___ _ _   ",
+  " | (__/ _ \\/ _ \\ '_ \\    | |) | || | ' \\/ _` / -_) _ \\ ' \\  ",
+  "  \\___\\___/\\___/ .__/    |___/ \\_,_|_||_\\__, \\___\\___/_||_| ",
+  "               |_|                       |___/              ",
+];
+const GRADIENT = [[255, 215, 120], [255, 180, 90], [255, 140, 70], [230, 100, 70], [190, 70, 90]];
+const showLogo = () => {
+  console.clear();
+  console.log();
+  LOGO.forEach((line, i) => {
+    const [r, g, b] = GRADIENT[i];
+    console.log(`\x1b[1;38;2;${r};${g};${b}m${line}\x1b[0m`);
+  });
+  console.log("\x1b[38;2;140;140;160m        ⚔  a co-op terminal dungeon crawler  ⚔\x1b[0m\n");
+};
+
 const saveAccounts = () => {
   writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2));
 };
@@ -57,7 +75,7 @@ const errorMessage = (error) =>
   error?.response?.data?.message || error.message || String(error);
 
 const authenticate = async (action) => {
-  console.clear();
+  showLogo();
   let { server, username, password } = await askCredentials();
   server = normalizeServer(server);
   username = username.trim();
@@ -80,6 +98,7 @@ const authenticate = async (action) => {
 };
 
 const newAccount = async () => {
+  showLogo();
   const { action } = await inquirer.prompt([
     {
       type: "list",
@@ -101,7 +120,7 @@ const newAccount = async () => {
 };
 
 const loop = async () => {
-  console.clear();
+  showLogo();
   const { index } = await inquirer.prompt([
     {
       type: "list",

@@ -21,7 +21,7 @@ const { generateItem, describeStats, itemLabel, floorLook, rarityById } = requir
 const { generateQuest, progressQuests } = require("./quests");
 
 const TICK_MS = 300;
-const SIGHT = 9; // vision radius in tiles
+const SIGHT = 12; // vision radius in tiles
 const ACTIVE_RANGE = 25;
 const MOVE_COOLDOWN = 110;
 const ATTACK_COOLDOWN = 350;
@@ -193,8 +193,14 @@ class World extends EventEmitter {
     this.emit("message", { to: null, text, color });
   }
 
-  fx(player, type) {
-    this.emit("fx", player.id, type);
+  // type: hurt | levelup | legendary | toast | death; text shows as a big banner
+  fx(player, type, text = null, color = null) {
+    this.emit("fx", player.id, { type, text, color });
+  }
+
+  // Floating combat text at a world position, seen by players nearby.
+  floater(x, y, text, color) {
+    this.emit("floater", { x, y, text: String(text), color });
   }
 
   changed() {
@@ -611,7 +617,7 @@ class World extends EventEmitter {
     }
     if (item.rarity === "legendary") {
       player.counters.legendaries = (player.counters.legendaries || 0) + 1;
-      this.fx(player, "legendary");
+      this.fx(player, "legendary", `LEGENDARY: ${item.name}`, r.color);
       if (announceRare) this.announce(`${player.username} found a LEGENDARY item: ${item.name}!`, r.color);
     } else if (item.rarity === "epic" && announceRare) {
       this.announce(`${player.username} found an epic ${item.name}.`, r.color);
@@ -715,6 +721,7 @@ class World extends EventEmitter {
         case "gold": {
           const amount = Math.round(item.amount * (1 + s.goldFind) * (this.hasBuff(player, "fortune") ? 2 : 1));
           this.addGold(player, amount);
+          this.floater(player.x, player.y, `+${amount}g`, ITEMS.gold.color);
           this.notify(player, `You pick up ${amount} gold.`, ITEMS.gold.color);
           break;
         }
@@ -737,7 +744,7 @@ class World extends EventEmitter {
           const shrine = pick(SHRINES);
           this.addBuff(player, shrine.id, shrine.name.replace(/^Shrine of /, ""), shrine.duration);
           this.notify(player, `${shrine.name}: ${shrine.desc} for ${shrine.duration / 1000}s!`, ITEMS.shrine.color);
-          this.fx(player, "levelup");
+          this.fx(player, "toast", `${shrine.name}: ${shrine.desc}`, ITEMS.shrine.color);
           break;
         }
         case "gear":
@@ -790,10 +797,8 @@ class World extends EventEmitter {
       return false;
     }
     s.potions--;
-    const heal = Math.max(15, Math.round(s.maxHp * 0.4));
-    const before = s.hp;
-    s.hp = Math.min(s.maxHp, s.hp + heal);
-    this.notify(player, `You drink a potion and heal ${s.hp - before} HP.`, ITEMS.potion.color);
+    const healed = this.healPlayer(player, Math.max(15, Math.round(s.maxHp * 0.4)));
+    this.notify(player, `You drink a potion and heal ${healed} HP.`, ITEMS.potion.color);
     this.markDirty(player);
     this.changed();
     return true;
@@ -927,7 +932,7 @@ class World extends EventEmitter {
       case "berserk":
         this.addBuff(player, "berserk", "Berserk", 8000);
         this.notify(player, "You fly into a BERSERK rage!", C.skill);
-        this.fx(player, "levelup");
+        this.fx(player, "toast", "BERSERK!", [255, 80, 60]);
         return true;
       // ---- rogue
       case "backstab": {
@@ -988,7 +993,7 @@ class World extends EventEmitter {
         const t = this.visibleMonsters(player, 6);
         if (!t.length) return this.notify(player, "No enemy in sight."), false;
         this.aoe(player, t, 3, "METEOR", { halfDef: true });
-        this.fx(player, "levelup");
+        this.fx(player, "toast", "☄ METEOR ☄", [255, 120, 40]);
         return true;
       }
       // ---- cleric
@@ -1033,11 +1038,13 @@ class World extends EventEmitter {
     return false;
   }
 
-  healPlayer(p, amount) {
+  healPlayer(p, amount, show = true) {
     const before = p.stats.hp;
     p.stats.hp = Math.min(p.stats.maxHp, p.stats.hp + amount);
     this.markDirty(p);
-    return p.stats.hp - before;
+    const healed = p.stats.hp - before;
+    if (show && healed >= 3) this.floater(p.x, p.y, `+${healed}`, [110, 255, 130]);
+    return healed;
   }
 
   // ---------------------------------------------------------------- combat
@@ -1050,10 +1057,11 @@ class World extends EventEmitter {
     dmg = Math.max(1, dmg);
     monster.hp -= dmg;
     monster.lastHit = Date.now();
+    this.floater(monster.x, monster.y, crit ? `${dmg}!` : dmg, crit ? [255, 230, 60] : [255, 255, 255]);
     if (!monster.flees && !(monster.tauntUntil > Date.now())) monster.target = player.id;
 
     const ls = this.effLifesteal(player);
-    if (ls > 0) this.healPlayer(player, Math.max(1, Math.round(dmg * ls)));
+    if (ls > 0) this.healPlayer(player, Math.max(1, Math.round(dmg * ls)), false);
 
     if (!opts.quiet) {
       this.notify(
@@ -1117,6 +1125,7 @@ class World extends EventEmitter {
       dropGear(5);
       dropGear(5);
       this.announce(`*** ${killer.username} has defeated the ${monster.name}! ***`, C.epic);
+      this.fx(killer, "toast", `${monster.name.toUpperCase()} DEFEATED!`, C.epic);
       if (monster.type === "ancient_dragon") this.announce(`${killer.username} is a DRAGONSLAYER!`, C.epic);
     } else if (monster.flees) {
       dropGear(3);
@@ -1151,7 +1160,8 @@ class World extends EventEmitter {
         const idx = this.skillsOf(player).indexOf(unlocked) + 1;
         this.notify(player, `New skill: ${unlocked.name} [${idx}] - ${unlocked.desc}!`, C.skill);
       }
-      this.fx(player, "levelup");
+      this.fx(player, "levelup", `★ LEVEL ${s.level} ★`, [255, 220, 80]);
+      this.floater(player.x, player.y, "LEVEL UP!", [255, 230, 80]);
       this.announce(`${player.username} reached level ${s.level}!`, [255, 230, 120]);
       this.checkAchievements(player);
     }
@@ -1164,7 +1174,7 @@ class World extends EventEmitter {
     const done = progressQuests(player.quests, event, data);
     for (const q of done) {
       this.notify(player, `BOUNTY COMPLETE: ${q.desc}! +${q.reward.gold} gold, +${q.reward.xp} XP${q.reward.item ? ", and an item" : ""}`, C.quest);
-      this.fx(player, "levelup");
+      this.fx(player, "toast", `BOUNTY COMPLETE: ${q.desc}`, C.quest);
       this.addGold(player, q.reward.gold);
       player.counters.quests = (player.counters.quests || 0) + 1;
       if (q.reward.item) {
@@ -1188,7 +1198,7 @@ class World extends EventEmitter {
       player.title = a.title;
       this.notify(player, `ACHIEVEMENT UNLOCKED: ${a.name} - ${a.desc}. New title: "${a.title}" (J to change)`, C.achieve);
       this.announce(`${player.username} earned the achievement [${a.name}]!`, C.achieve);
-      this.fx(player, "levelup");
+      this.fx(player, "toast", `ACHIEVEMENT: ${a.name}`, C.achieve);
       this.markProfile(player);
     }
   }
@@ -1197,6 +1207,7 @@ class World extends EventEmitter {
   monsterAttacks(monster, player, ranged) {
     if (chance(player.stats.dodge)) {
       this.notify(player, `You dodge the ${monster.name}'s attack!`, [160, 255, 200]);
+      this.floater(player.x, player.y, "dodge", [160, 255, 220]);
       return;
     }
     let atk = ranged ? Math.round(monster.atk * 0.75) : monster.atk;
@@ -1208,6 +1219,7 @@ class World extends EventEmitter {
     dmg = Math.max(1, dmg);
     player.stats.hp -= dmg;
     player.lastHurt = Date.now();
+    this.floater(player.x, player.y, `-${dmg}`, [255, 90, 90]);
     const verb = ranged || !monster.verb.includes(" at") ? monster.verb : "hits";
     this.notify(player, `The ${monster.name} ${crit ? "critically " : ""}${verb} you for ${dmg}.`, C.bad);
     this.fx(player, "hurt");
@@ -1225,6 +1237,7 @@ class World extends EventEmitter {
     for (const m of this.monsters.values()) if (m.target === player.id) m.target = null;
     this.announce(`${player.username} is DOWN! Walk into them within ${DOWNED_MS / 1000}s to revive!`, C.bad);
     this.notify(player, "You are down! Hold on - an ally can revive you.", C.bad);
+    this.fx(player, "death", "✚ YOU ARE DOWN ✚", [255, 90, 90]);
   }
 
   revive(player, saviour) {
@@ -1232,6 +1245,7 @@ class World extends EventEmitter {
     player.stats.hp = Math.max(1, Math.round(player.stats.maxHp * 0.4));
     player.lastHurt = Date.now();
     this.announce(`${saviour.username} revived ${player.username}!`, C.good);
+    this.fx(player, "toast", `Revived by ${saviour.username}!`, C.good);
     if (saviour !== player) {
       saviour.counters.revives = (saviour.counters.revives || 0) + 1;
       this.gainXp(saviour, 5 * saviour.stats.level);
@@ -1248,6 +1262,7 @@ class World extends EventEmitter {
     if (lost > 0) this.dropItem(player.x, player.y, { kind: "gold", amount: lost });
     this.announce(`${player.username} was slain by ${withArticle(by)}!`, C.bad);
     this.notify(player, `You died! You dropped ${lost} gold where you fell. Respawning...`, C.bad);
+    this.fx(player, "death", "☠ YOU DIED ☠", [255, 70, 70]);
     player.downed = null;
     player.buffs = {};
     player.combo = { count: 0, until: 0 };
@@ -1445,7 +1460,7 @@ class World extends EventEmitter {
           amount += Math.max(1, Math.floor(s.maxHp / (this.inSafeRoom(p.x, p.y) ? 8 : 30)));
         }
         if (amount > 0) {
-          this.healPlayer(p, Math.round(amount));
+          this.healPlayer(p, Math.round(amount), false);
           changed = true;
         }
       }
@@ -1606,6 +1621,7 @@ class World extends EventEmitter {
           key: String(i + 1),
           name: s.name,
           level: s.level,
+          cooldown: s.cooldown,
           readyAt: player.cooldowns[s.id] || 0,
         })),
         quests: player.quests.map((q) => ({ desc: q.desc, have: q.have, need: q.need })),
