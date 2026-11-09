@@ -168,7 +168,11 @@ func (ui *loginUI) formKey(e *tcell.EventKey) (*Account, bool) {
 		return ui.submit(), false
 	case tcell.KeyRune:
 		if ui.focus < 3 {
-			if runeLen(ui.fields[ui.focus]) < 64 {
+			limit := 64
+			if ui.focus == 0 {
+				limit = 2048
+			}
+			if runeLen(ui.fields[ui.focus]) < limit {
 				ui.fields[ui.focus] += string(e.Rune())
 			}
 		} else if e.Rune() == ' ' {

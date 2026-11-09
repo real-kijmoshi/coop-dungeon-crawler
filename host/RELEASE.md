@@ -1,29 +1,25 @@
-## Compression that survives tunnels
+# Cloudflare + Direct Internet hosting
 
-Update **both the Windows host and all game clients**. Back up saves and keep the same save folder.
+Download **cdc-host-windows-amd64.exe**, double-click it and choose:
 
-A real Cloudflare test showed that WebSocket permessage-deflate was not negotiated on the tested public tunnel, even though it worked locally. v0.2.2 adds opt-in, application-level DEFLATE for game snapshots so compression does not depend on the proxy negotiating a WebSocket extension.
+1. **Cloudflare** — temporary HTTPS URL; no router setup.
+2. **Direct Internet** — opens the game port and tries automatic router forwarding.
+3. **Both** — both addresses point to the same saved world.
+4. **LAN**.
+5. **Local**.
 
-In the real four-client Cloudflare benchmark, total received game traffic fell from about **410 KiB/s to 72 KiB/s** (about **82% less**) while maintaining roughly 20 snapshots/s per player, with no disconnects during the short test. Both ends ran on US GitHub runners; this does not establish latency from Poland. [Raw results and method](https://github.com/real-kijmoshi/coop-dungeon-crawler/blob/main/diagnostics/README.md).
+Node.js and dependencies are bundled. No domain or VPS is required.
 
-- New clients advertise the codec; older clients continue receiving JSON text.
-- Snapshots remain coalesced and limited to one in-flight compression/write per connection.
-- Clients bound decompression size and reject corrupted binary frames.
-- Reliable game events keep their existing event stream.
-- Includes tests for legacy clients/servers, mixed client versions, compressed snapshots without WebSocket extensions, and Node-to-Go codec compatibility.
+Direct mode creates an app-specific TCP firewall rule, tries UPnP/NAT-PMP mapping, renews its finite lease, and removes its own router mapping on normal shutdown. Only firewall configuration requests Administrator permission; the game stays under the normal user account. The firewall rule persists between launches and can be removed with `--direct --remove-firewall`. It covers this executable's game port on Private/Public profiles. The LAN rule remains Private/local-subnet only.
 
-The temporary tunnel address still changes after a restart. No save format or save location changes.
+Direct invitations use HTTPS plus the host's persistent public-key fingerprint. **Friends must use client v0.3.0+ and paste the entire invite, including `#key=...`, into the Server field.** Registration, login and game traffic are encrypted and pinned to that key. Direct invites are for the game client; browsers do not automatically trust the self-signed certificate. Cloudflare links work normally in a browser.
 
-## Windows host
+The host prints the actual public port granted by the router. It labels direct reachability as **not independently verified**. Unsupported routers, CGNAT/upstream NAT, or firewall restrictions can prevent direct connections; automatic Cloudflare fallback is available. Use `--no-upnp`, `--public-ip`, `--external-port`, `--no-firewall` and `--no-fallback` for manual setup.
 
-Download **cdc-host-windows-amd64.exe** on Windows x64, double-click it and choose a hosting mode. Node.js, the server dependencies and cloudflared are bundled; no installation or Administrator access is needed for public mode.
+Command line: `--public`, `--direct`, or `--public --direct`.
 
-- **Internet:** creates a temporary Cloudflare HTTPS URL and prints the full address to share. Friends paste that URL into the game client's Server field or open it in a browser for launch commands. Anyone with the URL can reach the game server. No Cloudflare account, inbound firewall rule or router configuration is required. The URL changes on restart. Quick Tunnels have no uptime guarantee and are intended for testing/development, rather than permanent hosting.
-- **LAN:** prints the computer's local addresses. Allow the bundled Node runtime on your private network if Windows asks. For an explicit local-subnet-only rule, run from an Administrator terminal: `cdc-host-windows-amd64.exe --lan --open-firewall`. This does not open a router port.
-- **Local:** only this computer can connect.
+Press **Enter** to save and stop. Saves remain in `%LOCALAPPDATA%/CoopDungeonHost/saves`; TLS identity is in `.../tls`. Stop the old host and back up these folders before upgrading. The new host prevents concurrent use of the same save folder and stops its Windows server/tunnel child processes if the launcher closes.
 
-Keep the host window open. Press **Enter** to save and stop. Saves are kept in `%LOCALAPPDATA%/CoopDungeonHost/saves`, independently of versioned runtimes. Back up this folder before updates. Public mode stops exposing the server when the host closes. Internet connectivity to Cloudflare is required.
+All six client platforms, source-server ZIP and SHA256 checksums are included. Executables are unsigned. Existing Cloudflare/LAN protocols remain compatible; new clients are required for key-bearing direct invitations.
 
-All six client platforms, the source-based server ZIP and SHA256 checksums are also included. macOS client binaries are unsigned. The Windows executable is unsigned too; it is not code-signed.
-
-[Website](https://real-kijmoshi.github.io/coop-dungeon-crawler/) · [Cloudflare Quick Tunnel limitations](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
+Router mapping behavior is tested with mock devices; actual router/ISP forwarding cannot be established by those tests. External direct reachability must be checked from another network.
