@@ -90,18 +90,34 @@ npm start
 
 | Key | Action |
 | --- | ------ |
-| `W/A/S/D` or arrow keys | Move. Walking into a monster attacks it |
+| `W/A/S/D` or arrow keys | Move. Walk into a monster to attack, into the Merchant to shop, into a downed ally to revive them |
+| `1` `2` `3` | Skills: **Whirlwind** (Lv 2), **Rally** (Lv 4), **Fireball** (Lv 6) |
 | `H` | Drink a healing potion |
 | `T` or `Enter` | Chat with everyone online (`Enter` sends, `Esc` cancels) |
+| `L` | Leaderboard (Hall of Heroes) |
+| `?` | Help |
 | `Q`, `Esc` or `Ctrl+C` | Quit |
 
 ### How to play
 
-- You start in a safe room in the middle of the dungeon. The **further you go from it, the deeper you are**
-  (shown as *Depth* in the side panel) and the more dangerous the monsters get:
-  rats and bats → goblins → skeletons → orcs → wraiths → trolls → **dragons**.
-- Kill monsters for **XP** and **gold**. Each level gives more max HP and ATK (and DEF every other level) and fully heals you.
-- Loot found in rooms or dropped by monsters:
+**The goal:** get strong enough to go deeper than anyone else, take down the lair bosses, and become a **Dragonslayer**.
+
+- **Depth.** You start in the green **safe room**; monsters can't enter it, and you heal quickly inside.
+  The further you go from it, the deeper you are (shown as *Depth*) and the deadlier it gets:
+  rats & bats → goblins → skeleton archers → orcs → wraiths → trolls → drakes.
+  Every new depth record pays an explorer's bonus in gold. The side panel always points the way home.
+- **Vision.** You only see what's in your line of sight (rooms you stand in are lit). Explored areas stay on
+  your map, dimmed, and monsters only notice you if they can see you.
+- **Combat.** Bump to attack, with random damage and critical hits. Skeletons, wraiths and drakes shoot from range.
+  **Elite** monsters (bold, from depth 2) are tougher and always drop loot.
+- **Bosses** (capital letters) guard **treasure chests** in their lairs and never leave them:
+  Goblin King, Bone Lord, Orc Warlord, Wraith Queen, Troll Chieftain, and the **Ancient Dragon** at depth 8+.
+- **Skills** unlock as you level:
+  - `1` Whirlwind: hit every enemy around you (6s cooldown)
+  - `2` Rally: heal yourself and allies nearby by 30% and revive downed allies (30s)
+  - `3` Fireball: blast the nearest enemy you can see, up to 8 tiles away (9s)
+- **The Merchant** (`M`, in the safe room) sells potions and permanent ATK / DEF / max HP upgrades. Prices rise as you grow.
+- **Loot:**
 
   | Symbol | Item |
   | ------ | ---- |
@@ -110,13 +126,13 @@ npm start
   | `/` | Sharper blade: ATK +1 |
   | `]` | Armor plate: DEF +1 |
   | `♥` | Heart crystal: max HP +5 |
+  | `=` | Treasure chest: lots of gold, a potion and gear |
 
-- HP slowly regenerates when you haven't been hit for a few seconds.
-- If you die you drop half your gold where you fell and respawn in the starting room. Go back and pick it up!
-- **Co-op:** when a party member kills a monster near you, you get half its XP too. Other players are
-  shown in cyan with their name above them, and the side panel lists everyone online with their level and HP.
-- The map is endless-feeling and generated as you explore. Places you've already seen stay on screen, dimmed.
-- Your character (level, stats, gold, potions, position) is saved on the server.
+- **Co-op.** If you fall while an ally is nearby you go **DOWN** (`%`) instead of dying. They have 20 seconds
+  to walk into you (or use Rally) to bring you back. Allies near a kill share half its XP, and reviving
+  someone earns XP too. Together you can take on lairs that would kill you alone.
+- **Death** drops half your gold where you fell and sends you back to the safe room. Go get it back!
+- Everything is saved on the server: your level, stats, gold, records and position. Check `L` to see who's on top.
 
 ### Quick start (local)
 

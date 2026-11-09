@@ -33,6 +33,8 @@ db.prepare(
     potions INTEGER DEFAULT ${PLAYER_BASE.potions},
     kills INTEGER DEFAULT 0,
     deaths INTEGER DEFAULT 0,
+    max_depth INTEGER DEFAULT 0,
+    boss_kills INTEGER DEFAULT 0,
     position_x INTEGER DEFAULT -1,
     position_y INTEGER DEFAULT -1
   )
@@ -48,7 +50,8 @@ const savePlayerStmt = db.prepare(`
     position_x = @x, position_y = @y,
     hp = @hp, max_hp = @maxHp, atk = @atk, def = @def,
     level = @level, xp = @xp, gold = @gold, potions = @potions,
-    kills = @kills, deaths = @deaths
+    kills = @kills, deaths = @deaths,
+    max_depth = @maxDepth, boss_kills = @bossKills
   WHERE id = @id
 `);
 const savePlayers = db.transaction((players) => {
@@ -56,6 +59,11 @@ const savePlayers = db.transaction((players) => {
     savePlayerStmt.run({ id: p.id, x: p.x, y: p.y, ...p.stats });
   }
 });
+
+const leaderboardStmt = db.prepare(`
+  SELECT username, level, max_depth AS maxDepth, kills, boss_kills AS bossKills, deaths
+  FROM users ORDER BY level DESC, xp DESC, max_depth DESC LIMIT 10
+`);
 
 const checkCredentials = (username, password) => {
   if (typeof username !== "string" || typeof password !== "string") return null;
@@ -85,6 +93,8 @@ const broadcastStates = () => {
 };
 
 world.on("changed", broadcastStates);
+world.on("fx", (id, type) => sockets.get(id)?.emit("fx", type));
+world.on("shop", (id, shop) => sockets.get(id)?.emit("shop", shop));
 world.on("message", ({ to, text, color }) => {
   const msg = { text, color };
   if (to === null) io.emit("message", msg);
@@ -182,7 +192,7 @@ io.on("connection", (socket) => {
   sockets.set(user.id, socket);
   const player = world.addPlayer(user);
   socket.emit("message", {
-    text: "Welcome! Walk into monsters to attack. H drinks a potion, T to chat.",
+    text: "Welcome! Press ? for help. Visit the Merchant (M) in the safe room to spend gold.",
     color: [255, 255, 120],
   });
 
@@ -196,6 +206,19 @@ io.on("connection", (socket) => {
   });
 
   socket.on("potion", () => world.drinkPotion(player));
+
+  socket.on("skill", (id) => world.useSkill(player, id));
+
+  socket.on("buy", (id, callback) => {
+    const result = world.buy(player, id);
+    if (typeof callback === "function") callback(result);
+  });
+
+  socket.on("leaderboard", (callback) => {
+    if (typeof callback !== "function") return;
+    flushPlayers();
+    callback(leaderboardStmt.all());
+  });
 
   socket.on("chat", (text) => {
     if (typeof text !== "string") return;
