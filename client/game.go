@@ -17,6 +17,7 @@ type Seg struct {
 	Text  string
 	Color Color
 	Bold  bool
+	BG    *Color // optional background for just this segment
 }
 
 type Line struct {
@@ -74,6 +75,8 @@ func (m *Memory) remember(v View) {
 }
 
 type Game struct {
+	app     *App
+	toMenu  bool // leave to the main menu instead of quitting
 	cv      *Canvas
 	conn    *Conn
 	account Account
@@ -108,6 +111,10 @@ type Game struct {
 	menuCursor     int    // cursor for settings / party / travel menus
 	journalPage    int
 	travelOpts     *TravelOptions
+
+	music     musicState
+	ambient   []ember // drifting dust / sparks in the light
+	lastFrame time.Time
 }
 
 func nowMs() float64 { return float64(time.Now().UnixMilli()) }
@@ -189,6 +196,7 @@ func (g *Game) handleNet(ev NetEvent) {
 			if fx.Text != "" && g.settings.Banners {
 				g.toast = &Toast{fx.Text, c, time.Now()}
 			}
+			g.fxSound(fx)
 		}
 	case "floater":
 		var f Floater
@@ -556,12 +564,11 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 		}
 
 	case "settings":
-		n := len(settingRows)
 		switch {
 		case up:
-			g.menuCursor = (g.menuCursor - 1 + n) % n
+			g.menuCursor = nextRow(settingRows, g.menuCursor, -1)
 		case down:
-			g.menuCursor = (g.menuCursor + 1) % n
+			g.menuCursor = nextRow(settingRows, g.menuCursor, 1)
 		case name == "Enter" || name == "Space" || name == "Right" || name == "Left":
 			g.changeSetting(settingRows[g.menuCursor], name == "Left")
 			if g.quit || (g.overlay != nil && g.overlay.Kind != "settings") {
@@ -594,7 +601,7 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 		case name == "Enter":
 			g.rebinding = actions[g.menuCursor].ID
 		case closeKey:
-			g.menuCursor = len(settingRows) - 2
+			g.menuCursor = indexOf(settingRows, "keys")
 			g.showSettings()
 			return
 		}
@@ -663,30 +670,25 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 }
 
 // --------------------------------------------------------------------- run
-func runGame(cv *Canvas, conn *Conn, acc Account) string {
+
+// runGame plays until the player quits. It returns a message for the menu and
+// whether to go back to the main menu (true) or exit the program (false).
+func runGame(app *App, conn *Conn, acc Account) (string, bool) {
+	cv := app.cv
 	g := &Game{
+		app:         app,
 		cv:          cv,
 		conn:        conn,
 		account:     acc,
 		mem:         Memory{cells: map[[2]int]int{}},
-		settings:    loadSettings(),
+		settings:    app.settings,
 		connected:   true,
 		reconnectCh: make(chan *Conn, 1),
 	}
 	g.log("Connected to "+acc.Server+" as "+acc.Username, cGray)
 	g.showHelp()
 	g.requestInitial()
-
-	keys := make(chan tcell.Event, 64)
-	go func() {
-		for {
-			ev := cv.s.PollEvent()
-			if ev == nil {
-				return
-			}
-			keys <- ev
-		}
-	}()
+	app.audio.Play("title")
 
 	ticker := time.NewTicker(33 * time.Millisecond)
 	defer ticker.Stop()
@@ -695,12 +697,12 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 
 	for !g.quit {
 		select {
-		case ev := <-keys:
+		case ev := <-app.events:
 			switch e := ev.(type) {
 			case *tcell.EventKey:
 				g.handleKey(e)
 			case *tcell.EventResize:
-				cv.s.Sync()
+				cv.Invalidate()
 			}
 			dirty = true
 		case ev := <-g.conn.Events:
@@ -722,8 +724,13 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 				}
 			}
 			g.floaters = kept
+			g.updateMusic(now)
 			animating := len(g.floaters) > 0 || (g.toast != nil && now.Sub(g.toast.Born) < 3*time.Second) || now.Before(g.flashUntil.Add(100*time.Millisecond))
 			if g.settings.LowHPPulse && g.state != nil && g.state.Player.Stats.MaxHP > 0 && g.state.Player.Stats.HP/g.state.Player.Stats.MaxHP < 0.3 {
+				animating = true
+			}
+			// Torchlight flicker and drifting embers run at ~15 fps.
+			if g.settings.Animations && g.state != nil && now.Sub(lastDraw) > 66*time.Millisecond {
 				animating = true
 			}
 			// Timers (cooldowns, buffs, events) tick a few times a second.
@@ -738,8 +745,74 @@ func runGame(cv *Canvas, conn *Conn, acc Account) string {
 		}
 	}
 	g.conn.Close()
-	if g.exitReason == "" {
-		return "Thanks for playing!"
+	app.settings = g.settings
+	if g.exitReason != "" {
+		return g.exitReason, true
 	}
-	return g.exitReason
+	if g.toMenu {
+		return "Logged out of " + acc.Username + ".", true
+	}
+	return "Thanks for playing!", false
+}
+
+// musicState picks the soundtrack from what's on screen, without flapping.
+type musicState struct {
+	want      string
+	since     time.Time
+	bossUntil time.Time
+}
+
+func (g *Game) desiredTrack(now time.Time) string {
+	st := g.state
+	if st == nil || g.profile == nil || g.profile.Cls == nil {
+		return "title"
+	}
+	for _, m := range st.Monsters {
+		if m.Boss {
+			g.music.bossUntil = now.Add(8 * time.Second)
+		}
+	}
+	if now.Before(g.music.bossUntil) {
+		return "boss"
+	}
+	if st.Player.Safe {
+		return "town"
+	}
+	if st.Depth >= 6 {
+		return "deep"
+	}
+	return "explore"
+}
+
+func (g *Game) updateMusic(now time.Time) {
+	want := g.desiredTrack(now)
+	if want != g.music.want {
+		g.music.want, g.music.since = want, now
+	}
+	// Switch after the mood has held for a moment (bosses right away).
+	if want == "boss" || now.Sub(g.music.since) > 1500*time.Millisecond {
+		if want == "boss" && g.app.audio.Current() != "boss" {
+			g.app.audio.SFX("boss")
+		}
+		g.app.audio.Play(want)
+	}
+}
+
+func (g *Game) fxSound(fx Fx) {
+	if g.app == nil {
+		return
+	}
+	a := g.app.audio
+	switch {
+	case fx.Type == "levelup":
+		a.SFX("levelup")
+	case fx.Type == "death":
+		a.SFX("death")
+	case fx.Type == "legendary":
+		a.SFX("legendary")
+	case strings.HasPrefix(fx.Text, "ACHIEVEMENT"):
+		a.SFX("achievement")
+	case strings.HasPrefix(fx.Text, "BOUNTY COMPLETE"):
+		a.SFX("quest")
+	}
 }

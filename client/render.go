@@ -127,7 +127,7 @@ func (g *Game) draw() {
 		msg := "  ⚠ Connection lost — reconnecting...  "
 		cv.Text(maxi(0, (W-runeLen(msg))/2), 0, msg, Color{20, 20, 20}, ptr(Color{255, 180, 60}), true, -1)
 	}
-	cv.s.Show()
+	cv.Show()
 }
 
 // ------------------------------------------------------------------ top bar
@@ -224,6 +224,18 @@ func (g *Game) drawMap(r rect) {
 		}
 	}
 
+	now := time.Now()
+	// Light effects step 6 times a second, so the terminal only repaints a lit area
+	// a few times per second (cheap over SSH); particles still move smoothly.
+	tsec := math.Floor(float64(now.UnixMilli()%1000000)/1000*6) / 6
+	anim := g.settings.Animations
+	// The hero's torch flickers a little.
+	flicker := 1.0
+	if anim {
+		flicker = 0.95 + math.Round((0.05*valueNoise(tsec*3, 3)+0.02*math.Sin(tsec*5))*50)/50
+	}
+	lights := g.lightSources(tsec)
+
 	for ty := 0; ty < r.h; ty++ {
 		for tx := 0; tx < cols; tx++ {
 			wx, wy := camX+tx, camY+ty
@@ -241,6 +253,7 @@ func (g *Game) drawMap(r rect) {
 				continue // unknown: leave background
 			}
 			var t tileStyle
+			face := false
 			switch {
 			case cell == 0:
 				edge := false
@@ -255,6 +268,7 @@ func (g *Game) drawMap(r rect) {
 					continue // solid rock: draw nothing, rooms get clean outlines
 				}
 				t = tileWall
+				face = isOpen(wx, wy+1) // the side of the wall you can see
 			case cell == -1:
 				t = tileCorridor
 			case g.mem.hasSafe && cell == g.mem.safeRoom:
@@ -263,7 +277,8 @@ func (g *Game) drawMap(r rect) {
 				t = tileFloor
 			}
 			// Each depth band (biome) has its own colors.
-			if b := g.biomeFor(wx, wy); b != nil && t != tileSafe {
+			b := g.biomeFor(wx, wy)
+			if b != nil && t != tileSafe {
 				switch t {
 				case tileWall:
 					t = tileStyle{b.Wall, b.Wall, t.chars}
@@ -273,16 +288,47 @@ func (g *Game) drawMap(r rect) {
 					t = tileStyle{b.Floor.FG, b.Floor.BG, t.chars}
 				}
 			}
-
+			chars := t.chars
 			jitter := 0.9 + hash2(wx, wy)*0.2
+			if cell == 0 {
+				// Walls: lit top surface, darker face with a mortar line where you can see the side.
+				top := scale(t.bg, 1.12*jitter)
+				if face {
+					t.fg, t.bg = top, scale(t.bg, 0.5)
+					chars = [2]rune{'▀', '▀'}
+				} else {
+					t.fg, t.bg = scale(top, 0.8), top
+					if hash2(wx*3, wy*7) > 0.82 {
+						chars = [2]rune{' ', '░'}
+					}
+				}
+			} else {
+				// Ambient occlusion: floor next to walls is a bit darker.
+				ao := 1.0
+				if !isOpen(wx, wy-1) {
+					ao *= 0.78
+				}
+				if !isOpen(wx-1, wy) || !isOpen(wx+1, wy) {
+					ao *= 0.92
+				}
+				t.bg = scale(t.bg, ao)
+				t.fg = scale(t.fg, ao)
+			}
+			var decor *decorLook
+			if g.settings.Decor && cell > 0 && t != tileSafe {
+				decor = decorAt(b, wx, wy)
+			}
+
 			var fg, bg Color
 			if visible {
 				d := math.Hypot(float64(wx-p.X), float64(wy-p.Y))
-				light := clampf(1.15-d/float64(sight+3), 0.35, 1.1) * jitter * activePalette.light
+				light := clampf(1.3-d/(float64(sight+3)*flicker), 0.32, 1.22) * jitter * activePalette.light * flicker
 				fg = mix(scale(t.fg, light), warm, 0.08*light)
-				bg = mix(scale(t.bg, light), warm, 0.05*light)
-				if cell == 0 && isOpen(wx, wy+1) {
-					bg = mix(bg, warm, 0.12)
+				bg = mix(scale(t.bg, light), warm, 0.06*light)
+				// colored light from torches of allies, waystones, lava, bosses...
+				if tint, amt := lights.at(wx, wy); amt > 0 {
+					bg = mix(bg, tint, math.Min(0.55, amt*0.45))
+					fg = mix(fg, tint, math.Min(0.5, amt*0.35))
 				}
 			} else {
 				fg = mix(scale(t.fg, activePalette.memory*jitter), Color{40, 50, 90}, 0.35)
@@ -291,8 +337,20 @@ func (g *Game) drawMap(r rect) {
 			if danger[[2]int{wx, wy}] && cell != 0 {
 				bg = mix(bg, Color{255, 40, 30}, 0.35+0.3*pulse)
 			}
-			cv.Put(sx, sy, t.chars[0], fg, &bg, false)
-			cv.Put(sx+1, sy, t.chars[1], fg, &bg, false)
+			cv.Put(sx, sy, chars[0], fg, &bg, false)
+			cv.Put(sx+1, sy, chars[1], fg, &bg, false)
+			if decor != nil {
+				dc := decor.color
+				if decor.glow > 0 && anim {
+					dc = scale(dc, 0.85+0.25*math.Sin(tsec*3+float64(wx*7+wy*3)))
+				}
+				if visible {
+					dc = mix(scale(dc, clampf(1.2-math.Hypot(float64(wx-p.X), float64(wy-p.Y))/float64(sight+3), 0.45, 1.1)), fg, 0.1)
+				} else {
+					dc = mix(scale(dc, activePalette.memory), Color{40, 50, 90}, 0.4)
+				}
+				cv.Put(sx+decor.side, sy, decor.ch, dc, &bg, false)
+			}
 		}
 	}
 
@@ -420,8 +478,12 @@ func (g *Game) drawMap(r rect) {
 		}
 	}
 
+	// Ambient particles: embers in the fire, dust in the crypts, spores in the caves.
+	if anim {
+		g.drawAmbient(r, camX, camY, offX, cols, now, live)
+	}
+
 	// Floating combat text
-	now := time.Now()
 	for _, f := range g.floaters {
 		age := now.Sub(f.Born).Milliseconds()
 		sx, sy, ok := toScreen(f.X, f.Y)
@@ -932,7 +994,11 @@ func (g *Game) drawOverlay(r rect) {
 		}
 		xx := x + 2
 		for _, sg := range l.Segs {
-			xx += cv.Text(xx, y+2+i, sg.Text, sg.Color, &lb, sg.Bold, x+w-2-xx)
+			sb := &lb
+			if sg.BG != nil {
+				sb = sg.BG
+			}
+			xx += cv.Text(xx, y+2+i, sg.Text, sg.Color, sb, sg.Bold, x+w-2-xx)
 		}
 	}
 	if o.Footer != "" {

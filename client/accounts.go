@@ -117,3 +117,73 @@ func register(server, username, password string) error {
 func login(server, username, password string) error {
 	return postAuth(server, "login", username, password)
 }
+
+// HeroInfo is the summary the account screen shows for a saved hero.
+type HeroInfo struct {
+	Username  string  `json:"username"`
+	Cls       *string `json:"cls"`
+	Title     *string `json:"title"`
+	Level     int     `json:"level"`
+	Prestige  int     `json:"prestige"`
+	Gold      int     `json:"gold"`
+	Kills     int     `json:"kills"`
+	Deaths    int     `json:"deaths"`
+	BossKills int     `json:"bossKills"`
+	MaxDepth  int     `json:"maxDepth"`
+	Online    bool    `json:"online"`
+}
+
+// postJSON sends credentials (plus extra fields) to an account endpoint.
+func postJSON(server, endpoint string, fields map[string]string, out any) error {
+	body, _ := json.Marshal(fields)
+	res, err := httpClient.Post(server+endpoint, "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("could not reach %s", server)
+	}
+	defer res.Body.Close()
+	if res.StatusCode == http.StatusNotFound {
+		return errors.New("this server is too old for account management")
+	}
+	if res.StatusCode >= 300 {
+		var e struct {
+			Message string `json:"message"`
+		}
+		_ = json.NewDecoder(res.Body).Decode(&e)
+		if e.Message == "" {
+			e.Message = res.Status
+		}
+		return errors.New(e.Message)
+	}
+	if out != nil {
+		return json.NewDecoder(res.Body).Decode(out)
+	}
+	return nil
+}
+
+func heroInfo(a Account) (*HeroInfo, error) {
+	var h HeroInfo
+	err := postJSON(a.Server, "/account/info", map[string]string{"username": a.Username, "password": a.Password}, &h)
+	if err != nil {
+		return nil, err
+	}
+	return &h, nil
+}
+
+func changePassword(a Account, newPassword string) error {
+	return postJSON(a.Server, "/account/password", map[string]string{"username": a.Username, "password": a.Password, "newPassword": newPassword}, nil)
+}
+
+func deleteHero(a Account, confirm string) error {
+	return postJSON(a.Server, "/account/delete", map[string]string{"username": a.Username, "password": a.Password, "confirm": confirm}, nil)
+}
+
+// Class looks for the account screen (matches the server's class colors).
+var classLooks = map[string]struct {
+	Name  string
+	Color Color
+}{
+	"warrior": {"Warrior", Color{255, 120, 80}},
+	"rogue":   {"Rogue", Color{180, 255, 120}},
+	"mage":    {"Mage", Color{140, 170, 255}},
+	"cleric":  {"Cleric", Color{255, 240, 150}},
+}

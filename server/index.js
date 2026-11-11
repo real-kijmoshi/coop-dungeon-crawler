@@ -179,6 +179,69 @@ app.post("/login", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Account management (used by the client's main menu)
+// ---------------------------------------------------------------------------
+const updatePassword = db.prepare("UPDATE users SET password = ? WHERE id = ?");
+const deleteUser = db.prepare("DELETE FROM users WHERE id = ?");
+
+const authed = (req, res) => {
+  const { username, password } = req.body || {};
+  const user = checkCredentials(username, password);
+  if (!user) res.status(401).json({ message: "Wrong username or password." });
+  return user;
+};
+
+// A summary of the hero, for the account screen.
+app.post("/account/info", (req, res) => {
+  flushPlayers();
+  const user = authed(req, res);
+  if (!user) return;
+  const online = world.players.get(user.id);
+  res.json({
+    username: user.username,
+    cls: user.cls,
+    title: user.title,
+    level: user.level,
+    prestige: user.prestige || 0,
+    gold: user.gold,
+    kills: user.kills,
+    deaths: user.deaths,
+    bossKills: user.boss_kills,
+    maxDepth: user.max_depth,
+    online: !!online,
+  });
+});
+
+app.post("/account/password", (req, res) => {
+  const user = authed(req, res);
+  if (!user) return;
+  const next = req.body.newPassword;
+  if (typeof next !== "string" || next.length < 1 || next.length > 128) {
+    return res.status(400).json({ message: "The new password can't be empty." });
+  }
+  updatePassword.run(bcrypt.hashSync(next, 10), user.id);
+  res.json({ message: "Password changed." });
+});
+
+app.post("/account/delete", (req, res) => {
+  const user = authed(req, res);
+  if (!user) return;
+  if (req.body.confirm !== user.username) {
+    return res.status(400).json({ message: "Type the hero's name to confirm." });
+  }
+  const socket = sockets.get(user.id);
+  if (socket) {
+    socket.emit("kicked", "This hero was deleted.");
+    sockets.delete(user.id);
+    socket.disconnect(true);
+  }
+  if (world.players.has(user.id)) world.removePlayer(user.id);
+  deleteUser.run(user.id);
+  console.log(`User deleted: ${user.username}`);
+  res.json({ message: "Hero deleted." });
+});
+
+// ---------------------------------------------------------------------------
 // WebSocket connections (see net/hub.js for the protocol)
 // ---------------------------------------------------------------------------
 const httpServer = http.createServer(app);

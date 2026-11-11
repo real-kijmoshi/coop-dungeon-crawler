@@ -43,14 +43,19 @@ func fmtStats(stats map[string]float64) string {
 }
 
 func (g *Game) showHelp() {
-	k := g.settings.keyLabel
+	g.overlay = &Overlay{Kind: "help", Title: "HOW TO PLAY", Lines: helpLines(g.settings), Footer: "any key to close · " + g.settings.keyLabel("settings") + " settings"}
+}
+
+// helpLines is the how-to-play page (also shown from the main menu).
+func helpLines(s Settings) []Line {
+	k := s.keyLabel
 	move := k("up") + k("left") + k("down") + k("right")
 	lines := []Line{
 		L("Explore an endless dungeon with your friends. The further from the", cWhite),
 		L("safe room, the deeper and deadlier it gets - and the better the loot.", cWhite),
 		L("", cWhite),
 		L(fmt.Sprintf("%-6s / arrows  move - walk into monsters to attack", move), cCyan),
-		L(fmt.Sprintf("%s %s %s %s        class skills (unlock at Lv 1, 3, 5, 8)", k("skill1"), k("skill2"), k("skill3"), k("skill4")), cCyan),
+		L(fmt.Sprintf("%s %s %s %s        class skills (unlock at Lv 1, 6, 15, 30)", k("skill1"), k("skill2"), k("skill3"), k("skill4")), cCyan),
 		L(fmt.Sprintf("%s potion   %s inventory   %s journal   %s party   %s travel", k("potion"), k("inventory"), k("journal"), k("party"), k("travel")), cCyan),
 		L(fmt.Sprintf("%s ping   %s chat   %s party chat   %s ranks   %s settings   %s quit", k("ping"), k("chat"), k("partychat"), k("leaderboard"), k("settings"), k("quit")), cCyan),
 		L("", cWhite),
@@ -74,7 +79,7 @@ func (g *Game) showHelp() {
 		L("Waystones (Ω) let you travel back deep. At Lv 100 you can be REBORN stronger.", cGreen),
 		L("At the edge of the world (monster level 95+) the Abyss Lord waits. Bring friends.", cRed),
 	}
-	g.overlay = &Overlay{Kind: "help", Title: "HOW TO PLAY", Lines: lines, Footer: "any key to close · " + k("settings") + " settings"}
+	return lines
 }
 
 func (g *Game) showClassSelect() {

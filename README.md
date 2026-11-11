@@ -113,7 +113,8 @@ response buffering for `/watch` so the live stream flows (nginx: `proxy_bufferin
 
 The client talks to the server over a plain WebSocket at `/ws` with JSON messages, so writing another client
 (web, mobile, bots) is easy. See [`server/net/hub.js`](server/net/hub.js) for the message format. Accounts are
-created through `POST /register` and checked with `POST /login`.
+created through `POST /register` and checked with `POST /login`. The main menu uses `POST /account/info`,
+`POST /account/password` and `POST /account/delete` (all take `username` and `password`).
 
 ## Documentation
 
@@ -122,13 +123,54 @@ created through `POST /register` and checked with `POST /login`.
 The client is a full-screen true-color terminal UI (works best in a modern terminal such as Windows Terminal,
 iTerm2, Kitty, WezTerm, Alacritty or GNOME Terminal, at 100×30 or larger):
 
-- **Map** with torchlight that fades with distance, cool-blue memory of explored areas and outlined rooms
+- **Main menu** with an animated cave, torches and drifting embers. From there you can play as your last hero,
+  manage your **heroes and accounts**, change **settings** and read **how to play**
+- **Map** with a flickering torchlight that fades with distance and **colored light** from allies, waystones,
+  lava, glowing mushrooms and crystals, shrines, legendary loot and angry bosses. Walls show a lit top and a
+  shaded face, floors get soft shadows near walls, and each biome has its own **floor details** (straw, moss,
+  bones, lava cracks, crystals, gold) and **particles** (dust, spores, embers)
+- Cool-blue memory of explored areas and outlined rooms
 - **Floating combat text** for damage, crits, heals, dodges and gold, and big banners for level-ups,
   achievements, legendary drops, bounties and death
 - **Sidebar** with your character (smooth HP/XP bars, stats, buffs, combo timer), a **minimap**, enemies in sight,
   bounties and your party; on small terminals it collapses into a compact top bar
 - **Skill bar** with cooldown sweeps, a message log that stacks repeats, and a chat line
-- Only changed cells are redrawn each frame, so it stays smooth even over SSH
+- The client keeps its own frame buffer and only sends the cells that changed, so it stays light over SSH
+  (a few KB/s while you play)
+
+### Main menu and accounts
+
+The menu opens when you start `cdc`. **Heroes & accounts** lists every hero saved on this computer, with their
+class, level, title, kills and whether they're online, and lets you:
+
+| Key | Action |
+| --- | ------ |
+| `Enter` | Play as that hero |
+| `E` | Edit the saved login (server address, name, password) |
+| `P` | Change the hero's password on the server |
+| `F` | Forget the login on this computer (the hero stays on the server) |
+| `X` | Delete the hero from the server for good (type its name to confirm) |
+| `U` | Move the hero up the list |
+| `R` | Refresh |
+
+You can also create a new hero or log in to an existing one from the menu. In game, the `Esc` menu has
+**Back to the main menu** to switch heroes without restarting.
+
+### Music and sound
+
+The game has its own **chiptune soundtrack**: a title theme, a calm safe-room tune, an exploring theme for the
+upper dungeon, a darker one for the deep, and a boss fight track. The music follows what's happening (it switches
+when you enter the safe room, go deep, or a boss shows up), plus sound effects for level ups, bounties,
+achievements, legendary drops and death.
+
+Everything is composed and synthesized by the client itself and played with your system's audio player, so the
+client stays a single small binary with no audio libraries: `afplay` on macOS, PowerShell on Windows, and
+`pw-play`, `paplay`, `aplay` or `ffplay` on Linux. Without one of those (or a sound device, e.g. over SSH) the game
+simply runs silent. Rendered tracks are cached in your cache folder (`~/.cache/coop-dungeon-crawler/audio` on
+Linux).
+
+- Turn music and sounds on or off and set their volumes in **Settings**, or start with `cdc -no-music`.
+- To use another player, set `CDC_AUDIO_PLAYER`, e.g. `CDC_AUDIO_PLAYER="mpv --really-quiet"`.
 
 ### Game Controls
 
@@ -155,12 +197,14 @@ or **Arrows** layout, or rebind every key yourself.
 
 ### Settings
 
-The menu (`O` or `Esc`) saves to your config folder and applies right away:
+Settings are in the main menu and in game (`O` or `Esc`). They save to your config folder and apply right away:
 
-- **Color themes:** Classic, High contrast, and Colorblind-friendly (blue/yellow/magenta instead of green/red)
-- **Key layout:** WASD, Vim (hjkl) or Arrows, plus per-action rebinding
-- **Toggles:** floating combat numbers, screen flash, low-HP pulse, big banners, combat messages in the log,
-  confirm before selling Rare+ items, minimap, name tags
+- **Sound:** music on/off and volume, sound effects on/off and volume
+- **Graphics:** color theme (Classic, High contrast, Colorblind-friendly with blue/yellow/magenta instead of
+  green/red), animations (torches, embers, flicker; turn off for slow connections), dungeon details, floating
+  combat numbers, screen flash, low-HP pulse, big banners, minimap, name tags
+- **Gameplay:** key layout (WASD, Vim (hjkl) or Arrows) and per-action rebinding, combat messages in the log,
+  confirm before selling Rare+ items
 
 ### How to play
 

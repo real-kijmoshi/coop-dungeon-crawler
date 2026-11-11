@@ -65,12 +65,19 @@ type Settings struct {
 	ConfirmSell bool              `json:"confirmSell"`
 	Minimap     bool              `json:"minimap"`
 	NameTags    bool              `json:"nameTags"`
+	Music       bool              `json:"music"`
+	MusicVolume int               `json:"musicVolume"` // 0..10
+	Sounds      bool              `json:"sounds"`
+	SoundVolume int               `json:"soundVolume"` // 0..10
+	Animations  bool              `json:"animations"`  // title screen embers, torch flicker, ...
+	Decor       bool              `json:"decor"`       // biome details on the floor
 }
 
 func defaultSettings() Settings {
 	s := Settings{
 		Preset: "WASD", Theme: "Classic", Floaters: true, ScreenFlash: true, LowHPPulse: true,
 		Banners: true, CombatLog: true, ConfirmSell: true, Minimap: true, NameTags: true,
+		Music: true, MusicVolume: 6, Sounds: true, SoundVolume: 7, Animations: true, Decor: true,
 	}
 	s.Keys = copyKeys(presets["WASD"])
 	return s

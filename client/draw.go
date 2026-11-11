@@ -7,11 +7,76 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// Canvas wraps a tcell screen with the drawing helpers the UI needs.
-// tcell keeps a back buffer and only sends changed cells to the terminal.
+// Canvas is a frame buffer on top of a tcell screen. Every frame is drawn into
+// buf from scratch; Show() hands tcell only the cells that differ from the
+// previous frame, so the terminal gets a minimal update (cheap over SSH).
 type Canvas struct {
 	s    tcell.Screen
 	W, H int
+	buf  []cellData
+	prev []cellData
+	bw   int // size the buffers were made for
+	bh   int
+}
+
+type cellData struct {
+	r      rune
+	fg, bg Color
+	bold   bool
+	set    bool
+}
+
+func (c *Canvas) ensure() {
+	if c.bw == c.W && c.bh == c.H && len(c.buf) == c.W*c.H {
+		return
+	}
+	c.bw, c.bh = c.W, c.H
+	c.buf = make([]cellData, maxi(0, c.W*c.H))
+	c.prev = nil // repaint everything
+}
+
+// Get returns what has been drawn at a cell this frame.
+func (c *Canvas) Get(x, y int) (rune, Color, Color) {
+	c.ensure()
+	if x < 0 || y < 0 || x >= c.W || y >= c.H {
+		return ' ', Color{}, Color{}
+	}
+	cd := c.buf[y*c.W+x]
+	if !cd.set {
+		return ' ', theme.text, theme.bg
+	}
+	return cd.r, cd.fg, cd.bg
+}
+
+// Show sends the changed cells to the terminal.
+func (c *Canvas) Show() {
+	c.ensure()
+	for i, cd := range c.buf {
+		if !cd.set {
+			cd = cellData{' ', theme.text, theme.bg, false, true}
+		}
+		if c.prev != nil && c.prev[i] == cd {
+			continue
+		}
+		x, y := i%c.W, i/c.W
+		c.s.SetContent(x, y, cd.r, noComb, tcell.StyleDefault.Foreground(tc(cd.fg)).Background(tc(cd.bg)).Bold(cd.bold))
+	}
+	if c.prev == nil || len(c.prev) != len(c.buf) {
+		c.prev = make([]cellData, len(c.buf))
+	}
+	for i, cd := range c.buf {
+		if !cd.set {
+			cd = cellData{' ', theme.text, theme.bg, false, true}
+		}
+		c.prev[i] = cd
+	}
+	c.s.Show()
+}
+
+// Invalidate forces a full repaint (after a resize).
+func (c *Canvas) Invalidate() {
+	c.prev = nil
+	c.s.Sync()
 }
 
 func tc(c Color) tcell.Color {
@@ -44,19 +109,29 @@ func mix(a, b Color, t float64) Color {
 	}
 }
 
+// noComb must be a non-nil empty slice: tcell 2.7 compares combining runes with
+// reflect.DeepEqual, and nil != []rune{}, so passing nil marks every cell dirty
+// and the whole screen gets resent on every frame.
+var noComb = []rune{}
+
 // Put draws one cell. bg == nil keeps the background already there.
 func (c *Canvas) Put(x, y int, r rune, fg Color, bg *Color, bold bool) {
 	if x < 0 || y < 0 || x >= c.W || y >= c.H {
 		return
 	}
-	var back tcell.Color
+	c.ensure()
+	i := y*c.W + x
+	back := theme.bg
 	if bg != nil {
-		back = tc(*bg)
-	} else {
-		_, _, st, _ := c.s.GetContent(x, y)
-		_, back, _ = st.Decompose()
+		back = *bg
+	} else if c.buf[i].set {
+		back = c.buf[i].bg
 	}
-	c.s.SetContent(x, y, r, nil, tcell.StyleDefault.Foreground(tc(fg)).Background(back).Bold(bold))
+	c.buf[i] = cellData{r, clampColor(fg), clampColor(back), bold, true}
+}
+
+func clampColor(c Color) Color {
+	return Color{clampi(c[0], 0, 255), clampi(c[1], 0, 255), clampi(c[2], 0, 255)}
 }
 
 // Text draws a string and returns how many cells it used.
@@ -144,7 +219,9 @@ func (c *Canvas) Bar(x, y, w int, value, max float64, col Color, label string) {
 		} else if i == full && part > 0 {
 			ch = partials[part]
 		}
-		c.Put(x+i, y, ch, col, &bg, false)
+		// darker at the start, bright at the leading edge
+		cc := mix(scale(col, 0.62), col, math.Min(1, float64(i+1)/math.Max(1, total)))
+		c.Put(x+i, y, ch, cc, &bg, false)
 	}
 	if label != "" {
 		lx := x + maxi(0, (w-runeLen(label))/2)

@@ -7,7 +7,17 @@ import (
 
 // ----------------------------------------------------------------- settings
 
-var settingRows = []string{"theme", "preset", "floaters", "screenFlash", "lowHpPulse", "banners", "combatLog", "confirmSell", "minimap", "nameTags", "keys", "quit"}
+// Settings rows, shared by the in-game menu and the main menu. Rows starting
+// with "#" are section headings.
+var settingRows = []string{
+	"#Sound", "music", "musicVolume", "sounds", "soundVolume",
+	"#Graphics", "theme", "animations", "decor", "floaters", "screenFlash", "lowHpPulse", "banners", "minimap", "nameTags",
+	"#Gameplay", "preset", "keys", "combatLog", "confirmSell",
+	"#", "mainMenu", "quit",
+}
+
+// Rows the main menu leaves out (they only make sense in a game).
+var gameOnlyRows = map[string]bool{"mainMenu": true, "quit": true, "#": true}
 
 func onOff(b bool) string {
 	if b {
@@ -28,12 +38,80 @@ func cycle(list []string, cur string, back bool) string {
 	return list[0]
 }
 
-func (g *Game) changeSetting(row string, back bool) {
-	s := &g.settings
-	switch row {
+func volumeBar(v int) string {
+	return strings.Repeat("▮", v) + strings.Repeat("▯", 10-v) + fmt.Sprintf(" %d", v)
+}
+
+// settingInfo returns the label and current value of a row.
+func settingInfo(s Settings, id string) (string, string) {
+	switch id {
+	case "music":
+		return "Music", onOff(s.Music)
+	case "musicVolume":
+		return "Music volume", volumeBar(s.MusicVolume)
+	case "sounds":
+		return "Sound effects", onOff(s.Sounds)
+	case "soundVolume":
+		return "Sound effect volume", volumeBar(s.SoundVolume)
+	case "theme":
+		return "Color theme", s.Theme
+	case "animations":
+		return "Animations (torches, embers, flicker)", onOff(s.Animations)
+	case "decor":
+		return "Dungeon details (bones, moss, lava...)", onOff(s.Decor)
+	case "preset":
+		return "Key layout", s.Preset
+	case "floaters":
+		return "Floating combat numbers", onOff(s.Floaters)
+	case "screenFlash":
+		return "Screen flash on hits / level ups", onOff(s.ScreenFlash)
+	case "lowHpPulse":
+		return "Pulse the frame at low HP", onOff(s.LowHPPulse)
+	case "banners":
+		return "Big banners (achievements, bosses...)", onOff(s.Banners)
+	case "combatLog":
+		return "Show every hit in the log", onOff(s.CombatLog)
+	case "confirmSell":
+		return "Confirm before selling Rare+ items", onOff(s.ConfirmSell)
+	case "minimap":
+		return "Minimap", onOff(s.Minimap)
+	case "nameTags":
+		return "Name tags over other heroes", onOff(s.NameTags)
+	case "keys":
+		return "Rebind keys…", ""
+	case "mainMenu":
+		return "Back to the main menu", ""
+	case "quit":
+		return "Quit game", ""
+	}
+	return id, ""
+}
+
+// changeSetting edits a row. It returns an action for rows that open something
+// ("keys", "mainMenu", "quit"), or "" after saving a changed value.
+func (s *Settings) change(id string, back bool) string {
+	step := 1
+	if back {
+		step = -1
+	}
+	switch id {
+	case "music":
+		s.Music = !s.Music
+	case "musicVolume":
+		s.MusicVolume = clampi(s.MusicVolume+step, 0, 10)
+		s.Music = s.MusicVolume > 0
+	case "sounds":
+		s.Sounds = !s.Sounds
+	case "soundVolume":
+		s.SoundVolume = clampi(s.SoundVolume+step, 0, 10)
+		s.Sounds = s.SoundVolume > 0
 	case "theme":
 		s.Theme = cycle(themeOrder, s.Theme, back)
 		applyTheme(s.Theme)
+	case "animations":
+		s.Animations = !s.Animations
+	case "decor":
+		s.Decor = !s.Decor
 	case "preset":
 		s.Preset = cycle(presetOrder, s.Preset, back)
 		s.Keys = copyKeys(presets[s.Preset])
@@ -53,56 +131,99 @@ func (g *Game) changeSetting(row string, back bool) {
 		s.Minimap = !s.Minimap
 	case "nameTags":
 		s.NameTags = !s.NameTags
-	case "keys":
-		g.menuCursor = 0
-		g.showKeys()
-		return
-	case "quit":
-		g.settings.save()
-		g.quit = true
-		return
+	case "keys", "mainMenu", "quit":
+		return id
 	}
 	s.save()
+	return ""
 }
 
-func (g *Game) showSettings() {
-	s := g.settings
-	rows := map[string][2]string{
-		"theme":       {"Color theme", s.Theme},
-		"preset":      {"Key layout", s.Preset},
-		"floaters":    {"Floating combat numbers", onOff(s.Floaters)},
-		"screenFlash": {"Screen flash on hits / level ups", onOff(s.ScreenFlash)},
-		"lowHpPulse":  {"Pulse the frame at low HP", onOff(s.LowHPPulse)},
-		"banners":     {"Big banners (achievements, bosses...)", onOff(s.Banners)},
-		"combatLog":   {"Show every hit in the log", onOff(s.CombatLog)},
-		"confirmSell": {"Confirm before selling Rare+ items", onOff(s.ConfirmSell)},
-		"minimap":     {"Minimap", onOff(s.Minimap)},
-		"nameTags":    {"Name tags over other heroes", onOff(s.NameTags)},
-		"keys":        {"Rebind keys…", ""},
-		"quit":        {"Quit game", ""},
-	}
-	lines := []Line{L("Changes save automatically and apply right away.", theme.muted), L("", cWhite)}
-	for i, id := range settingRows {
-		r := rows[id]
-		sel := i == g.menuCursor
+// settingLines draws the rows as overlay lines; cursor indexes into rows.
+func settingLines(s Settings, rows []string, cursor int, audioStatus string) []Line {
+	var lines []Line
+	for i, id := range rows {
+		if strings.HasPrefix(id, "#") {
+			if len(lines) > 0 {
+				lines = append(lines, L("", cWhite))
+			}
+			if id != "#" {
+				lines = append(lines, Line{Segs: []Seg{{Text: strings.ToUpper(id[1:]), Color: theme.title, Bold: true}}})
+			}
+			continue
+		}
+		label, val := settingInfo(s, id)
+		sel := i == cursor
 		valColor := cCyan
-		if r[1] == "off" {
+		if val == "off" {
 			valColor = theme.faint
+		}
+		if strings.Contains(val, "▮") || strings.Contains(val, "▯") {
+			valColor = Color{255, 200, 110}
 		}
 		marker := "  "
 		if sel {
 			marker = "▶ "
 		}
 		line := Line{Segs: []Seg{
-			{Text: marker + pad(r[0], 40), Color: theme.text, Bold: sel},
-			{Text: r[1], Color: valColor, Bold: true},
+			{Text: marker + pad(label, 40), Color: theme.text, Bold: sel},
+			{Text: val, Color: valColor, Bold: true},
 		}}
 		if sel {
 			line.BG = ptr(Color{55, 50, 80})
 		}
 		lines = append(lines, line)
 	}
-	lines = append(lines, L("", cWhite), L("Saved to "+settingsPath(), theme.faint))
+	if audioStatus != "" {
+		lines = append(lines, L("", cWhite), L("Audio: "+audioStatus, theme.faint))
+	}
+	return lines
+}
+
+// nextRow moves a cursor over rows, skipping headings.
+func nextRow(rows []string, cur, dir int) int {
+	n := len(rows)
+	for i := 0; i < n; i++ {
+		cur = (cur + dir + n) % n
+		if !strings.HasPrefix(rows[cur], "#") {
+			return cur
+		}
+	}
+	return cur
+}
+
+func (g *Game) changeSetting(row string, back bool) {
+	switch g.settings.change(row, back) {
+	case "keys":
+		g.menuCursor = 0
+		g.showKeys()
+		return
+	case "mainMenu":
+		g.settings.save()
+		g.toMenu = true
+		g.quit = true
+		return
+	case "quit":
+		g.settings.save()
+		g.quit = true
+		return
+	}
+	if g.app != nil {
+		g.app.settings = g.settings
+		g.app.audio.Apply(g.settings)
+	}
+}
+
+func (g *Game) showSettings() {
+	if strings.HasPrefix(settingRows[g.menuCursor], "#") {
+		g.menuCursor = nextRow(settingRows, g.menuCursor, 1)
+	}
+	lines := []Line{L("Changes save automatically and apply right away.", theme.muted), L("", cWhite)}
+	status := ""
+	if g.app != nil {
+		status = g.app.audio.Status()
+	}
+	lines = append(lines, settingLines(g.settings, settingRows, g.menuCursor, status)...)
+	lines = append(lines, L("Saved to "+settingsPath(), theme.faint))
 	g.overlay = &Overlay{Kind: "settings", Title: "MENU · SETTINGS", Lines: lines, Footer: "↑/↓ choose · ←/→/Enter change · Esc back to game"}
 }
 
