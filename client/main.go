@@ -17,12 +17,17 @@ func main() {
 	pass := flag.String("pass", "", "password")
 	reg := flag.Bool("register", false, "create the account first (with -server/-user/-pass)")
 	noMusic := flag.Bool("no-music", false, "start with music and sound effects off")
+	noUpdate := flag.Bool("no-update", false, "skip automatic client updates")
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Println("coop-dungeon-crawler client", version)
 		return
+	}
+
+	if !*noUpdate && os.Getenv("CDC_NO_UPDATE") != "1" {
+		updateClient()
 	}
 
 	// Quick start from the command line.

@@ -125,6 +125,8 @@ Open `<server>` in a browser for the landing page with copy buttons, live stats 
 page (`cdc-windows-amd64.exe`, `cdc-darwin-arm64`, `cdc-linux-amd64`, ...). It is a single ~6-7 MB file with
 no dependencies. On macOS/Linux make it executable with `chmod +x cdc-*` and run it.
 
+**Automatic updates:** updater-enabled release clients check the official GitHub Releases feed on startup. They verify the platform binary against its SHA-256 digest and install it for the next launch. If the check or download fails, the current client still starts. Use `-no-update` or set `CDC_NO_UPDATE=1` to skip the check. Development builds and server packages are updated manually.
+
 **Or build it yourself** with [Go 1.24+](https://go.dev/dl/):
 
 ```bash

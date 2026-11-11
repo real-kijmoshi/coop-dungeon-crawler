@@ -3,775 +3,425 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Coop Dungeon Crawler — Descend together</title>
-<meta name="description" content="A free, open-source co-op dungeon crawler for your terminal. Four classes, six biomes, levels 1 to 100, an original soundtrack composed live as you play, and parties of up to four. Download the client or host your own world.">
-<meta name="theme-color" content="#0b0807">
-<meta property="og:title" content="Coop Dungeon Crawler — Descend together">
-<meta property="og:description" content="Four classes. Six biomes. Levels 1 to 100. One terminal. Grab your party and descend into Emberfall.">
+<title>Coop Dungeon Crawler — A terminal RPG for 1–4 players</title>
+<meta name="description" content="A free, open-source co-op RPG for your terminal. Pick a class, host a dungeon, and fight through six biomes with up to four players.">
+<meta name="theme-color" content="#110f14">
+<meta property="og:title" content="Coop Dungeon Crawler">
+<meta property="og:description" content="A co-op RPG for your terminal. Four classes, six biomes, and one shared dungeon.">
 <meta property="og:image" content="https://real-kijmoshi.github.io/coop-dungeon-crawler/assets/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://real-kijmoshi.github.io/coop-dungeon-crawler/">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23181621' rx='5'/%3E%3Cpath d='m16 5 7 11-7 11-7-11z' fill='%23ffca78'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Space+Mono:wght@400;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   color-scheme: dark;
-  --bg: #0b0807; --bg2: #110b09; --panel: #18110e; --panel2: #1f1611; --line: #3a2a21; --line2: #57402f;
-  --ink: #f6ead7; --muted: #b8a48d; --faint: #7d6a58;
-  --ember: #ff6a2b; --flame: #ffa53d; --gold: #ffd27a; --blood: #d23a2c; --ash: #2a1e18;
-  --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
-  --display: "Cinzel", "Trajan Pro", Georgia, serif;
-  --fire: linear-gradient(180deg, #fff3c4 0%, #ffd27a 22%, #ffa53d 45%, #ff6a2b 70%, #c8321f 100%);
+  --bg: #110f14;
+  --panel: #1b171e;
+  --line: #3a303b;
+  --text: #f5edde;
+  --muted: #b6aebd;
+  --gold: #ffca78;
+  --green: #b5dbad;
+  --sans: "Work Sans", system-ui, sans-serif;
+  --display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+  --mono: "Space Mono", ui-monospace, Consolas, monospace;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 84px; }
-html, body { overflow-x: clip; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-x: hidden; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--sans); }
 a { color: inherit; text-underline-offset: 4px; }
 a:hover { color: var(--gold); }
-img { max-width: 100%; display: block; }
-:focus-visible { outline: 2px solid var(--flame); outline-offset: 4px; }
-.wrap { max-width: 1200px; margin: 0 auto; padding: 0 28px; }
-.skip { position: absolute; top: -100px; left: 16px; z-index: 50; background: var(--bg); padding: 10px; }
-.skip:focus { top: 10px; }
-code, kbd { font-family: var(--mono); font-size: .9em; }
-kbd { border: 1px solid var(--line2); border-bottom-width: 3px; border-radius: 4px; padding: 1px 6px; background: var(--panel); }
-.eyebrow { font: 700 12px var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--flame); margin: 0 0 16px; }
-h1, h2, h3 { font-family: var(--display); font-weight: 800; letter-spacing: .01em; margin: 0; }
-h2 { font-size: clamp(30px, 4vw, 52px); line-height: 1.1; margin-bottom: 16px; }
-h3 { font-size: 21px; line-height: 1.25; margin-bottom: 10px; }
-.fire-text { background: var(--fire); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 22px rgba(255, 106, 43, .35)); }
-.sub { color: var(--muted); max-width: 660px; font-size: 17px; margin: 0 0 34px; }
-section { position: relative; padding: 100px 0; }
-
-/* ------------------------------------------------------------------ nav */
-.nav { position: fixed; inset: 0 0 auto 0; z-index: 40; transition: background .3s, border-color .3s; border-bottom: 1px solid transparent; }
-.nav.solid { background: rgba(11, 8, 7, .88); backdrop-filter: blur(10px); border-color: var(--line); }
-.nav .wrap { display: flex; align-items: center; gap: 28px; min-height: 72px; }
-.brand { font-family: var(--display); font-weight: 900; font-size: 18px; letter-spacing: .06em; text-decoration: none; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-.brand .sigil { font-size: 20px; animation: flicker 3s infinite; }
-.navlinks { display: flex; gap: 24px; margin-left: auto; font-size: 14px; }
-.navlinks a { text-decoration: none; color: var(--muted); }
-.navlinks a:hover { color: var(--gold); }
-.badge { font: 700 11px var(--mono); color: var(--gold); border: 1px solid var(--line2); border-radius: 99px; padding: 3px 9px; text-decoration: none; }
-
-/* -------------------------------------------------------------- buttons */
-.btn { display: inline-flex; align-items: center; gap: 10px; min-height: 50px; padding: 13px 22px; border-radius: 6px; border: 1px solid var(--line2); background: rgba(24, 17, 14, .7); color: var(--ink); text-decoration: none; font-weight: 700; font-size: 15px; cursor: pointer; transition: transform .15s, box-shadow .2s, border-color .2s, background .2s; font-family: inherit; }
-.btn:hover { transform: translateY(-2px); border-color: var(--flame); color: var(--ink); }
-.btn.primary { background: linear-gradient(180deg, #ffb24a, #ff6a2b 70%, #d9471f); border-color: #ffb24a; color: #1a0c06; box-shadow: 0 0 0 1px rgba(255, 200, 120, .25) inset, 0 10px 40px -8px rgba(255, 106, 43, .7); }
-.btn.primary:hover { box-shadow: 0 0 0 1px rgba(255, 220, 160, .4) inset, 0 14px 50px -6px rgba(255, 120, 43, .95); color: #1a0c06; }
-.btn small { font-weight: 400; opacity: .75; font-size: 12px; }
-.actions { display: flex; gap: 12px; flex-wrap: wrap; }
-
-/* ----------------------------------------------------------------- hero */
-.hero { position: relative; min-height: 100vh; display: flex; align-items: center; padding: 120px 0 80px; overflow: hidden; isolation: isolate;
-  background:
-    radial-gradient(ellipse 80% 55% at 50% 110%, rgba(255, 106, 43, .38), transparent 70%),
-    radial-gradient(ellipse 50% 40% at 85% 30%, rgba(255, 165, 61, .10), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 10% 20%, rgba(120, 40, 160, .10), transparent 70%),
-    linear-gradient(180deg, #070505 0%, #0d0806 55%, #1a0b06 100%); }
-.hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 160px; background: linear-gradient(180deg, transparent, var(--bg)); z-index: -1; }
-#embers { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
-.cave { position: absolute; inset: 0 0 auto 0; height: 90px; z-index: -1; opacity: .9;
-  background: radial-gradient(14px 60px at 3% 0, #000 98%, transparent) , radial-gradient(10px 34px at 9% 0, #000 98%, transparent), radial-gradient(18px 80px at 17% 0, #000 98%, transparent), radial-gradient(9px 30px at 26% 0, #000 98%, transparent), radial-gradient(16px 66px at 38% 0, #000 98%, transparent), radial-gradient(12px 40px at 51% 0, #000 98%, transparent), radial-gradient(20px 90px at 63% 0, #000 98%, transparent), radial-gradient(10px 36px at 72% 0, #000 98%, transparent), radial-gradient(15px 58px at 83% 0, #000 98%, transparent), radial-gradient(11px 44px at 93% 0, #000 98%, transparent); }
-.hero-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 56px; align-items: center; }
-.hero h1 { font-size: clamp(54px, 7.4vw, 104px); line-height: .98; margin: 6px 0 24px; font-weight: 900; }
-.hero h1 span { display: block; }
-.hero .lead { font-size: 19px; color: #d9c7ad; max-width: 520px; margin: 0 0 32px; }
-.hero .fine { margin-top: 18px; font-size: 13px; color: var(--faint); }
-.hero .fine a { color: var(--muted); }
-.oneliner { margin-top: 22px; display: none; }
-.oneliner.show { display: block; }
-
-.term { position: relative; border-radius: 10px; background: #0c0a0d; border: 1px solid #4a3527; overflow: hidden; transform: perspective(1400px) rotateY(-7deg) rotateX(2deg); box-shadow: 0 0 0 1px rgba(255, 165, 61, .08), 0 30px 90px -20px rgba(0, 0, 0, .9), 0 0 120px -30px rgba(255, 106, 43, .55); transition: transform .6s; }
-.term:hover { transform: perspective(1400px) rotateY(-2deg) rotateX(0); }
-.termbar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; border-bottom: 1px solid #2b2019; background: #140f0d; font: 11px var(--mono); color: var(--faint); }
-.termbar i { width: 10px; height: 10px; border-radius: 50%; background: #4a3a30; }
-.termbar i:nth-child(1) { background: #ff6a2b; } .termbar i:nth-child(2) { background: #ffa53d; } .termbar i:nth-child(3) { background: #6b5a3a; }
-.termbar span { margin-left: auto; }
-.term img { width: 100%; height: auto; }
-.term .live { position: absolute; left: 14px; bottom: 12px; font: 700 11px var(--mono); color: var(--gold); background: rgba(11, 8, 7, .8); border: 1px solid var(--line2); padding: 4px 9px; border-radius: 99px; }
-.term .live::before { content: "●"; color: var(--ember); margin-right: 6px; animation: flicker 1.6s infinite; }
-
-/* torches */
-.torch { position: absolute; top: 34%; width: 14px; height: 120px; z-index: -1; }
-.torch.l { left: 2.5%; } .torch.r { right: 2.5%; }
-.torch .stick { position: absolute; bottom: 0; left: 3px; width: 8px; height: 80px; background: linear-gradient(90deg, #3b2416, #6b4428, #3b2416); border-radius: 2px; }
-.torch .cup { position: absolute; bottom: 72px; left: -3px; width: 20px; height: 12px; background: #2a1c14; border-radius: 0 0 6px 6px; border-top: 2px solid #5a3b25; }
-.torch .flame { position: absolute; bottom: 82px; left: -5px; width: 24px; height: 44px; border-radius: 50% 50% 40% 40% / 70% 70% 30% 30%; background: radial-gradient(ellipse at 50% 80%, #fff6d0 0%, #ffd27a 25%, #ff8a2b 55%, rgba(255, 60, 20, 0) 75%); filter: blur(1px); transform-origin: 50% 100%; animation: burn 1.1s infinite alternate ease-in-out; }
-.torch .glow { position: absolute; bottom: 30px; left: -140px; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 140, 50, .22), transparent 65%); animation: glow 2.4s infinite alternate; }
-@keyframes burn { 0% { transform: scale(1, 1) skewX(0); } 35% { transform: scale(.92, 1.08) skewX(3deg); } 70% { transform: scale(1.05, .95) skewX(-3deg); } 100% { transform: scale(.96, 1.12) skewX(2deg); } }
-@keyframes glow { from { opacity: .7; transform: scale(.95); } to { opacity: 1; transform: scale(1.06); } }
-@keyframes flicker { 0%, 100% { opacity: 1; } 45% { opacity: .82; } 50% { opacity: .55; } 55% { opacity: .9; } }
-
-.scrollcue { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); font: 11px var(--mono); letter-spacing: .3em; color: var(--faint); text-decoration: none; text-align: center; }
-.scrollcue::after { content: "▼"; display: block; color: var(--flame); animation: bob 1.6s infinite; margin-top: 4px; }
-@keyframes bob { 50% { transform: translateY(6px); } }
-
-/* ---------------------------------------------------------------- facts */
-.facts { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: linear-gradient(90deg, transparent, rgba(255, 106, 43, .06), transparent); }
-.facts .wrap { display: grid; grid-template-columns: repeat(6, 1fr); }
-.facts div { padding: 26px 10px; text-align: center; border-right: 1px solid var(--line); }
-.facts div:last-child { border: 0; }
-.facts strong { display: block; font: 900 26px var(--display); color: var(--gold); }
-.facts span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
-
-/* -------------------------------------------------------------- descent */
-.descent { padding-bottom: 40px; }
-.strata { position: relative; margin-top: 10px; }
-.stratum { position: relative; display: grid; grid-template-columns: 170px 1fr 300px; gap: 36px; align-items: center; padding: 40px 36px; border-radius: 14px; margin-bottom: 18px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .06);
-  background: linear-gradient(100deg, var(--bg-a) 0%, var(--bg-b) 100%); }
-.stratum::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(var(--dot) 1px, transparent 1.5px); background-size: 18px 18px; opacity: .35; pointer-events: none; }
-.stratum::after { content: ""; position: absolute; right: -80px; top: -80px; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, var(--glow), transparent 65%); pointer-events: none; }
-.stratum > * { position: relative; z-index: 1; }
-.depth { font-family: var(--mono); }
-.depth b { display: block; font: 900 40px/1.05 var(--display); color: var(--accent); white-space: nowrap; margin-bottom: 6px; }
-.depth span { font-size: 12px; color: rgba(255, 255, 255, .6); letter-spacing: .1em; text-transform: uppercase; }
-.stratum h3 { font-size: 28px; color: #fff; margin-bottom: 6px; }
-.stratum p { margin: 0; color: rgba(255, 255, 255, .75); font-style: italic; }
-.beasts { font-family: var(--mono); font-size: 13px; line-height: 1.9; }
-.beasts .g { display: inline-block; width: 1.2em; font-weight: 700; text-align: center; }
-.beasts .boss { margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255, 255, 255, .18); }
-.beasts .boss .g { font-size: 18px; text-shadow: 0 0 12px currentColor; }
-.lvlbar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); box-shadow: 0 0 16px var(--accent); }
-
-/* -------------------------------------------------------------- classes */
-.classes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
-.class { position: relative; border-radius: 12px; padding: 28px 24px 24px; background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); overflow: hidden; transition: transform .25s, border-color .25s, box-shadow .25s; }
-.class:hover { transform: translateY(-6px); border-color: var(--c); box-shadow: 0 20px 50px -20px var(--c); }
-.class .glyph { font: 900 64px/1 var(--mono); color: var(--c); text-shadow: 0 0 24px var(--c); margin-bottom: 16px; }
-.class h3 { color: var(--c); font-size: 26px; }
-.class .role { color: var(--muted); font-size: 14px; min-height: 66px; margin: 0 0 16px; }
-.stat { display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: 10px; font: 11px var(--mono); color: var(--muted); margin: 6px 0; }
-.stat i { display: block; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--c), transparent 160%); box-shadow: 0 0 10px -2px var(--c); }
-.skills { list-style: none; padding: 0; margin: 18px 0 0; font-size: 13px; }
-.skills li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
-.skills li span { font: 11px var(--mono); color: var(--faint); }
-
-/* -------------------------------------------------------------- gallery */
-.gallery { display: grid; grid-template-columns: 1fr 260px; gap: 22px; align-items: start; }
-.gallery .term { transform: none; }
-.shots { display: grid; gap: 10px; }
-.shots button { text-align: left; padding: 16px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; font: inherit; transition: border-color .2s, background .2s; }
-.shots button b { display: block; font-family: var(--display); font-size: 16px; }
-.shots button span { font-size: 13px; color: var(--muted); }
-.shots button[aria-pressed="true"] { border-color: var(--flame); background: linear-gradient(90deg, rgba(255, 106, 43, .12), var(--panel)); }
-
-/* ---------------------------------------------------------- soundtrack */
-.jukebox { display: grid; grid-template-columns: 1.1fr 1fr; gap: 30px; align-items: stretch; }
-.player { position: relative; border-radius: 14px; border: 1px solid var(--line2); padding: 28px; overflow: hidden; background: radial-gradient(ellipse at 50% 120%, rgba(255, 106, 43, .3), transparent 60%), var(--panel); display: flex; flex-direction: column; }
-#viz { width: 100%; height: 150px; display: block; margin: 8px 0 18px; }
-.nowplaying { font: 12px var(--mono); color: var(--faint); letter-spacing: .15em; text-transform: uppercase; }
-.trackname { font: 800 28px var(--display); margin: 4px 0 2px; }
-.trackdesc { color: var(--muted); font-size: 14px; min-height: 44px; }
-.controls { display: flex; align-items: center; gap: 14px; margin-top: auto; }
-.playbtn { width: 58px; height: 58px; border-radius: 50%; border: 0; cursor: pointer; font-size: 22px; color: #1a0c06; background: radial-gradient(circle at 35% 30%, #ffe2a0, #ff8a2b 60%, #c8421f); box-shadow: 0 0 30px -4px rgba(255, 106, 43, .8); flex: none; }
-.progress { flex: 1; height: 6px; border-radius: 3px; background: var(--ash); position: relative; cursor: pointer; }
-.progress i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--ember), var(--gold)); box-shadow: 0 0 10px var(--ember); }
-.time { font: 12px var(--mono); color: var(--faint); min-width: 92px; text-align: right; }
-.tracks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.tracks button { width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 14px; text-align: left; padding: 14px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; font: inherit; transition: border-color .2s, background .2s; }
-.tracks button:hover { border-color: var(--line2); }
-.tracks button[aria-current="true"] { border-color: var(--flame); background: linear-gradient(90deg, rgba(255, 106, 43, .14), var(--panel)); }
-.tracks .n { font: 700 13px var(--mono); color: var(--flame); }
-.tracks b { display: block; font-family: var(--display); font-size: 16px; }
-.tracks small { color: var(--muted); font-size: 12px; }
-.tracks .len { font: 12px var(--mono); color: var(--faint); }
-
-/* ------------------------------------------------------------- features */
-.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-.feature { border-radius: 12px; padding: 26px; background: var(--panel); border: 1px solid var(--line); position: relative; overflow: hidden; }
-.feature::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--flame), transparent); opacity: 0; transition: opacity .3s; }
-.feature:hover::after { opacity: 1; }
-.feature .ico { font: 700 26px var(--mono); margin-bottom: 12px; display: block; }
-.feature p { color: var(--muted); font-size: 14.5px; margin: 0; }
-.rarities { font: 700 13px var(--mono); margin-top: 12px; line-height: 1.8; }
-
-/* ---------------------------------------------------------------- live */
-.live-panel { display: none; }
-.live-panel.show { display: block; }
-.livegrid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.box { border-radius: 12px; padding: 24px; background: var(--panel); border: 1px solid var(--line); }
-.box h3 { font-size: 18px; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
-th { font: 11px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .1em; }
-td.num, th.num { text-align: right; font-family: var(--mono); }
-.online li { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); }
-.online { list-style: none; padding: 0; margin: 0; font-size: 14px; }
-.online span { color: var(--muted); font-size: 13px; }
-
-/* ----------------------------------------------------------------- host */
-.paths { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 40px; }
-.path { padding: 30px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; }
-.path.host { border-color: #7a4b2a; background: linear-gradient(140deg, #2a160c, var(--panel) 70%); }
-.path p { color: var(--muted); }
-.path .btn { align-self: flex-start; margin-top: auto; }
-.tag { font: 700 12px var(--mono); color: var(--flame); display: block; margin-bottom: 14px; letter-spacing: .1em; }
-.note { border-left: 3px solid var(--flame); background: var(--panel); padding: 22px 24px; border-radius: 0 10px 10px 0; margin: 18px 0; }
-.note p { margin: 0 0 10px; color: var(--muted); font-size: 14.5px; }
-.note p:last-child { margin: 0; }
-.note strong { color: var(--ink); }
-.modes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 18px 0; }
-.modes div { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--bg2); font-size: 13px; color: var(--muted); }
-.modes b { display: block; color: var(--gold); font-family: var(--mono); font-size: 13px; }
-.setup { display: grid; grid-template-columns: 1.3fr 1fr; gap: 34px; margin-top: 40px; }
-.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; }
-.steps li { counter-increment: s; position: relative; padding: 0 0 26px 54px; }
-.steps li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font: 900 16px var(--display); color: #1a0c06; background: radial-gradient(circle at 35% 30%, #ffe2a0, #ff8a2b 70%); }
-.steps strong { display: block; margin-bottom: 4px; }
-.steps p { color: var(--muted); font-size: 14.5px; margin: 0; }
-.cmd { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line2); background: #0d0907; padding: 12px 14px; border-radius: 8px; margin: 10px 0; }
-.cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; color: var(--gold); font-size: 13.5px; }
-.cmd code::before { content: "$ "; color: var(--faint); }
-.cmd.ps code::before { content: "PS> "; }
-.copy { border: 1px solid var(--line2); color: var(--ink); background: var(--panel2); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: inherit; }
-.tabs { display: flex; gap: 6px; margin: 10px 0; }
-.tabs button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: 13px; }
-.tabs button[aria-pressed="true"] { background: var(--flame); border-color: var(--flame); color: #1a0c06; font-weight: 700; }
-[hidden] { display: none !important; }
-.fine { font-size: 13px; color: var(--faint); }
-.fine a { color: var(--muted); }
-
-/* ------------------------------------------------------------ downloads */
-.platforms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-.platform { border-radius: 12px; padding: 26px; background: var(--panel); border: 1px solid var(--line); transition: border-color .2s, box-shadow .2s; }
-.platform.mine { border-color: var(--flame); box-shadow: 0 0 60px -26px var(--ember); }
-.platform.mine h3::after { content: "your system"; font: 700 10px var(--mono); color: var(--flame); border: 1px solid var(--flame); border-radius: 99px; padding: 2px 8px; margin-left: 10px; vertical-align: middle; letter-spacing: .08em; text-transform: uppercase; }
-.platform a { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding: 12px 0; text-decoration: none; font-size: 14.5px; }
-.platform a span { color: var(--flame); font-weight: 700; }
-
-/* ------------------------------------------------------------------ faq */
-.faq { display: grid; grid-template-columns: .7fr 1.3fr; gap: 60px; }
-details { border-bottom: 1px solid var(--line); padding: 18px 0; }
-summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 20px; }
-summary::after { content: "+"; color: var(--flame); font: 700 20px var(--mono); line-height: 1; }
-details[open] summary::after { content: "−"; }
-details p { color: var(--muted); font-size: 14.5px; margin: 12px 0 0; }
-
-/* -------------------------------------------------------------- finale */
-.finale { text-align: center; padding: 140px 0 120px; overflow: hidden; isolation: isolate; background: radial-gradient(ellipse 70% 70% at 50% 120%, rgba(255, 106, 43, .45), transparent 70%), linear-gradient(180deg, var(--bg), #1a0906); }
-.finale h2 { font-size: clamp(40px, 6vw, 84px); font-weight: 900; }
-.finale .actions { justify-content: center; margin-top: 26px; }
-#embers2 { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
-footer { border-top: 1px solid var(--line); padding: 30px 0 50px; font-size: 13px; color: var(--faint); background: #120806; }
-footer .wrap { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
-footer a { margin-left: 18px; color: var(--muted); }
-#copy-status { min-height: 22px; font-size: 13px; color: var(--gold); margin: 8px 0 0; }
-
-/* Fade-in for content below the fold (only set up by the script, so nothing stays hidden without it). */
-.pre { opacity: 0; transform: translateY(28px); }
-.pre.in { opacity: 1; transform: none; transition: opacity .8s, transform .8s; }
-
-@media (max-width: 1020px) {
-  .hero-grid { grid-template-columns: 1fr; }
-  .term { transform: none; }
-  .stratum { grid-template-columns: 130px 1fr; }
-  .stratum .beasts { grid-column: 1 / -1; columns: 2; }
-  .classes { grid-template-columns: repeat(2, 1fr); }
-  .gallery, .jukebox, .setup, .faq, .livegrid { grid-template-columns: 1fr; }
-  .shots { grid-template-columns: repeat(2, 1fr); }
-  .facts .wrap { grid-template-columns: repeat(3, 1fr); }
-  .facts div:nth-child(3) { border-right: 0; }
-  .modes { grid-template-columns: repeat(3, 1fr); }
-  .features { grid-template-columns: repeat(2, 1fr); }
-  .torch { display: none; }
-  .navlinks .x { display: none; }
+button { color: inherit; font: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+img { display: block; max-width: 100%; height: auto; }
+h1, h2, h3, p, figure { margin: 0; }
+h2 { font: 800 clamp(2.6rem, 5.6vw, 4.4rem)/.98 var(--display); letter-spacing: -.018em; text-transform: uppercase; }
+h3 { font-size: 1.28rem; line-height: 1.2; }
+code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; overflow-wrap: anywhere; }
+.wrap { width: min(1160px, calc(100% - 64px)); margin-inline: auto; }
+.skip { position: fixed; top: 10px; left: 12px; z-index: 4; background: var(--gold); color: var(--bg); padding: 8px; transform: translateY(-200%); }
+.skip:focus { transform: none; }
+.nav { position: sticky; top: 0; z-index: 3; background: #110f14f5; border-bottom: 1px solid var(--line); }
+.nav-inner { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.brand { display: inline-flex; gap: 10px; align-items: center; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.brand-mark { color: var(--gold); font: 700 1rem var(--mono); border: 1px solid #655037; padding: 4px 8px; background: #211a20; }
+.nav-links { display: flex; align-items: center; gap: clamp(12px, 3vw, 30px); font-size: .92rem; }
+.nav-links a { color: var(--muted); text-decoration: none; white-space: nowrap; }
+.nav-links a:hover { color: var(--gold); }
+.nav-links .nav-download { color: var(--gold); }
+.hero {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: clamp(555px, 60vw, 740px);
+  isolation: isolate;
+  overflow: clip;
+  background: #141017;
 }
-@media (max-width: 640px) {
-  .wrap { padding: 0 18px; }
-  section { padding: 70px 0; }
-  .hero { padding-top: 100px; }
-  .hero .lead { font-size: 17px; }
-  .navlinks { display: none; }
-  .nav .badge { margin-left: auto; }
-  .stratum { grid-template-columns: 1fr; gap: 14px; padding: 28px 22px; }
-  .stratum .beasts { columns: 1; }
-  .classes, .features, .platforms, .paths, .shots { grid-template-columns: 1fr; }
-  .facts .wrap { grid-template-columns: repeat(2, 1fr); }
-  .facts div { border-right: 0 !important; border-bottom: 1px solid var(--line); }
-  .modes { grid-template-columns: 1fr 1fr; }
-  .actions { flex-direction: column; }
-  .actions .btn { justify-content: center; white-space: nowrap; }
-  footer a { margin: 0 18px 0 0; }
+.hero-art, .hero::after { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+.hero-art { object-fit: cover; object-position: 68% center; }
+.hero::after {
+  content: "";
+  background: linear-gradient(0deg, var(--bg), transparent 24%),
+    linear-gradient(90deg, #110f14 1%, #110f14d9 31%, #110f1470 56%, transparent 83%);
 }
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after { animation: none !important; transition: none !important; }
-  .pre { opacity: 1; transform: none; }
+.hero-copy { max-width: 660px; padding: 70px 0 100px; }
+.eyebrow { font: 700 .74rem/1.4 var(--mono); color: var(--gold); letter-spacing: .14em; text-transform: uppercase; }
+.hero h1 { margin: 17px 0 0; font: 900 clamp(5.1rem, 10.3vw, 10.1rem)/.79 var(--display); letter-spacing: -.025em; text-transform: uppercase; }
+.hero h1 span { display: block; color: var(--gold); }
+.lead { color: #e0d3cf; font-size: clamp(1rem, 2.1vw, 1.14rem); max-width: 445px; margin: 25px 0 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.hero-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 22px; color: #d8c6c3; font: .73rem var(--mono); }
+.hero-meta span + span::before { content: "·"; margin-right: 14px; color: var(--gold); }
+.preview { padding-top: 40px; }
+.preview-layout { display: grid; grid-template-columns: minmax(0, 2.35fr) minmax(0, 1fr); gap: 30px; align-items: center; }
+.preview-copy { display: grid; gap: 13px; }
+.preview-copy p { color: var(--muted); }
+.preview-copy .eyebrow { color: var(--gold); }
+.preview-copy a { justify-self: start; color: var(--gold); font-weight: 600; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 10px 17px; background: #201923; border: 1px solid #6b5156; border-radius: 3px; color: var(--text); text-decoration: none; font-weight: 700; }
+.button:hover { border-color: var(--gold); }
+.button.primary { background: var(--gold); border-color: var(--gold); color: #241a12; }
+.button.primary:hover { background: #ffdfaa; }
+.terminal { border: 1px solid #534658; border-radius: 10px; background: #16131d; overflow: hidden; box-shadow: 0 22px 64px #07060ab0; }
+.terminal-bar, .terminal-bottom { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; font: .72rem/1.4 var(--mono); color: var(--muted); }
+.terminal-bar { border-bottom: 1px solid var(--line); }
+.terminal-bottom { border-top: 1px solid var(--line); }
+.lights { display: inline-flex; gap: 5px; margin-right: 9px; }
+.lights i { width: 7px; height: 7px; border-radius: 50%; background: #87768e; }
+.lights i:first-child { background: var(--gold); }
+.terminal img { width: 100%; aspect-ratio: 1600 / 929; object-fit: contain; background: #100f15; }
+.gallery-controls { display: flex; gap: 5px; flex-wrap: wrap; }
+.gallery-controls button, .copy { cursor: pointer; padding: 6px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font: .72rem/1.4 var(--mono); }
+.gallery-controls button:hover, .copy:hover, .gallery-controls [aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.section { padding: 76px 0; border-bottom: 1px solid var(--line); }
+.section-head { display: grid; gap: 11px; margin-bottom: 25px; max-width: 690px; }
+.section-head > p:last-child, .card p, .muted { color: var(--muted); }
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.card { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+.card h3 + p, .card p + p { margin-top: 8px; }
+.card a.button { align-self: flex-start; }
+.class-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.class { border-top: 2px solid var(--class); }
+.class-glyph { display: grid; place-items: center; width: 42px; height: 42px; color: var(--class); border: 1px solid currentColor; background: var(--bg); font: 700 1.45rem var(--mono); margin-bottom: 14px; }
+.class .skill { border-top: 1px solid var(--line); padding-top: 11px; margin-top: 16px; font-size: .81rem; }
+.world { display: grid; grid-template-columns: .84fr 1.16fr; gap: 36px; align-items: start; margin-top: 47px; }
+.world p { margin-top: 11px; }
+.depths { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+.depths li { display: grid; grid-template-columns: 64px 1fr; gap: 14px; align-items: center; border-bottom: 1px solid var(--line); padding: 10px 0; }
+.depths code { color: var(--class); }
+.depths small { display: block; color: var(--muted); }
+.download-layout { display: grid; grid-template-columns: 1.05fr 1fr; gap: 22px; align-items: start; }
+.download-layout h3 { margin-bottom: 8px; }
+.downloads { margin-top: 13px; }
+.downloads summary, .faq summary { cursor: pointer; color: var(--text); font-weight: 700; padding: 12px 0; }
+.downloads details { border-top: 1px solid var(--line); }
+.downloads details:last-child { border-bottom: 1px solid var(--line); }
+.download-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 0 11px; }
+.download-row a { color: var(--gold); white-space: nowrap; }
+.download-row span, .small { font-size: .86rem; }
+.downloads details[open] summary { color: var(--gold); }
+.host-stack { display: grid; gap: 12px; }
+.host-stack .button { margin-top: 14px; }
+.host-card { border-color: #655038; background: linear-gradient(110deg,#251d25,var(--panel)); }
+.download-foot { margin-top: 18px; color: var(--muted); font-size: .89rem; }
+.setup { margin: 24px 0 0; }
+.setup summary { cursor: pointer; color: var(--gold); font-weight: 700; }
+.setup ol { margin: 12px 0 0; padding-left: 23px; }
+.setup li + li { margin-top: 8px; }
+.commands { display: grid; gap: 10px; margin-top: 14px; }
+.command { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); }
+.command code { min-width: 0; user-select: all; }
+.copy { flex-shrink: 0; }
+.live-dot { color: var(--green); }
+#server-online { margin-top: 10px; overflow-wrap: anywhere; }
+#live .section-head { margin-bottom: 15px; }
+.heroes { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.heroes th, .heroes td { text-align: left; border-top: 1px solid var(--line); padding: 8px 4px; overflow-wrap: anywhere; }
+.heroes th { color: var(--muted); font-size: .83rem; }
+.faq { border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq p { color: var(--muted); padding: 0 0 14px; }
+.footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 28px 0; color: var(--muted); font-size: .86rem; }
+.footer div { display: flex; flex-wrap: wrap; gap: 15px; }
+@media (max-width: 830px) {
+  .class-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .world, .download-layout { grid-template-columns: 1fr; gap: 20px; }
+  .preview-layout { grid-template-columns: 1fr; gap: 18px; }
+  .preview-copy { grid-row: 1; }
 }
+@media (max-width: 560px) {
+  .wrap { width: calc(100% - 32px); }
+  .nav-inner { min-height: 58px; }
+  .nav-links { gap: 13px; font-size: .82rem; }
+  .nav-game, .nav-source { display: none; }
+  .brand { gap: 7px; font-size: .94rem; }
+  .hero { min-height: 0; align-items: end; }
+  .hero-art { height: 345px; object-position: 79% center; }
+  .hero::after { height: 346px; background: linear-gradient(0deg, #141017 0%, #141017d9 15%, transparent 65%); }
+  .hero-copy { padding: 220px 0 40px; }
+  .hero h1 { font-size: clamp(4rem, 15vw, 5.4rem); }
+  .hero-meta { margin-top: 18px; }
+  .terminal-bar, .terminal-bottom { padding: 9px; }
+  .terminal-bottom { align-items: flex-start; flex-direction: column; }
+  .section { padding: 49px 0; }
+  .section.preview { padding-top: 27px; }
+  .columns, .class-grid { grid-template-columns: 1fr; }
+  .hero .button { font-size: .88rem; padding-inline: 13px; }
+  .card { padding: 17px; }
+  .footer { align-items: flex-start; flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 </style>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-
-<nav class="nav" id="nav" aria-label="Main navigation">
-  <div class="wrap">
-    <a class="brand" href="#top"><span class="sigil" aria-hidden="true">🔥</span><span class="fire-text">COOP DUNGEON</span></a>
-    <div class="navlinks">
-      <a href="#descent">The descent</a>
-      <a href="#classes">Classes</a>
-      <a href="#soundtrack" class="x">Soundtrack</a>
-      <a href="#host">Host a server</a>
-      <a href="#download">Download</a>
-      <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler" class="x">GitHub ↗</a>
+<nav class="nav" aria-label="Main navigation">
+  <div class="wrap nav-inner">
+    <a href="#" class="brand"><span class="brand-mark" aria-hidden="true">◆</span> Coop Dungeon</a>
+    <div class="nav-links">
+      <a href="#gameplay" class="nav-game">The game</a>
+      <a href="#host">Host</a>
+      <a href="#download" class="nav-download">Download ↓</a>
+      <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler" class="nav-source">GitHub ↗︎</a>
     </div>
-    <a class="badge" href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">v0.4.0</a>
   </div>
 </nav>
-
 <main id="main">
-<!-- ================================================================ hero -->
-<header class="hero" id="top">
-  <canvas id="embers" aria-hidden="true"></canvas>
-  <div class="cave" aria-hidden="true"></div>
-  <div class="torch l" aria-hidden="true"><div class="glow"></div><div class="flame"></div><div class="cup"></div><div class="stick"></div></div>
-  <div class="torch r" aria-hidden="true"><div class="glow"></div><div class="flame" style="animation-delay:-.4s"></div><div class="cup"></div><div class="stick"></div></div>
-  <div class="wrap">
-    <div class="hero-grid">
-      <div>
-        <p class="eyebrow">Open-source co-op dungeon crawler · in your terminal</p>
-        <h1><span>Descend</span><span class="fire-text">together.</span></h1>
-        <p class="lead">Grab up to three friends, light a torch and go down into the burning depths below Emberfall. Fight, loot, level from 1 to 100, and wake something that should have stayed asleep.</p>
+  <header class="hero">
+    <img class="hero-art" src="assets/dungeon-entrance.webp" alt="" width="1536" height="1024" fetchpriority="high">
+    <div class="wrap">
+      <div class="hero-copy">
+        <p class="eyebrow">Coop Dungeon Crawler</p>
+        <h1>Into the <span>dungeon</span></h1>
+        <p class="lead">A co-op RPG for your terminal. Pick a class, light a torch, and fight through six biomes with up to three friends.</p>
         <div class="actions">
-          <a class="btn primary" id="dl-main" href="#download">⬇ Download the game <small id="dl-os"></small></a>
-          <a class="btn" href="#host">🔥 Host a server</a>
+          <a class="button primary" href="#download">Download client ↓</a>
+          <a class="button" href="#host">Download server ↓</a>
+          <a class="button" id="join-link" href="#live" hidden>Join this server ↘︎</a>
         </div>
-        <div class="oneliner" id="oneliner">
-          <p class="fine" style="margin:0 0 4px">Or jump straight in from a terminal:</p>
-          <div class="cmd"><code id="play-cmd">curl -fsSL /play | sh</code><button class="copy" type="button" data-copy-from="play-cmd">Copy</button></div>
+        <p class="hero-meta"><span>1–4 players</span><span>Windows · macOS · Linux</span><span>Free and open source</span></p>
+      </div>
+    </div>
+  </header>
+
+  <section class="section wrap" id="live" aria-labelledby="live-h" hidden>
+    <div class="section-head"><p class="eyebrow live-dot">● Game server</p><h2 id="live-h">Join this dungeon</h2><p>Run a launcher or paste the address into the client’s Server field.</p></div>
+    <div class="columns">
+      <article class="card">
+        <h3>Connect</h3>
+        <div class="commands">
+          <div><p class="small muted">Server address</p><div class="command"><code id="server-address"></code><button class="copy" type="button" data-copy="server-address" aria-label="Copy server address">Copy</button></div></div>
+          <div><p class="small muted">macOS / Linux</p><div class="command"><code id="play-sh"></code><button class="copy" type="button" data-copy="play-sh" aria-label="Copy macOS or Linux launcher">Copy</button></div></div>
+          <div><p class="small muted">Windows PowerShell</p><div class="command"><code id="play-ps"></code><button class="copy" type="button" data-copy="play-ps" aria-label="Copy PowerShell launcher">Copy</button></div></div>
+          <div><p class="small muted">Watch from your terminal</p><div class="command"><code id="watch-command"></code><button class="copy" type="button" data-copy="watch-command" aria-label="Copy spectator command">Copy</button></div></div>
         </div>
-        <p class="fine">Free &amp; MIT licensed · Windows, macOS &amp; Linux · a single ~7 MB client</p>
-      </div>
-      <div class="term">
-        <div class="termbar"><i></i><i></i><i></i><span>cdc — Coop Dungeon Crawler</span></div>
-        <img src="assets/title-screen.webp" width="1600" height="938" alt="The game's title screen in a terminal: a fiery logo, two flickering torches, drifting embers and a menu with your heroes.">
-        <span class="live">REAL SCREENSHOT · TRUE-COLOR TERMINAL</span>
-      </div>
+      </article>
+      <article class="card">
+        <h3>Hall of Heroes</h3><p id="server-online"></p>
+        <table class="heroes"><thead><tr><th scope="col">Hero</th><th scope="col">Class</th><th scope="col">Level</th><th scope="col">Kills</th></tr></thead><tbody id="leaderboard"></tbody></table>
+      </article>
     </div>
-  </div>
-  <a class="scrollcue" href="#descent">DESCEND</a>
-</header>
+  </section>
 
-<!-- =============================================================== facts -->
-<div class="facts" aria-label="At a glance">
-  <div class="wrap">
-    <div><strong>1–4</strong><span>heroes per party</span></div>
-    <div><strong>4</strong><span>classes</span></div>
-    <div><strong>1→100</strong><span>levels to climb</span></div>
-    <div><strong>6</strong><span>biomes</span></div>
-    <div><strong>8</strong><span>lair bosses</span></div>
-    <div><strong>♪ 5</strong><span>original tracks</span></div>
-  </div>
-</div>
-
-<!-- ============================================================= descent -->
-<section class="descent" id="descent">
-  <div class="wrap">
-    <p class="eyebrow">The descent</p>
-    <h2>Every step from the safe room <span class="fire-text">burns hotter.</span></h2>
-    <p class="sub">The dungeon is one endless world shared by everyone on the server. Monsters level up the further you walk from the safe room, from rats in the cellars to liches on the Throne of the Abyss.</p>
-    <div class="strata" id="strata"></div>
-  </div>
-</section>
-
-<!-- ============================================================= classes -->
-<section id="classes">
-  <div class="wrap">
-    <p class="eyebrow">Build your party</p>
-    <h2>Four ways to <span class="fire-text">face the dark.</span></h2>
-    <p class="sub">Hold the line, strike from the shadows, burn it all down, or bring everyone back. Each class unlocks four skills as you climb toward level 100.</p>
-    <div class="classes" id="class-cards"></div>
-  </div>
-</section>
-
-<!-- ============================================================= gallery -->
-<section id="gallery" style="padding-top:40px">
-  <div class="wrap">
-    <p class="eyebrow">See it in action</p>
-    <h2>A dungeon drawn <span class="fire-text">in torchlight.</span></h2>
-    <p class="sub">Colored light from torches, lava and glowing crystals, walls with depth, drifting embers and floating combat numbers. All of it in your terminal, and light enough to play over SSH.</p>
-    <div class="gallery">
-      <div class="term" id="shot-frame">
-        <div class="termbar"><i></i><i></i><i></i><span id="shot-title">cdc — main menu</span></div>
-        <img id="shot-img" src="assets/gameplay.webp" width="1600" height="929" alt="">
-      </div>
-      <div class="shots" id="shots"></div>
-    </div>
-  </div>
-</section>
-
-<!-- ========================================================== soundtrack -->
-<section id="soundtrack">
-  <div class="wrap">
-    <p class="eyebrow">Original soundtrack</p>
-    <h2>Music <span class="fire-text">from the depths.</span></h2>
-    <p class="sub">The client composes its own dark-fantasy score on your machine while you play, with no audio files to download. It never loops, so it never repeats exactly, and it follows you: a lute by the fire in the safe room, bells in the crypts, and drums that fade in when a fight starts. These are one-minute samples.</p>
-    <div class="jukebox">
-      <div class="player">
-        <span class="nowplaying" id="np-label">Press play</span>
-        <div class="trackname fire-text" id="np-name">Emberfall</div>
-        <div class="trackdesc" id="np-desc"></div>
-        <canvas id="viz" aria-hidden="true"></canvas>
-        <div class="controls">
-          <button class="playbtn" id="play" type="button" aria-label="Play">▶</button>
-          <div class="progress" id="progress" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><i id="bar"></i></div>
-          <span class="time" id="time">0:00 / 0:00</span>
-        </div>
-      </div>
-      <ul class="tracks" id="tracks"></ul>
-    </div>
-    <audio id="audio" preload="none" crossorigin="anonymous"></audio>
-  </div>
-</section>
-
-<!-- ============================================================ features -->
-<section id="features" style="padding-top:40px">
-  <div class="wrap">
-    <p class="eyebrow">Why you'll go one depth further</p>
-    <h2>Loot, bosses <span class="fire-text">and bad ideas.</span></h2>
-    <p class="sub">There's always something deeper, shinier or bigger waiting in the next room.</p>
-    <div class="features">
-      <article class="feature reveal"><span class="ico" style="color:#5ae66e">%</span><h3>Real co-op</h3><p>Party members share the XP of every kill. Fall near a friend and they have 20 seconds to revive you. Ping targets, chat with your party and travel straight to each other.</p></article>
-      <article class="feature reveal"><span class="ico" style="color:#ff8c00">/</span><h3>Loot worth dying for</h3><p>Random weapons, armor and trinkets with stats that scale to level 100, and a blacksmith that forges them up to +10.</p>
-        <div class="rarities"><span style="color:#d2d2d2">Rusty Dagger</span> · <span style="color:#6496ff">Sharp Axe</span> · <span style="color:#ffe646">Vicious Claymore of Might</span> · <span style="color:#c864ff">Vampiric Scythe</span> · <span style="color:#ff8c00">Doombringer, Hammer</span></div></article>
-      <article class="feature reveal"><span class="ico" style="color:#ff3c3c">D</span><h3>Bosses built for groups</h3><p>Eight lair bosses with intros, telegraphed ground slams and enrage phases. They get tougher for every hero they face, and everyone gets personal loot.</p></article>
-      <article class="feature reveal"><span class="ico" style="color:#ffd750">✦</span><h3>A climb to 100</h3><p>A balanced journey from level 1 to 100 (about 15-25 hours), tested by simulating thousands of hours of play. At 100, rebirth for permanent bonuses and do it again.</p></article>
-      <article class="feature reveal"><span class="ico" style="color:#ffd778">★</span><h3>World events</h3><p>Gold Rush, Blood Moon, Loot Frenzy, and Treasure Goblins that run away with piles of gold. Everyone on the server feels them at once.</p></article>
-      <article class="feature reveal"><span class="ico" style="color:#f0dcaa">§</span><h3>A story in the dark</h3><p>Twelve lore scrolls tell what woke up below Emberfall. Plus bounties, combos, 32 achievements and titles to wear on the leaderboard.</p></article>
-    </div>
-  </div>
-</section>
-
-<!-- ======================================================= live (server) -->
-<section class="live-panel" id="live">
-  <div class="wrap">
-    <p class="eyebrow">Live on this server</p>
-    <h2>Who's <span class="fire-text">down there now?</span></h2>
-    <p class="sub" id="live-sub">Heroes in the dungeon right now, and the Hall of Heroes.</p>
-    <div class="livegrid">
-      <div class="box"><h3>In the dungeon</h3><ul class="online" id="live-online"></ul><p class="fine" style="margin-top:14px">Watch live from a terminal:</p><div class="cmd"><code id="watch-cmd">curl /watch</code><button class="copy" type="button" data-copy-from="watch-cmd">Copy</button></div></div>
-      <div class="box"><h3>Hall of Heroes</h3><table><thead><tr><th>#</th><th>Hero</th><th>Class</th><th class="num">Lv</th><th class="num">Kills</th></tr></thead><tbody id="live-top"></tbody></table></div>
-    </div>
-    <div class="note"><p><strong>Play on this server in one command.</strong></p>
-      <div class="cmd"><code id="play-cmd2">curl -fsSL /play | sh</code><button class="copy" type="button" data-copy-from="play-cmd2">Copy</button></div>
-      <div class="cmd ps"><code id="play-ps">irm /play.ps1 | iex</code><button class="copy" type="button" data-copy-from="play-ps">Copy</button></div>
-      <p>macOS / Linux on top, Windows PowerShell below. It downloads the client once and connects you here.</p></div>
-  </div>
-</section>
-
-<!-- ================================================================ host -->
-<section id="host">
-  <div class="wrap">
-    <p class="eyebrow">Light your own torch</p>
-    <h2>One friend hosts. <span class="fire-text">Everyone plays.</span></h2>
-    <p class="sub">The client is your window into the dungeon; a server keeps the world and your heroes. Join a friend's server, or start your own in a few clicks.</p>
-    <div class="paths">
-      <article class="path"><span class="tag">01 / JOIN A DUNGEON</span><h3>Already have a server?</h3><p>Download the client, choose <strong>Create a new hero</strong> and enter your friend's server address (or their full invite link). Your hero is saved on that server.</p><a class="btn" href="#download">Choose your download ↓</a></article>
-      <article class="path host"><span class="tag">02 / START YOUR OWN</span><h3>Your world. Your party.</h3><p>On Windows, download one host executable and choose how friends connect. On macOS or Linux, use the server ZIP and Node.js LTS.</p><a class="btn primary" href="#host-windows">Set up your server →</a></article>
-    </div>
-
-    <div id="host-windows">
-      <h3>Windows: one executable</h3>
-      <p class="sub" style="margin-bottom:10px">Download the host, double-click it and pick a mode. It bundles Node.js and the server, and saves to <code>%LOCALAPPDATA%/CoopDungeonHost/saves</code>.</p>
-      <div class="modes">
-        <div><b>1 · Cloudflare</b>A full HTTPS address to share. No router setup.</div>
-        <div><b>2 · Direct</b>Encrypted invite with <code>#key=…</code>, router forwarding.</div>
-        <div><b>3 · Both</b>Direct, with Cloudflare as a backup.</div>
-        <div><b>4 · LAN</b>Friends on your network.</div>
-        <div><b>5 · Local</b>Just this computer.</div>
-      </div>
-      <a class="btn primary" href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-host-windows-amd64.exe">⬇ Download Windows host .exe</a>
-      <div class="note">
-        <p><strong>Cloudflare</strong> needs no admin access or inbound firewall change. The temporary address changes on each restart, and anyone with the URL can reach your game server. Keep the window open; press Enter to save and stop.</p>
-        <p><strong>Direct / Both</strong> asks permission to open this app's TCP port and tries UPnP/NAT-PMP router forwarding (it never disables your firewall). Share the full invite, including <code>#key=…</code>, in the client's Server field. CGNAT or unsupported routers may need Cloudflare.</p>
-        <p><strong>LAN</strong> prints local addresses. To add a private-network firewall rule run <code>cdc-host-windows-amd64.exe --lan --open-firewall</code>.</p>
+  <section class="section preview wrap" id="gameplay" aria-labelledby="gameplay-h">
+    <div class="preview-layout">
+      <figure class="terminal">
+        <div class="terminal-bar"><span><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>cdc / gameplay</span><a id="full-shot" href="assets/gameplay.webp">Full size ↗︎</a></div>
+        <img id="game-shot" src="assets/gameplay.webp" width="1600" height="929" loading="lazy" alt="The terminal game shows a mage and warrior in the Fungal Caverns with the party panel, combat log and minimap.">
+        <figcaption class="terminal-bottom">
+          <span id="shot-caption" aria-live="polite">Depth 4 · The Fungal Caverns</span>
+          <div class="gallery-controls" id="gallery" aria-label="Gameplay screenshots" hidden>
+            <button type="button" data-shot="0" aria-pressed="true">Caverns</button>
+            <button type="button" data-shot="1" aria-pressed="false">Crypts</button>
+            <button type="button" data-shot="2" aria-pressed="false">Main menu</button>
+          </div>
+        </figcaption>
+      </figure>
+      <div class="preview-copy">
+        <p class="eyebrow">Gameplay</p>
+        <h2 id="gameplay-h">Your terminal is the dungeon</h2>
+        <p>Explore by torchlight, track every hit in the combat log, and find your friends on the minimap.</p>
+        <a href="#game">Explore the classes and biomes ↓</a>
       </div>
     </div>
+  </section>
 
-    <div class="setup">
+  <section class="section wrap" id="game" aria-labelledby="game-h">
+    <div class="section-head"><h2 id="game-h">Build your party</h2><p>Share XP, revive fallen allies, and take on bosses that scale with your group. Every hero who fights gets their own loot.</p></div>
+    <div class="class-grid">
+      <article class="card class" style="--class:#ff9476"><div class="class-glyph" aria-hidden="true">@</div><h3>Warrior</h3><p>Hold the front line and pull enemies off your friends.</p><p class="skill">Cleave · War Cry · Iron Skin · Berserk</p></article>
+      <article class="card class" style="--class:#b7ed98"><div class="class-glyph" aria-hidden="true">@</div><h3>Rogue</h3><p>Dodge incoming hits and strike from the shadows.</p><p class="skill">Backstab · Smoke Bomb · Fan of Knives · Shadow Strike</p></article>
+      <article class="card class" style="--class:#a7baff"><div class="class-glyph" aria-hidden="true">@</div><h3>Mage</h3><p>Freeze crowds, chain lightning, and rain fire from range.</p><p class="skill">Fireball · Frost Nova · Chain Lightning · Meteor</p></article>
+      <article class="card class" style="--class:#ffdb92"><div class="class-glyph" aria-hidden="true">@</div><h3>Cleric</h3><p>Keep the party alive and deal extra damage to the undead.</p><p class="skill">Heal · Smite · Sanctuary · Holy Nova</p></article>
+    </div>
+    <div class="world">
       <div>
-        <h3>macOS, Linux, or from source</h3>
-        <ol class="steps">
-          <li><strong>Install Node.js LTS once</strong><p>Get it from <a href="https://nodejs.org/">nodejs.org ↗</a>.</p></li>
-          <li><strong>Download and extract the server</strong><p>Keep the folder somewhere permanent: your heroes and world live there.</p><a class="btn" style="margin-top:12px" href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-server.zip">⬇ Server ZIP</a></li>
-          <li><strong>Launch it</strong>
-            <div class="tabs" role="group" aria-label="Server operating system"><button type="button" data-os="unix" aria-pressed="true">macOS / Linux</button><button type="button" data-os="windows" aria-pressed="false">Windows</button></div>
-            <div data-panel="unix"><div class="cmd"><code>sh start-server.sh</code><button class="copy" type="button" data-copy="sh start-server.sh">Copy</button></div></div>
-            <div data-panel="windows" hidden><p>Double-click <code>start-server.cmd</code> in the extracted folder and keep the window open.</p></div>
-            <p class="fine">The first launch installs dependencies; later launches reuse them.</p></li>
-        </ol>
+        <h3>Below Emberfall</h3>
+        <p class="muted">Monsters grow stronger as you move away from the safe room. Unlock waystones to return to deeper biomes, collect five rarities of gear, and upgrade equipment at the blacksmith.</p>
+        <p class="muted">Reach level 100 to rebirth with permanent bonuses.</p>
       </div>
-      <aside class="box">
-        <p class="eyebrow" style="margin-bottom:8px">Server running?</p>
-        <h3>Enter your dungeon</h3>
-        <p class="fine" style="font-size:14px;color:var(--muted)">Open <code>http://localhost:3143</code> in a browser for one-command launchers, or start the client and connect to:</p>
-        <div class="cmd"><code>localhost:3143</code><button class="copy" type="button" data-copy="localhost:3143">Copy</button></div>
-        <p class="fine" style="font-size:14px;color:var(--muted)">Choose <strong>Create a new hero</strong>, then press <kbd>P</kbd> in game to invite friends. On the same Wi-Fi, share the address printed in the server window.</p>
-      </aside>
+      <ol class="depths" aria-label="Biomes by dungeon depth">
+        <li style="--class:#d3b190"><code>00–02</code><span>The Old Cellars <small>Goblin King</small></span></li>
+        <li style="--class:#99d2ab"><code>03–05</code><span>The Fungal Caverns <small>Bone Lord</small></span></li>
+        <li style="--class:#9cb4ea"><code>06–09</code><span>The Sunken Crypts <small>Orc Warlord</small></span></li>
+        <li style="--class:#ef987c"><code>10–13</code><span>The Infernal Halls <small>Troll Chieftain</small></span></li>
+        <li style="--class:#c4a5fa"><code>14–17</code><span>The Dragon’s Abyss <small>Ancient Dragon</small></span></li>
+        <li style="--class:#ffcf80"><code>18+</code><span>The Throne of the Abyss <small>Abyss Lord</small></span></li>
+      </ol>
     </div>
-    <p id="copy-status" role="status" aria-live="polite"></p>
-  </div>
-</section>
+  </section>
 
-<!-- =========================================================== downloads -->
-<section id="download">
-  <div class="wrap">
-    <p class="eyebrow">Pick your platform</p>
-    <h2>Small download. <span class="fire-text">Deep dungeon.</span></h2>
-    <p class="sub">The client is one executable with no runtime to install. You'll need a server to connect to: a friend's, or <a href="#host">your own</a>.</p>
-    <div class="platforms">
-      <article class="platform" data-platform="windows"><h3>Windows</h3><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-windows-amd64.exe">x64 <span>Download ↓</span></a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-windows-arm64.exe">ARM64 <span>Download ↓</span></a></article>
-      <article class="platform" data-platform="mac"><h3>macOS</h3><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-arm64">Apple Silicon <span>Download ↓</span></a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-amd64">Intel <span>Download ↓</span></a></article>
-      <article class="platform" data-platform="linux"><h3>Linux</h3><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-amd64">x64 <span>Download ↓</span></a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-arm64">ARM64 <span>Download ↓</span></a></article>
+  <section class="section wrap" id="download" aria-labelledby="download-h">
+    <div class="section-head"><h2 id="download-h">Get the game</h2><p>Everyone downloads the client. To start your own dungeon, one player runs the server and shares its address.</p></div>
+    <div class="download-layout">
+      <article class="card">
+        <h3>Game client</h3><p>One executable per player. Pick your operating system and processor.</p>
+        <div class="downloads">
+          <details data-os="windows" open><summary>Windows</summary>
+            <div class="download-row"><span>x64</span><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-windows-amd64.exe" aria-label="Download Windows x64 client">Download ↓</a></div>
+            <div class="download-row"><span>ARM64</span><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-windows-arm64.exe" aria-label="Download Windows ARM64 client">Download ↓</a></div>
+          </details>
+          <details data-os="macos"><summary>macOS</summary>
+            <div class="download-row"><span>Apple silicon</span><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-arm64" aria-label="Download macOS Apple silicon client">Download ↓</a></div>
+            <div class="download-row"><span>Intel</span><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-amd64" aria-label="Download macOS Intel client">Download ↓</a></div>
+          </details>
+          <details data-os="linux"><summary>Linux</summary>
+            <div class="download-row"><span>x64</span><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-amd64" aria-label="Download Linux x64 client">Download ↓</a></div>
+            <div class="download-row"><span>ARM64</span><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-arm64" aria-label="Download Linux ARM64 client">Download ↓</a></div>
+          </details>
+        </div>
+        <details class="setup">
+          <summary>Launch and join a server</summary>
+          <ol class="muted small">
+            <li>On Windows, open the client in Windows Terminal. On macOS or Linux, replace <code>CLIENT_FILE</code> with the downloaded filename and run <code>chmod +x ./CLIENT_FILE &amp;&amp; ./CLIENT_FILE</code> from its folder.</li>
+            <li>Choose <b>Create a new hero</b> and enter the address from your host. Use <code>localhost:3143</code> for a local server, or the local address printed by the host.</li>
+          </ol>
+        </details>
+      </article>
+      <div class="host-stack" id="host">
+        <article class="card host-card">
+          <h3>Windows x64 host</h3><p>Double-click to start. Node.js is bundled. Choose Cloudflare for a shareable Internet link, or use Direct, Both, LAN, or Local mode.</p>
+          <a class="button primary" href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-host-windows-amd64.exe">Download host .exe ↓</a>
+        </article>
+        <article class="card">
+          <h3>Server ZIP</h3><p>For Windows, macOS, and Linux. Install <a href="https://nodejs.org/">Node.js LTS</a>, extract the ZIP, then double-click <code>start-server.cmd</code> on Windows or run <code>sh start-server.sh</code> on macOS or Linux.</p>
+          <a class="button" href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-server.zip">Download server .zip ↓</a>
+        </article>
+      </div>
     </div>
-    <div class="note"><p><strong>After downloading:</strong> on Windows, open the .exe in Windows Terminal. On macOS / Linux, run <code>chmod +x cdc-*</code> and then <code>./cdc-…</code>. Use a modern terminal at 100 × 30 or larger. macOS binaries are unsigned. Sound works out of the box on Windows and macOS; on Linux it plays through PulseAudio, PipeWire or ALSA.</p></div>
-    <p class="fine"><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">Release notes &amp; SHA256 checksums ↗</a></p>
-  </div>
-</section>
+    <p class="download-foot"><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">Release notes and checksums ↗︎</a></p>
+  </section>
 
-<!-- ================================================================= faq -->
-<section id="faq" style="padding-top:40px">
-  <div class="wrap faq">
-    <div><p class="eyebrow">Before you descend</p><h2>Questions <span class="fire-text">by the fire.</span></h2><a class="fine" href="https://github.com/real-kijmoshi/coop-dungeon-crawler#documentation">Read the full guide ↗</a></div>
-    <div>
-      <details><summary>Can I play in my browser?</summary><p>The game is played in a terminal client. This website has the downloads and setup help. If you run <code>curl &lt;server&gt;/watch</code> you can spectate a server from any terminal without installing anything.</p></details>
-      <details><summary>Can I play alone?</summary><p>Yes. Start a server and connect a single client; invite friends whenever you like. Parties hold up to four heroes, and party members share the XP of every kill.</p></details>
-      <details><summary>How long does it take to reach level 100?</summary><p>Roughly 15-25 hours of play. The balance was tuned by fast-forwarding AI heroes through the real game engine for thousands of simulated hours, so level 90 is as tense as level 20.</p></details>
-      <details><summary>Why can't my friend connect?</summary><p><code>localhost</code> only works on the computer running the server. Friends on your network need its LAN address; friends elsewhere need the Windows host's Cloudflare or Direct mode, or a reachable public host. Check your firewall allows the server on the network you use.</p></details>
-      <details><summary>Where are my saves? How do I update?</summary><p>The Windows host saves in <code>%LOCALAPPDATA%/CoopDungeonHost/saves</code> (direct server identity in the neighbouring <code>tls</code> folder). For ZIP/source hosting, heroes are in <code>server/users.db</code> and the world in <code>server/utils/map.json</code>. Stop the server and back them up before updating.</p></details>
-      <details><summary>Is it free? Can I change it?</summary><p>Yes. It's open source under the MIT license. Host your own world, read the code, or contribute on GitHub. It's early access, so expect the odd bug.</p></details>
+  <section class="section wrap" aria-labelledby="faq-h">
+    <div class="section-head"><h2 id="faq-h">Playing and hosting</h2></div>
+    <div class="faq">
+      <details><summary>Can I play alone?</summary><p>Yes. Run a server on your computer and connect a single client. Friends can join later.</p></details>
+      <details><summary>How do friends connect over the Internet?</summary><p>On Windows, pick Cloudflare mode and share the HTTPS link printed by the host. The link changes when you restart. In Direct mode, copy the entire invite including <code>#key=…</code>. Friends on the same network can use the LAN address the server prints.</p></details>
+      <details><summary>Where are my saves?</summary><p>The Windows host stores saves in <code>%LOCALAPPDATA%/CoopDungeonHost/saves</code>. Back up the adjacent <code>tls</code> folder to keep your Direct invite identity. The ZIP server stores heroes in <code>server/users.db</code> and the world in <code>server/utils/map.json</code>. Stop the server before backing up saves.</p></details>
+      <details><summary>How do client updates work?</summary><p>Clients with automatic updates check GitHub for newer stable builds on startup. A verified update takes effect the next time you open the client. Launch with <code>-no-update</code> to skip the check.</p></details>
     </div>
-  </div>
-</section>
-
-<!-- ============================================================== finale -->
-<section class="finale">
-  <canvas id="embers2" aria-hidden="true"></canvas>
-  <div class="wrap">
-    <p class="eyebrow">The torch is lit</p>
-    <h2>Meet you in <span class="fire-text">the safe room.</span></h2>
-    <div class="actions"><a class="btn primary" href="#download">⬇ Download the client</a><a class="btn" href="#host">🔥 Host your dungeon</a></div>
-  </div>
-</section>
+  </section>
 </main>
-
-<footer><div class="wrap"><span>Coop Dungeon Crawler · made by kijmoshi · MIT licensed</span><div><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler">Source ↗</a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/issues">Report a bug ↗</a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler#documentation">Guide ↗</a></div></div></footer>
-
+<footer class="wrap footer">
+  <a class="brand" href="#"><span class="brand-mark" aria-hidden="true">◆</span> Coop Dungeon</a>
+  <span>Free and open source · MIT</span>
+  <div><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler">Source</a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler#documentation">Guide</a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/issues">Report a bug</a></div>
+</footer>
 <script>
 (() => {
-"use strict";
-const $ = (s, r = document) => r.querySelector(s);
-const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-// Heavy assets live on GitHub Pages; game servers serve this same page without them.
-const PAGES = "https://real-kijmoshi.github.io/coop-dungeon-crawler/";
-const onPages = location.hostname.endsWith("github.io") || location.protocol === "file:";
-const ASSETS = onPages ? "assets/" : PAGES + "assets/";
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-
-// ------------------------------------------------------------------ nav
-const nav = $("#nav");
-const onScroll = () => nav.classList.toggle("solid", scrollY > 30);
-addEventListener("scroll", onScroll, { passive: true }); onScroll();
-
-// ------------------------------------------------------------- embers
-function embers(canvas, density) {
-  if (!canvas || reduced) return;
-  const ctx = canvas.getContext("2d");
-  let w, h, dpr, parts = [];
-  const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); w = canvas.clientWidth; h = canvas.clientHeight; canvas.width = w * dpr; canvas.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
-  resize(); addEventListener("resize", resize);
-  const spawn = (y) => ({ x: Math.random() * w, y: y ?? h + 10, r: 0.6 + Math.random() * 2.2, vy: 18 + Math.random() * 55, vx: -8 + Math.random() * 16, life: 0, max: 3 + Math.random() * 6, seed: Math.random() * 6.28 });
-  for (let i = 0; i < density; i++) parts.push(spawn(Math.random() * h));
-  let last = performance.now(), visible = true;
-  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }).observe(canvas);
-  const frame = (t) => {
-    const dt = Math.min(0.05, (t - last) / 1000); last = t;
-    if (visible) {
-      ctx.clearRect(0, 0, w, h);
-      ctx.globalCompositeOperation = "lighter";
-      for (const p of parts) {
-        p.life += dt; p.y -= p.vy * dt; p.x += (p.vx + Math.sin(p.life * 2 + p.seed) * 14) * dt;
-        const f = p.life / p.max, a = Math.max(0, Math.min(1, p.life * 2, (1 - f) * 1.5)) * (0.6 + 0.4 * Math.sin(p.life * 13 + p.seed));
-        const g = Math.round(220 - f * 160), b = Math.round(120 - f * 110);
-        ctx.fillStyle = `rgba(255,${g},${Math.max(0, b)},${a * 0.25})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3.2, 0, 6.28); ctx.fill();
-        ctx.fillStyle = `rgba(255,${g + 30},${b + 40},${a})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28); ctx.fill();
-        if (p.life > p.max || p.y < -20) Object.assign(p, spawn());
-      }
+  const byId = (id) => document.getElementById(id);
+  const shots = [
+    { file: "gameplay.webp", label: "Depth 4 · The Fungal Caverns", alt: "The terminal game shows a mage and warrior in the Fungal Caverns with the party panel, combat log and minimap." },
+    { file: "crypts.webp", label: "Depth 7 · The Sunken Crypts", alt: "A mage and warrior fight a skeleton and cultist in the blue-gray Sunken Crypts." },
+    { file: "title-screen.webp", label: "Main menu · Saved heroes and settings", alt: "The terminal title screen shows two torches, the Coop Dungeon logo, and a menu for saved heroes." },
+  ];
+  const gallery = byId("gallery");
+  gallery.hidden = false;
+  gallery.addEventListener("click", (event) => {
+    const selected = event.target.closest("[data-shot]");
+    if (!selected) return;
+    const shot = shots[Number(selected.dataset.shot)];
+    byId("game-shot").src = "assets/" + shot.file;
+    byId("game-shot").alt = shot.alt;
+    byId("full-shot").href = "assets/" + shot.file;
+    byId("shot-caption").textContent = shot.label;
+    for (const button of gallery.querySelectorAll("button")) {
+      button.setAttribute("aria-pressed", String(button === selected));
     }
-    requestAnimationFrame(frame);
-  };
-  requestAnimationFrame(frame);
-}
-embers($("#embers"), innerWidth < 700 ? 45 : 90);
-embers($("#embers2"), innerWidth < 700 ? 35 : 70);
-
-// ----------------------------------------------------------- the descent
-const BIOMES = [
-  { name: "The Old Cellars", depth: "0–2", lv: [1, 8], a: "#2c251e", b: "#3a2f24", dot: "#7a6a52", accent: "#e0c08a", glow: "rgba(255,190,110,.18)", text: "Damp stone and the smell of spilled wine. Rats skitter somewhere in the dark.",
-    beasts: [["r", "Rat", "#aa8c6e"], ["b", "Bat", "#aa6ed2"], ["j", "Slime", "#78e6c8"], ["g", "Goblin", "#5ac85a"]], boss: ["G", "Goblin King", "#8cff50"] },
-  { name: "The Fungal Caverns", depth: "3–5", lv: [8, 21], a: "#10251f", b: "#1a3a30", dot: "#46a084", accent: "#78ffcf", glow: "rgba(90,230,190,.22)", text: "Glowing mushrooms light the way. The air is thick with drifting spores.",
-    beasts: [["x", "Giant Spider", "#c85050"], ["s", "Skeleton", "#e6e6d2"], ["z", "Zombie", "#82aa5a"], ["o", "Orc", "#d27832"]], boss: ["S", "Bone Lord", "#ffffe6"] },
-  { name: "The Sunken Crypts", depth: "6–9", lv: [21, 40], a: "#141a26", b: "#1e2638", dot: "#64789a", accent: "#a8c4ff", glow: "rgba(120,160,255,.2)", text: "Black water drips over ancient tombs. Something beneath the stone is listening.",
-    beasts: [["o", "Orc", "#d27832"], ["c", "Cultist", "#c83ca0"], ["w", "Wraith", "#78c8ff"], ["m", "Stone Golem", "#aaa096"]], boss: ["O", "Orc Warlord", "#ff8c28"] },
-  { name: "The Infernal Halls", depth: "10–13", lv: [40, 61], a: "#2a0f0a", b: "#4a1a10", dot: "#c8502e", accent: "#ff8a4a", glow: "rgba(255,90,30,.35)", text: "The walls glow with heat and the floor is warm underfoot. Brimstone burns your throat.",
-    beasts: [["m", "Stone Golem", "#aaa096"], ["t", "Troll", "#3caa78"], ["i", "Imp Demon", "#ff4646"]], boss: ["T", "Troll Chieftain", "#50e6a0"] },
-  { name: "The Dragon's Abyss", depth: "14–17", lv: [61, 84], a: "#1a1026", b: "#2e1a44", dot: "#8c64be", accent: "#d2a0ff", glow: "rgba(190,110,255,.3)", text: "Scorched bones and molten gold. Somewhere far below, something enormous breathes.",
-    beasts: [["i", "Imp Demon", "#ff4646"], ["d", "Drake", "#ff6428"], ["l", "Lich", "#be78ff"]], boss: ["D", "Ancient Dragon", "#ff3214"] },
-  { name: "The Throne of the Abyss", depth: "18+", lv: [84, 110], a: "#1e180a", b: "#3a2c0c", dot: "#c8aa50", accent: "#ffd750", glow: "rgba(255,215,80,.35)", text: "Black obsidian and cold gold. This is where the darkness began.",
-    beasts: [["d", "Drake", "#ff6428"], ["l", "Lich", "#be78ff"]], boss: ["A", "Abyss Lord", "#ffd750"] },
-];
-const strata = $("#strata");
-strata.innerHTML = BIOMES.map((b) => `
-  <article class="stratum" style="--bg-a:${b.a};--bg-b:${b.b};--dot:${b.dot};--accent:${b.accent};--glow:${b.glow}">
-    <div class="depth"><b>${b.lv[0]}–${b.lv[1] > 100 ? "100+" : b.lv[1]}</b><span>monster level</span><span style="display:block;opacity:.7">depth ${b.depth}</span></div>
-    <div><h3>${b.name}</h3><p>“${b.text}”</p></div>
-    <div class="beasts">${b.beasts.map(([g, n, c]) => `<div><span class="g" style="color:${c}">${g}</span> ${n}</div>`).join("")}
-      <div class="boss"><span class="g" style="color:${b.boss[2]}">${b.boss[0]}</span> <b style="color:${b.boss[2]}">${b.boss[1]}</b> <span style="opacity:.6">· boss</span></div></div>
-    <i class="lvlbar" style="width:${Math.min(100, b.lv[1])}%"></i>
-  </article>`).join("");
-
-// ------------------------------------------------------------- classes
-const CLASSES = [
-  { name: "Warrior", c: "#ff7850", role: "Tough front-liner. Most HP and armor; holds the monsters' attention so the party doesn't have to.", stats: [95, 70, 100], crit: 8, dodge: 3, skills: [["Cleave", 1], ["War Cry", 6], ["Iron Skin", 15], ["Berserk", 30]] },
-  { name: "Rogue", c: "#b4ff78", role: "Deadly and slippery. 20% crit, 12% dodge and huge burst from the shadows.", stats: [75, 92, 60], crit: 20, dodge: 12, skills: [["Backstab", 1], ["Smoke Bomb", 6], ["Fan of Knives", 15], ["Shadow Strike", 30]] },
-  { name: "Mage", c: "#8caaff", role: "Glass cannon. Weak in melee, devastating spells that hit everything in sight.", stats: [62, 100, 40], crit: 10, dodge: 5, skills: [["Fireball", 1], ["Frost Nova", 6], ["Chain Lightning", 15], ["Meteor", 30]] },
-  { name: "Cleric", c: "#fff096", role: "Healer and undead-slayer. Heals and revives allies, smites skeletons and liches.", stats: [85, 65, 75], crit: 7, dodge: 5, skills: [["Heal", 1], ["Smite", 6], ["Sanctuary", 15], ["Holy Nova", 30]] },
-];
-$("#class-cards").innerHTML = CLASSES.map((k) => `
-  <article class="class reveal" style="--c:${k.c}">
-    <div class="glyph">@</div><h3>${k.name}</h3><p class="role">${k.role}</p>
-    ${["HP", "ATK", "DEF"].map((s, i) => `<div class="stat"><span>${s}</span><i style="width:${k.stats[i]}%"></i></div>`).join("")}
-    <div class="stat"><span>CRIT</span><span style="color:var(--ink)">${k.crit}% · dodge ${k.dodge}%</span></div>
-    <ul class="skills">${k.skills.map(([n, l]) => `<li><b>${n}</b><span>Lv ${l}</span></li>`).join("")}</ul>
-  </article>`).join("");
-
-// -------------------------------------------------------------- gallery
-const SHOTS = [
-  { img: "gameplay.webp", title: "cdc — The Fungal Caverns", name: "Fungal Caverns", text: "Chain Lightning hits three enemies while an achievement pops.", alt: "A mage fighting slimes and a skeleton in a glowing fungal cave while Chain Lightning hits three enemies and an achievement banner appears." },
-  { img: "combo.webp", title: "cdc — The Fungal Caverns", name: "Joining a party", text: "Brannoc invites Ember; a Fireball scorches a slime for 238.", alt: "A mage joining a party and casting Fireball at slimes and a skeleton in a fungal cave." },
-  { img: "crypts.webp", title: "cdc — The Sunken Crypts", name: "Sunken Crypts", text: "A party of two against level 31 skeletons and cultists. Frost Nova!", alt: "A mage and a warrior fighting a skeleton and a cultist in the crypts, with Frost Nova freezing an enemy." },
-  { img: "title-screen.webp", title: "cdc — main menu", name: "The main menu", text: "Torch-lit title screen, your heroes and account management.", alt: "The animated main menu with torches, embers and a list of heroes." },
-];
-const shots = $("#shots"), shotImg = $("#shot-img"), shotTitle = $("#shot-title");
-shots.innerHTML = SHOTS.map((s, i) => `<button type="button" aria-pressed="${i === 0}" data-i="${i}"><b>${s.name}</b><span>${s.text}</span></button>`).join("");
-const showShot = (i) => {
-  const s = SHOTS[i];
-  shotImg.src = "assets/" + s.img; shotImg.alt = s.alt; shotTitle.textContent = s.title;
-  shots.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.i === i)));
-};
-shots.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) showShot(+b.dataset.i); });
-showShot(0);
-
-// ----------------------------------------------------------- soundtrack
-const TRACKS = [
-  { id: "title", name: "Emberfall", desc: "The title theme. Harp, choir and a flute: something below the town has woken up.", len: "1:04" },
-  { id: "town", name: "The Safe Room", desc: "A slow lute waltz by the fire. Plays while you sell loot and patch your wounds.", len: "1:04" },
-  { id: "explore", name: "Into the Cellars", desc: "Quiet and uneasy: the old cellars under the town, and the first goblins.", len: "1:04" },
-  { id: "deep", name: "The Deep", desc: "The sunken crypts. Tolling bells over a low choir, and a heartbeat when you are hunted.", len: "1:04" },
-  { id: "boss", name: "Lair of the King", desc: "War drums, low strings and horns. Starts the moment a boss sees you.", len: "0:48" },
-];
-const audio = $("#audio"), playBtn = $("#play"), bar = $("#bar"), time = $("#time"), list = $("#tracks");
-let current = 0;
-list.innerHTML = TRACKS.map((t, i) => `<li><button type="button" data-i="${i}" aria-current="${i === 0}"><span class="n">0${i + 1}</span><span><b>${t.name}</b><small>${t.desc.split(".")[0]}.</small></span><span class="len">${t.len}</span></button></li>`).join("");
-const fmt = (s) => isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00";
-const select = (i, play) => {
-  current = i; const t = TRACKS[i];
-  $("#np-name").textContent = t.name; $("#np-desc").textContent = t.desc;
-  list.querySelectorAll("button").forEach((b) => b.setAttribute("aria-current", String(+b.dataset.i === i)));
-  audio.src = ASSETS + "music/" + t.id + ".mp3";
-  if (play) start();
-};
-let actx, analyser, data;
-const start = () => {
-  if (!actx && window.AudioContext) {
-    try { actx = new AudioContext(); const src = actx.createMediaElementSource(audio); analyser = actx.createAnalyser(); analyser.fftSize = 128; src.connect(analyser); analyser.connect(actx.destination); data = new Uint8Array(analyser.frequencyBinCount); } catch { analyser = null; }
-  }
-  actx?.resume();
-  audio.play().catch(() => { $("#np-label").textContent = "Couldn't play this track here"; });
-};
-playBtn.addEventListener("click", () => { if (!audio.src) select(current, true); else if (audio.paused) start(); else audio.pause(); });
-list.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) select(+b.dataset.i, true); });
-audio.addEventListener("play", () => { playBtn.textContent = "❚❚"; playBtn.setAttribute("aria-label", "Pause"); $("#np-label").textContent = "Now playing"; });
-audio.addEventListener("pause", () => { playBtn.textContent = "▶"; playBtn.setAttribute("aria-label", "Play"); $("#np-label").textContent = "Paused"; });
-audio.addEventListener("ended", () => select((current + 1) % TRACKS.length, true));
-audio.addEventListener("timeupdate", () => { const p = audio.duration ? audio.currentTime / audio.duration : 0; bar.style.width = p * 100 + "%"; $("#progress").setAttribute("aria-valuenow", Math.round(p * 100)); time.textContent = `${fmt(audio.currentTime)} / ${fmt(audio.duration)}`; });
-$("#progress").addEventListener("click", (e) => { const r = e.currentTarget.getBoundingClientRect(); if (audio.duration) audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration; });
-$("#progress").addEventListener("keydown", (e) => { if (!audio.duration) return; if (e.key === "ArrowRight") audio.currentTime += 5; if (e.key === "ArrowLeft") audio.currentTime -= 5; });
-select(0, false);
-// Fire visualizer: real spectrum while playing, a quiet idle flicker otherwise.
-const viz = $("#viz"), vctx = viz.getContext("2d");
-const drawViz = (t) => {
-  const dpr = Math.min(2, devicePixelRatio || 1), w = viz.clientWidth, h = viz.clientHeight;
-  if (viz.width !== w * dpr) { viz.width = w * dpr; viz.height = h * dpr; }
-  vctx.setTransform(dpr, 0, 0, dpr, 0, 0); vctx.clearRect(0, 0, w, h);
-  const n = 40, bw = w / n;
-  if (analyser && !audio.paused) analyser.getByteFrequencyData(data);
-  for (let i = 0; i < n; i++) {
-    let v = analyser && !audio.paused ? data[Math.floor((i / n) * data.length * 0.8)] / 255 : 0.08 + 0.06 * Math.sin(t / 400 + i * 0.7) + (audio.paused ? 0 : 0.3 * Math.abs(Math.sin(t / 180 + i)));
-    const bh = Math.max(3, v * h);
-    const g = vctx.createLinearGradient(0, h, 0, h - bh);
-    g.addColorStop(0, "#c8321f"); g.addColorStop(0.5, "#ff8a2b"); g.addColorStop(1, "#ffe7a0");
-    vctx.fillStyle = g; vctx.fillRect(i * bw + 2, h - bh, bw - 4, bh);
-  }
-  if (!reduced) requestAnimationFrame(drawViz);
-};
-requestAnimationFrame(drawViz);
-
-// -------------------------------------------------------------- reveals
-if ("IntersectionObserver" in window && !reduced) {
-  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.12 });
-  document.querySelectorAll(".stratum, .reveal").forEach((el) => {
-    if (el.getBoundingClientRect().top > innerHeight) { el.classList.add("pre"); io.observe(el); }
   });
-}
 
-// ------------------------------------------------- downloads for your OS
-const ua = navigator.userAgent, phone = /iPhone|iPad|iPod|Android/i.test(ua) || (navigator.maxTouchPoints > 1 && /Mac/i.test(ua));
-const plat = phone ? null : /Windows/i.test(ua) ? "windows" : /Mac/i.test(ua) ? "mac" : /Linux|X11/i.test(ua) ? "linux" : null;
-if (plat) {
-  const card = document.querySelector(`[data-platform="${plat}"]`); card.classList.add("mine");
-  $("#dl-os").textContent = { windows: "for Windows", mac: "for macOS", linux: "for Linux" }[plat];
-} else {
-  $("#dl-os").textContent = "";
-}
-document.querySelectorAll("[data-os]").forEach((b) => b.addEventListener("click", () => {
-  document.querySelectorAll("[data-os]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-  document.querySelectorAll("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.os; });
-}));
-if (plat === "windows") document.querySelector('[data-os="windows"]').click();
+  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent;
+  const mobile = navigator.userAgentData?.mobile || /Android|iPhone|iPad/i.test(navigator.userAgent) ||
+    (/Mac/i.test(platform) && navigator.maxTouchPoints > 1);
+  const os = /Win/i.test(platform) ? "windows" : /Mac/i.test(platform) ? "macos" : /Linux/i.test(platform) ? "linux" : "";
+  if (!mobile && os) {
+    for (const panel of document.querySelectorAll("[data-os]")) panel.open = panel.dataset.os === os;
+  }
 
-// ----------------------------------------------------------------- copy
-document.addEventListener("click", async (e) => {
-  const b = e.target.closest(".copy"); if (!b) return;
-  const text = b.dataset.copy || $("#" + b.dataset.copyFrom).textContent;
-  const status = $("#copy-status");
-  try { await navigator.clipboard.writeText(text); b.textContent = "Copied"; setTimeout(() => { b.textContent = "Copy"; }, 1600); if (status) status.textContent = "Copied: " + text; }
-  catch { if (status) status.textContent = "Copy isn't available here; select the command and copy it."; }
-});
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-copy]");
+    if (!button) return;
+    const target = byId(button.dataset.copy);
+    button.disabled = true;
+    try {
+      await navigator.clipboard.writeText(target.textContent);
+      button.textContent = "Copied";
+    } catch {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      button.textContent = "Selected";
+    }
+    setTimeout(() => { button.textContent = "Copy"; button.disabled = false; }, 1300);
+  });
 
-// --------------------------------------- live panel (served by a game server)
-if (!onPages) {
-  fetch("api/status", { cache: "no-store" }).then((r) => r.ok ? r.json() : Promise.reject()).then((s) => {
-    if (s.name !== "coop-dungeon-crawler") return;
-    const base = location.origin;
-    $("#play-cmd").textContent = `curl -fsSL ${base}/play | sh`;
-    $("#play-cmd2").textContent = `curl -fsSL ${base}/play | sh`;
-    $("#play-ps").textContent = `irm ${base}/play.ps1 | iex`;
-    $("#watch-cmd").textContent = `curl ${base}/watch`;
-    $("#oneliner").classList.add("show");
-    $("#live").classList.add("show");
-    const render = (s) => {
-      $("#live-sub").textContent = s.event ? `★ World event: ${s.event.name}. ${s.event.desc}` : `${s.players} hero${s.players === 1 ? "" : "es"} in the dungeon right now.`;
-      $("#live-online").innerHTML = s.online.length ? s.online.map((p) => `<li><b>${esc(p.username)}</b><span>${esc(p.cls)} · Lv ${p.level} · depth ${p.depth}</span></li>`).join("") : `<li><span>Nobody's down there right now. Be the first.</span></li>`;
-      $("#live-top").innerHTML = s.top.length ? s.top.map((h, i) => `<tr><td>${i + 1}</td><td><b>${esc(h.username)}</b>${h.prestige ? ` <span style="color:var(--gold)">✦${h.prestige}</span>` : ""}</td><td>${esc((h.cls || "").replace(/^./, (c) => c.toUpperCase()))}</td><td class="num">${h.level}</td><td class="num">${h.kills}</td></tr>`).join("") : `<tr><td colspan="5" style="color:var(--muted)">No heroes yet.</td></tr>`;
-    };
-    render(s);
-    setInterval(() => fetch("api/status", { cache: "no-store" }).then((r) => r.json()).then(render).catch(() => {}), 10000);
-  }).catch(() => {});
-}
+  if (location.protocol === "file:" || location.hostname.endsWith(".github.io")) return;
+  const base = location.origin;
+  const renderServer = (status) => {
+    byId("server-address").textContent = base;
+    byId("play-sh").textContent = `curl -fsSL ${base}/play | sh`;
+    byId("play-ps").textContent = `irm ${base}/play.ps1 | iex`;
+    byId("watch-command").textContent = `curl ${base}/watch`;
+    const online = status.online.map((hero) => `${hero.username} (Lv ${hero.level})`);
+    const onlineText = online.length ? `${online.length} online · ${online.join(", ")}` : "Nobody is online right now.";
+    byId("server-online").textContent = status.event ? `${onlineText} · ${status.event.name}` : onlineText;
+
+    const board = byId("leaderboard");
+    board.replaceChildren();
+    for (const hero of status.top) {
+      const row = board.insertRow();
+      const name = hero.prestige ? `${hero.username} ✦${hero.prestige}` : hero.username;
+      for (const value of [name, hero.cls, hero.level, hero.kills]) row.insertCell().textContent = value ?? "—";
+    }
+    if (!status.top.length) {
+      const cell = board.insertRow().insertCell();
+      cell.colSpan = 4;
+      cell.textContent = "No heroes yet.";
+    }
+    byId("live").hidden = false;
+    byId("join-link").hidden = false;
+  };
+  const refreshServer = async () => {
+    try {
+      const response = await fetch("api/status", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+      if (!response.ok) throw new Error("Server status unavailable");
+      const status = await response.json();
+      if (status.name !== "coop-dungeon-crawler" || !Array.isArray(status.online) || !Array.isArray(status.top)) return;
+      renderServer(status);
+    } catch {
+      // Keep the last successful status visible during a temporary outage.
+    } finally {
+      if (!byId("live").hidden) setTimeout(refreshServer, 15000);
+    }
+  };
+  refreshServer();
 })();
 </script>
 </body>
