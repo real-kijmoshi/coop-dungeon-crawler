@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Coop Dungeon Crawler — A terminal RPG for 1–4 players</title>
 <meta name="description" content="A free, open-source co-op RPG for your terminal. Pick a class, host a dungeon, and fight through six biomes with up to four players.">
-<meta name="theme-color" content="#100f17">
+<meta name="theme-color" content="#110f14">
 <meta property="og:title" content="Coop Dungeon Crawler">
 <meta property="og:description" content="A co-op RPG for your terminal. Four classes, six biomes, and one shared dungeon.">
 <meta property="og:image" content="https://real-kijmoshi.github.io/coop-dungeon-crawler/assets/og.png">
@@ -14,18 +14,19 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23181621' rx='5'/%3E%3Cpath d='m16 5 7 11-7 11-7-11z' fill='%23ffca78'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Space+Mono:wght@400;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   color-scheme: dark;
-  --bg: #100f17;
-  --panel: #181622;
-  --line: #363140;
+  --bg: #110f14;
+  --panel: #1b171e;
+  --line: #3a303b;
   --text: #f5edde;
   --muted: #b6aebd;
   --gold: #ffca78;
   --green: #b5dbad;
-  --sans: "Space Grotesk", system-ui, sans-serif;
+  --sans: "Work Sans", system-ui, sans-serif;
+  --display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
   --mono: "Space Mono", ui-monospace, Consolas, monospace;
 }
 * { box-sizing: border-box; }
@@ -38,13 +39,13 @@ button { color: inherit; font: inherit; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 img { display: block; max-width: 100%; height: auto; }
 h1, h2, h3, p, figure { margin: 0; }
-h2 { font-size: clamp(2.1rem, 5vw, 3.5rem); line-height: 1.04; letter-spacing: -.055em; }
+h2 { font: 800 clamp(2.6rem, 5.6vw, 4.4rem)/.98 var(--display); letter-spacing: -.018em; text-transform: uppercase; }
 h3 { font-size: 1.28rem; line-height: 1.2; }
 code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; overflow-wrap: anywhere; }
 .wrap { width: min(1160px, calc(100% - 64px)); margin-inline: auto; }
 .skip { position: fixed; top: 10px; left: 12px; z-index: 4; background: var(--gold); color: var(--bg); padding: 8px; transform: translateY(-200%); }
 .skip:focus { transform: none; }
-.nav { position: sticky; top: 0; z-index: 3; background: #100f17f5; border-bottom: 1px solid var(--line); }
+.nav { position: sticky; top: 0; z-index: 3; background: #110f14f5; border-bottom: 1px solid var(--line); }
 .nav-inner { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .brand { display: inline-flex; gap: 10px; align-items: center; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .brand-mark { color: var(--gold); font: 700 1rem var(--mono); border: 1px solid #655037; padding: 4px 8px; background: #211a20; }
@@ -54,27 +55,35 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
 .nav-links .nav-download { color: var(--gold); }
 .hero {
   position: relative;
+  display: grid;
+  align-items: center;
+  min-height: clamp(555px, 60vw, 740px);
   isolation: isolate;
-  padding: 76px 0 0;
-  background: radial-gradient(ellipse at 50% 14%, #2d2036 0, transparent 64%);
+  overflow: clip;
+  background: #141017;
 }
-.hero::before {
+.hero-art, .hero::after { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+.hero-art { object-fit: cover; object-position: 68% center; }
+.hero::after {
   content: "";
-  position: absolute;
-  inset: 0 0 26%;
-  z-index: -1;
-  background: linear-gradient(#81708b15 1px, transparent 1px), linear-gradient(90deg, #81708b15 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse at center 20%, black 0, transparent 72%);
+  background: linear-gradient(0deg, var(--bg), transparent 24%),
+    linear-gradient(90deg, #110f14 1%, #110f14d9 31%, #110f1470 56%, transparent 83%);
 }
-.hero-copy { text-align: center; max-width: 900px; margin: 0 auto 44px; }
-.eyebrow { font: 700 .74rem/1.4 var(--mono); color: var(--gold); letter-spacing: .12em; text-transform: uppercase; }
-.hero h1 { margin-top: 14px; font-size: clamp(3.25rem, 10vw, 8.2rem); letter-spacing: -.092em; line-height: .88; }
+.hero-copy { max-width: 660px; padding: 70px 0 100px; }
+.eyebrow { font: 700 .74rem/1.4 var(--mono); color: var(--gold); letter-spacing: .14em; text-transform: uppercase; }
+.hero h1 { margin: 17px 0 0; font: 900 clamp(5.1rem, 10.3vw, 10.1rem)/.79 var(--display); letter-spacing: -.025em; text-transform: uppercase; }
 .hero h1 span { display: block; color: var(--gold); }
-.lead { color: var(--muted); font-size: clamp(1rem, 2.3vw, 1.19rem); max-width: 580px; margin: 22px auto 0; }
-.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 25px; }
-.hero .actions { justify-content: center; }
-.button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 10px 17px; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; color: var(--text); text-decoration: none; font-weight: 700; }
+.lead { color: #e0d3cf; font-size: clamp(1rem, 2.1vw, 1.14rem); max-width: 445px; margin: 25px 0 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.hero-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 22px; color: #d8c6c3; font: .73rem var(--mono); }
+.hero-meta span + span::before { content: "·"; margin-right: 14px; color: var(--gold); }
+.preview { padding-top: 40px; }
+.preview-layout { display: grid; grid-template-columns: minmax(0, 2.35fr) minmax(0, 1fr); gap: 30px; align-items: center; }
+.preview-copy { display: grid; gap: 13px; }
+.preview-copy p { color: var(--muted); }
+.preview-copy .eyebrow { color: var(--gold); }
+.preview-copy a { justify-self: start; color: var(--gold); font-weight: 600; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 10px 17px; background: #201923; border: 1px solid #6b5156; border-radius: 3px; color: var(--text); text-decoration: none; font-weight: 700; }
 .button:hover { border-color: var(--gold); }
 .button.primary { background: var(--gold); border-color: var(--gold); color: #241a12; }
 .button.primary:hover { background: #ffdfaa; }
@@ -89,11 +98,6 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
 .gallery-controls { display: flex; gap: 5px; flex-wrap: wrap; }
 .gallery-controls button, .copy { cursor: pointer; padding: 6px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font: .72rem/1.4 var(--mono); }
 .gallery-controls button:hover, .copy:hover, .gallery-controls [aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
-.facts { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 28px; padding: 17px 0; border-block: 1px solid var(--line); }
-.fact { text-align: center; padding: 6px; border-right: 1px solid var(--line); }
-.fact:last-child { border: 0; }
-.fact strong { color: var(--gold); font: 700 1.13rem var(--mono); }
-.fact span { display: block; color: var(--muted); font-size: .86rem; }
 .section { padding: 76px 0; border-bottom: 1px solid var(--line); }
 .section-head { display: grid; gap: 11px; margin-bottom: 25px; max-width: 690px; }
 .section-head > p:last-child, .card p, .muted { color: var(--muted); }
@@ -103,7 +107,7 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
 .card a.button { align-self: flex-start; }
 .class-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .class { border-top: 2px solid var(--class); }
-.class-glyph { color: var(--class); font: 700 1.6rem var(--mono); margin-bottom: 11px; }
+.class-glyph { display: grid; place-items: center; width: 42px; height: 42px; color: var(--class); border: 1px solid currentColor; background: var(--bg); font: 700 1.45rem var(--mono); margin-bottom: 14px; }
 .class .skill { border-top: 1px solid var(--line); padding-top: 11px; margin-top: 16px; font-size: .81rem; }
 .world { display: grid; grid-template-columns: .84fr 1.16fr; gap: 36px; align-items: start; margin-top: 47px; }
 .world p { margin-top: 11px; }
@@ -147,6 +151,8 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
 @media (max-width: 830px) {
   .class-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .world, .download-layout { grid-template-columns: 1fr; gap: 20px; }
+  .preview-layout { grid-template-columns: 1fr; gap: 18px; }
+  .preview-copy { grid-row: 1; }
 }
 @media (max-width: 560px) {
   .wrap { width: calc(100% - 32px); }
@@ -154,15 +160,18 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
   .nav-links { gap: 13px; font-size: .82rem; }
   .nav-game, .nav-source { display: none; }
   .brand { gap: 7px; font-size: .94rem; }
-  .hero { padding-top: 50px; }
-  .hero-copy { margin-bottom: 28px; }
-  .hero h1 { font-size: clamp(2.7rem, 12vw, 4.7rem); }
+  .hero { min-height: 0; align-items: end; }
+  .hero-art { height: 345px; object-position: 79% center; }
+  .hero::after { height: 346px; background: linear-gradient(0deg, #141017 0%, #141017d9 15%, transparent 65%); }
+  .hero-copy { padding: 220px 0 40px; }
+  .hero h1 { font-size: clamp(4rem, 15vw, 5.4rem); }
+  .hero-meta { margin-top: 18px; }
   .terminal-bar, .terminal-bottom { padding: 9px; }
   .terminal-bottom { align-items: flex-start; flex-direction: column; }
-  .facts { grid-template-columns: repeat(2, 1fr); }
-  .fact:nth-child(2) { border-right: 0; }
   .section { padding: 49px 0; }
+  .section.preview { padding-top: 27px; }
   .columns, .class-grid { grid-template-columns: 1fr; }
+  .hero .button { font-size: .88rem; padding-inline: 13px; }
   .card { padding: 17px; }
   .footer { align-items: flex-start; flex-direction: column; }
 }
@@ -175,43 +184,27 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
   <div class="wrap nav-inner">
     <a href="#" class="brand"><span class="brand-mark" aria-hidden="true">◆</span> Coop Dungeon</a>
     <div class="nav-links">
-      <a href="#game" class="nav-game">The game</a>
+      <a href="#gameplay" class="nav-game">The game</a>
       <a href="#host">Host</a>
       <a href="#download" class="nav-download">Download ↓</a>
-      <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler" class="nav-source">GitHub ↗</a>
+      <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler" class="nav-source">GitHub ↗︎</a>
     </div>
   </div>
 </nav>
 <main id="main">
   <header class="hero">
+    <img class="hero-art" src="assets/dungeon-entrance.webp" alt="" width="1536" height="1024" fetchpriority="high">
     <div class="wrap">
       <div class="hero-copy">
-        <p class="eyebrow">A co-op RPG for your terminal</p>
-        <h1>Coop Dungeon <span>Crawler</span></h1>
-        <p class="lead">Leave the safe room, fight your way through six biomes, and revive your friends when the torchlight runs out.</p>
+        <p class="eyebrow">Coop Dungeon Crawler</p>
+        <h1>Into the <span>dungeon</span></h1>
+        <p class="lead">A co-op RPG for your terminal. Pick a class, light a torch, and fight through six biomes with up to three friends.</p>
         <div class="actions">
           <a class="button primary" href="#download">Download client ↓</a>
           <a class="button" href="#host">Download server ↓</a>
-          <a class="button" id="join-link" href="#live" hidden>Join this server ↘</a>
+          <a class="button" id="join-link" href="#live" hidden>Join this server ↘︎</a>
         </div>
-      </div>
-      <figure class="terminal">
-        <div class="terminal-bar"><span><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>cdc / gameplay</span><a id="full-shot" href="assets/gameplay.webp">Full size ↗</a></div>
-        <img id="game-shot" src="assets/gameplay.webp" width="1600" height="929" fetchpriority="high" alt="The terminal game shows a mage and warrior in the Fungal Caverns with the party panel, combat log and minimap.">
-        <figcaption class="terminal-bottom">
-          <span id="shot-caption" aria-live="polite">Depth 4 · The Fungal Caverns</span>
-          <div class="gallery-controls" id="gallery" aria-label="Gameplay screenshots" hidden>
-            <button type="button" data-shot="0" aria-pressed="true">Caverns</button>
-            <button type="button" data-shot="1" aria-pressed="false">Crypts</button>
-            <button type="button" data-shot="2" aria-pressed="false">Main menu</button>
-          </div>
-        </figcaption>
-      </figure>
-      <div class="facts" aria-label="Game facts">
-        <div class="fact"><strong>1–4</strong><span>players per party</span></div>
-        <div class="fact"><strong>4</strong><span>hero classes</span></div>
-        <div class="fact"><strong>6</strong><span>dungeon biomes</span></div>
-        <div class="fact"><strong>100</strong><span>levels to rebirth</span></div>
+        <p class="hero-meta"><span>1–4 players</span><span>Windows · macOS · Linux</span><span>Free and open source</span></p>
       </div>
     </div>
   </header>
@@ -232,6 +225,29 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
         <h3>Hall of Heroes</h3><p id="server-online"></p>
         <table class="heroes"><thead><tr><th scope="col">Hero</th><th scope="col">Class</th><th scope="col">Level</th><th scope="col">Kills</th></tr></thead><tbody id="leaderboard"></tbody></table>
       </article>
+    </div>
+  </section>
+
+  <section class="section preview wrap" id="gameplay" aria-labelledby="gameplay-h">
+    <div class="preview-layout">
+      <figure class="terminal">
+        <div class="terminal-bar"><span><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>cdc / gameplay</span><a id="full-shot" href="assets/gameplay.webp">Full size ↗︎</a></div>
+        <img id="game-shot" src="assets/gameplay.webp" width="1600" height="929" loading="lazy" alt="The terminal game shows a mage and warrior in the Fungal Caverns with the party panel, combat log and minimap.">
+        <figcaption class="terminal-bottom">
+          <span id="shot-caption" aria-live="polite">Depth 4 · The Fungal Caverns</span>
+          <div class="gallery-controls" id="gallery" aria-label="Gameplay screenshots" hidden>
+            <button type="button" data-shot="0" aria-pressed="true">Caverns</button>
+            <button type="button" data-shot="1" aria-pressed="false">Crypts</button>
+            <button type="button" data-shot="2" aria-pressed="false">Main menu</button>
+          </div>
+        </figcaption>
+      </figure>
+      <div class="preview-copy">
+        <p class="eyebrow">Gameplay</p>
+        <h2 id="gameplay-h">Your terminal is the dungeon</h2>
+        <p>Explore by torchlight, track every hit in the combat log, and find your friends on the minimap.</p>
+        <a href="#game">Explore the classes and biomes ↓</a>
+      </div>
     </div>
   </section>
 
@@ -261,7 +277,7 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
   </section>
 
   <section class="section wrap" id="download" aria-labelledby="download-h">
-    <div class="section-head"><h2 id="download-h">Get the game</h2><p>Everyone needs the client. One player runs a server and shares its address with the party.</p></div>
+    <div class="section-head"><h2 id="download-h">Get the game</h2><p>Everyone downloads the client. To start your own dungeon, one player runs the server and shares its address.</p></div>
     <div class="download-layout">
       <article class="card">
         <h3>Game client</h3><p>One executable per player. Pick your operating system and processor.</p>
@@ -298,7 +314,7 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
         </article>
       </div>
     </div>
-    <p class="download-foot"><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">Release notes and checksums ↗</a></p>
+    <p class="download-foot"><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">Release notes and checksums ↗︎</a></p>
   </section>
 
   <section class="section wrap" aria-labelledby="faq-h">
