@@ -51,7 +51,12 @@ header { padding: 64px 0 28px; }
 .menu a::before { content: "> "; color: var(--amber); }
 .menu a:hover { background: var(--amber); color: var(--bg); text-decoration: none; }
 .menu a:hover::before { color: var(--bg); }
-.version { color: var(--faint); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 0; }
+.button { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--amber); }
+.button.primary { background: var(--amber); color: var(--bg); font-weight: 700; }
+.server-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; }
+.server-option { display: flex; flex-direction: column; align-items: flex-start; padding: 16px; background: var(--raise); border: 1px solid var(--line); }
+.server-option .button { margin-top: auto; }
 
 /* screenshot */
 figure { margin: 0; }
@@ -126,10 +131,13 @@ footer span { margin-right: auto; }
 <header>
 <pre class="logo" aria-label="Coop Dungeon"><span> <b style="color:#ffe68c">██████</b><i style="color:#7a5a3a">╗ </i><b style="color:#ffe68c">██████</b><i style="color:#7a5a3a">╗  </i><b style="color:#ffe68c">██████</b><i style="color:#7a5a3a">╗ </i><b style="color:#ffe68c">██████</b><i style="color:#7a5a3a">╗     </i><b style="color:#ffe68c">██████</b><i style="color:#7a5a3a">╗ </i><b style="color:#ffe68c">██</b><i style="color:#7a5a3a">╗   </i><b style="color:#ffe68c">██</b><i style="color:#7a5a3a">╗</i><b style="color:#ffe68c">███</b><i style="color:#7a5a3a">╗   </i><b style="color:#ffe68c">██</b><i style="color:#7a5a3a">╗ </i><b style="color:#ffe68c">██████</b><i style="color:#7a5a3a">╗ </i><b style="color:#ffe68c">███████</b><i style="color:#7a5a3a">╗ </i><b style="color:#ffe68c">██████</b><i style="color:#7a5a3a">╗ </i><b style="color:#ffe68c">███</b><i style="color:#7a5a3a">╗   </i><b style="color:#ffe68c">██</b><i style="color:#7a5a3a">╗</i></span><span><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╔════╝</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╔═══</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╗</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╔═══</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╗</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╔══</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╗    </i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╔══</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╗</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">║   </i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">║</i><b style="color:#ffc35f">████</b><i style="color:#7a4a30">╗  </i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">║</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╔════╝ </i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╔════╝</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╔═══</i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">╗</i><b style="color:#ffc35f">████</b><i style="color:#7a4a30">╗  </i><b style="color:#ffc35f">██</b><i style="color:#7a4a30">║</i></span><span><b style="color:#ff9a48">██</b><i style="color:#70402c">║     </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║   </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║</i><b style="color:#ff9a48">██</b><i style="color:#70402c">║   </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║</i><b style="color:#ff9a48">██████</b><i style="color:#70402c">╔╝    </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║  </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║</i><b style="color:#ff9a48">██</b><i style="color:#70402c">║   </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║</i><b style="color:#ff9a48">██</b><i style="color:#70402c">╔</i><b style="color:#ff9a48">██</b><i style="color:#70402c">╗ </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║</i><b style="color:#ff9a48">██</b><i style="color:#70402c">║  </i><b style="color:#ff9a48">███</b><i style="color:#70402c">╗</i><b style="color:#ff9a48">█████</b><i style="color:#70402c">╗  </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║   </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║</i><b style="color:#ff9a48">██</b><i style="color:#70402c">╔</i><b style="color:#ff9a48">██</b><i style="color:#70402c">╗ </i><b style="color:#ff9a48">██</b><i style="color:#70402c">║</i></span><span><b style="color:#f27245">██</b><i style="color:#64362a">║     </i><b style="color:#f27245">██</b><i style="color:#64362a">║   </i><b style="color:#f27245">██</b><i style="color:#64362a">║</i><b style="color:#f27245">██</b><i style="color:#64362a">║   </i><b style="color:#f27245">██</b><i style="color:#64362a">║</i><b style="color:#f27245">██</b><i style="color:#64362a">╔═══╝     </i><b style="color:#f27245">██</b><i style="color:#64362a">║  </i><b style="color:#f27245">██</b><i style="color:#64362a">║</i><b style="color:#f27245">██</b><i style="color:#64362a">║   </i><b style="color:#f27245">██</b><i style="color:#64362a">║</i><b style="color:#f27245">██</b><i style="color:#64362a">║╚</i><b style="color:#f27245">██</b><i style="color:#64362a">╗</i><b style="color:#f27245">██</b><i style="color:#64362a">║</i><b style="color:#f27245">██</b><i style="color:#64362a">║   </i><b style="color:#f27245">██</b><i style="color:#64362a">║</i><b style="color:#f27245">██</b><i style="color:#64362a">╔══╝  </i><b style="color:#f27245">██</b><i style="color:#64362a">║   </i><b style="color:#f27245">██</b><i style="color:#64362a">║</i><b style="color:#f27245">██</b><i style="color:#64362a">║╚</i><b style="color:#f27245">██</b><i style="color:#64362a">╗</i><b style="color:#f27245">██</b><i style="color:#64362a">║</i></span><span><i style="color:#582e2a">╚</i><b style="color:#d9544a">██████</b><i style="color:#582e2a">╗╚</i><b style="color:#d9544a">██████</b><i style="color:#582e2a">╔╝╚</i><b style="color:#d9544a">██████</b><i style="color:#582e2a">╔╝</i><b style="color:#d9544a">██</b><i style="color:#582e2a">║         </i><b style="color:#d9544a">██████</b><i style="color:#582e2a">╔╝╚</i><b style="color:#d9544a">██████</b><i style="color:#582e2a">╔╝</i><b style="color:#d9544a">██</b><i style="color:#582e2a">║ ╚</i><b style="color:#d9544a">████</b><i style="color:#582e2a">║╚</i><b style="color:#d9544a">██████</b><i style="color:#582e2a">╔╝</i><b style="color:#d9544a">███████</b><i style="color:#582e2a">╗╚</i><b style="color:#d9544a">██████</b><i style="color:#582e2a">╔╝</i><b style="color:#d9544a">██</b><i style="color:#582e2a">║ ╚</i><b style="color:#d9544a">████</b><i style="color:#582e2a">║</i></span><span><i style="color:#4a282a"> ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝         ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝</i></span></pre>
   <p class="tagline">A co-op dungeon crawler for your terminal.<span class="cursor" aria-hidden="true">_</span></p>
-  <p class="lede">Up to four friends share one dungeon. Walk out of the safe room, fight your way down through six biomes, and climb from level 1 to 100. Free and open source. <span class="version">v0.4.0</span></p>
+  <p class="lede">Up to four friends share one dungeon. Walk out of the safe room, fight your way down through six biomes, and climb from level 1 to 100. Free and open source.</p>
+  <div class="actions">
+    <a class="button primary" href="#download">Download client ↓</a>
+    <a class="button" href="#server-download">Download server ↓</a>
+  </div>
   <ul class="menu">
-    <li><a href="#download">Download</a></li>
-    <li><a href="#host">Host a server</a></li>
+    <li><a href="#host">Hosting guide</a></li>
     <li><a href="#dungeon">The dungeon</a></li>
     <li><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler">Source</a></li>
   </ul>
@@ -160,6 +168,63 @@ footer span { margin-right: auto; }
     <li><span>Everyone downloads the client, picks <b>Create a new hero</b>, and enters the server's address. Heroes are saved on the server.</span></li>
     <li><span>Choose a class and walk out of the safe room. The further you go, the higher the monster level and the better the loot.</span></li>
   </ol>
+</section>
+
+<section id="download" aria-labelledby="download-h">
+  <h2 id="download-h">Game client</h2>
+  <p class="muted">Download one executable for each player. Join a friend’s server or <a href="#server-download">download the server</a> to host your own.</p>
+  <div class="table"><table>
+    <thead><tr><th>System</th><th>File</th><th class="r hide-sm">Size</th></tr></thead>
+    <tbody id="downloads">
+      <tr data-os="windows"><td>Windows x64</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-windows-amd64.exe">cdc-windows-amd64.exe</a></td><td class="r hide-sm faint">7 MB</td></tr>
+      <tr data-os="windows-arm"><td>Windows ARM64</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-windows-arm64.exe">cdc-windows-arm64.exe</a></td><td class="r hide-sm faint">7 MB</td></tr>
+      <tr data-os="mac"><td>macOS Apple Silicon</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-arm64">cdc-darwin-arm64</a></td><td class="r hide-sm faint">7 MB</td></tr>
+      <tr data-os="mac-intel"><td>macOS Intel</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-amd64">cdc-darwin-amd64</a></td><td class="r hide-sm faint">7 MB</td></tr>
+      <tr data-os="linux"><td>Linux x64</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-amd64">cdc-linux-amd64</a></td><td class="r hide-sm faint">7 MB</td></tr>
+      <tr data-os="linux-arm"><td>Linux ARM64</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-arm64">cdc-linux-arm64</a></td><td class="r hide-sm faint">7 MB</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted" style="margin-top:16px">On macOS and Linux, replace <code>CLIENT_FILE</code> with the downloaded filename:</p>
+  <pre class="cmd"><span class="p">$ </span><span id="chmod">chmod +x ./CLIENT_FILE &amp;&amp; ./CLIENT_FILE</span><button class="copy" type="button" data-copy="chmod">copy</button></pre>
+  <p class="faint">Use a modern terminal at 100×30 or larger. macOS builds are unsigned. <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">Release notes and checksums</a></p>
+</section>
+
+<section id="server-download" aria-labelledby="server-download-h">
+  <h2 id="server-download-h">Server downloads</h2>
+  <p class="muted">One person runs the server. Everyone else joins with the game client.</p>
+  <div class="server-options">
+    <article class="server-option">
+      <h3>Windows x64 host</h3>
+      <p class="muted">Includes Node.js. Double-click and pick Cloudflare for a shareable link, or choose Direct, LAN or Local.</p>
+      <a class="button primary" href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-host-windows-amd64.exe">Download host .exe ↓</a>
+    </article>
+    <article class="server-option">
+      <h3>Windows, macOS and Linux</h3>
+      <p class="muted">Install Node.js LTS, extract the ZIP, and run the launcher for your system.</p>
+      <a class="button" href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-server.zip">Download server .zip ↓</a>
+    </article>
+  </div>
+</section>
+
+<section id="host" aria-labelledby="host-h">
+  <h2 id="host-h">Host a server</h2>
+  <h3>Windows</h3>
+  <p class="muted">Run the <a href="#server-download">Windows host</a> and choose how friends should connect:</p>
+  <ul class="plain">
+    <li><b>Cloudflare</b>: gives you an HTTPS address to share. No router setup. The address changes each time you restart.</li>
+    <li><b>Direct</b>: an encrypted invite (with <code>#key=…</code>) for the client's Server field. Opens the game port and tries UPnP; some routers and CGNAT need Cloudflare instead.</li>
+    <li><b>Both</b>, <b>LAN</b> (your network only) or <b>Local</b> (this computer only).</li>
+  </ul>
+  <p class="faint">Saves live in <code>%LOCALAPPDATA%/CoopDungeonHost/saves</code>. Keep the <code>tls</code> folder next to it to keep your direct-invite identity. Press Enter in the host window to save and stop.</p>
+
+  <h3>Server ZIP setup</h3>
+  <ol class="steps">
+    <li><span>Install <a href="https://nodejs.org/">Node.js LTS</a>.</span></li>
+    <li><span>Extract the <a href="#server-download">server ZIP</a> somewhere permanent. Your world and heroes are stored in that folder.</span></li>
+    <li><span>Start it from that folder (on Windows, double-click <code>start-server.cmd</code>):</span></li>
+  </ol>
+  <pre class="cmd"><span class="p">$ </span><span id="start">sh start-server.sh</span><button class="copy" type="button" data-copy="start">copy</button></pre>
+  <p class="muted">Then connect the client to <code>localhost:3143</code>, or open that address in a browser for one-line launch commands. Friends on your network use the address the server prints.</p>
 </section>
 
 <section id="dungeon" aria-labelledby="dungeon-h">
@@ -212,52 +277,13 @@ footer span { margin-right: auto; }
   </div>
 </section>
 
-<section id="download" aria-labelledby="download-h">
-  <h2 id="download-h">Download</h2>
-  <p class="muted">One executable, nothing to install. You'll need a server to join: a friend's, or <a href="#host">your own</a>.</p>
-  <div class="table"><table>
-    <thead><tr><th>System</th><th>File</th><th class="r hide-sm">Size</th></tr></thead>
-    <tbody id="downloads">
-      <tr data-os="windows"><td>Windows x64</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-windows-amd64.exe">cdc-windows-amd64.exe</a></td><td class="r hide-sm faint">7 MB</td></tr>
-      <tr data-os="windows-arm"><td>Windows ARM64</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-windows-arm64.exe">cdc-windows-arm64.exe</a></td><td class="r hide-sm faint">7 MB</td></tr>
-      <tr data-os="mac"><td>macOS Apple Silicon</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-arm64">cdc-darwin-arm64</a></td><td class="r hide-sm faint">7 MB</td></tr>
-      <tr data-os="mac-intel"><td>macOS Intel</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-amd64">cdc-darwin-amd64</a></td><td class="r hide-sm faint">7 MB</td></tr>
-      <tr data-os="linux"><td>Linux x64</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-amd64">cdc-linux-amd64</a></td><td class="r hide-sm faint">7 MB</td></tr>
-      <tr data-os="linux-arm"><td>Linux ARM64</td><td><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-arm64">cdc-linux-arm64</a></td><td class="r hide-sm faint">7 MB</td></tr>
-    </tbody>
-  </table></div>
-  <p class="muted" style="margin-top:16px">On macOS and Linux, make it executable first:</p>
-  <pre class="cmd"><span class="p">$ </span><span id="chmod">chmod +x cdc-* &amp;&amp; ./cdc-*</span><button class="copy" type="button" data-copy="chmod">copy</button></pre>
-  <p class="faint">Use a modern terminal at 100×30 or larger. macOS builds are unsigned. <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">Release notes and checksums</a></p>
-</section>
-
-<section id="host" aria-labelledby="host-h">
-  <h2 id="host-h">Host a server</h2>
-  <h3>Windows</h3>
-  <p class="muted">Download <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-host-windows-amd64.exe">cdc-host-windows-amd64.exe</a> and run it. It includes Node.js and the server, and asks how friends should connect:</p>
-  <ul class="plain">
-    <li><b>Cloudflare</b>: gives you an HTTPS address to share. No router setup. The address changes each time you restart.</li>
-    <li><b>Direct</b>: an encrypted invite (with <code>#key=…</code>) for the client's Server field. Opens the game port and tries UPnP; some routers and CGNAT need Cloudflare instead.</li>
-    <li><b>Both</b>, <b>LAN</b> (your network only) or <b>Local</b> (this computer only).</li>
-  </ul>
-  <p class="faint">Saves live in <code>%LOCALAPPDATA%/CoopDungeonHost/saves</code>. Keep the <code>tls</code> folder next to it to keep your direct-invite identity. Press Enter in the host window to save and stop.</p>
-
-  <h3>macOS and Linux</h3>
-  <ol class="steps">
-    <li><span>Install <a href="https://nodejs.org/">Node.js LTS</a>.</span></li>
-    <li><span>Download and unzip <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-server.zip">cdc-server.zip</a> somewhere permanent. Your world and heroes are stored in that folder.</span></li>
-    <li><span>Start it from that folder (on Windows, double-click <code>start-server.cmd</code>):</span></li>
-  </ol>
-  <pre class="cmd"><span class="p">$ </span><span id="start">sh start-server.sh</span><button class="copy" type="button" data-copy="start">copy</button></pre>
-  <p class="muted">Then connect the client to <code>localhost:3143</code>, or open that address in a browser for one-line launch commands. Friends on your network use the address the server prints.</p>
-</section>
-
 <section aria-labelledby="faq-h">
   <h2 id="faq-h">Questions</h2>
   <details><summary>Can I play in a browser?</summary><p>No, the game runs in a terminal. You can watch any server from a terminal with <code>curl &lt;server&gt;/watch</code>.</p></details>
   <details><summary>Can I play alone?</summary><p>Yes. Run a server on your own computer and connect to it. Friends can join any time.</p></details>
   <details><summary>My friend can't connect.</summary><p><code>localhost</code> only works on the computer running the server. On the same network, use the LAN address the server prints. Over the internet, use the Windows host's Cloudflare or Direct mode, or a public host with the port open.</p></details>
-  <details><summary>Where are my saves? How do I update?</summary><p>Windows host: <code>%LOCALAPPDATA%/CoopDungeonHost/saves</code>. ZIP install: <code>server/users.db</code> (heroes) and <code>server/utils/map.json</code> (world). Stop the server and back them up, then replace the program files.</p></details>
+  <details><summary>How do client updates work?</summary><p>Updater-enabled clients check for newer stable builds on startup. If a verified update installs, it runs the next time you open the client. Use <code>-no-update</code> to skip the check.</p></details>
+  <details><summary>Where are my saves? How do I update the server?</summary><p>Windows host: <code>%LOCALAPPDATA%/CoopDungeonHost/saves</code>. ZIP install: <code>server/users.db</code> (heroes) and <code>server/utils/map.json</code> (world). Stop the server and back them up, then replace the program files.</p></details>
   <details><summary>Is it free?</summary><p>Yes, MIT licensed. It's early access, so expect bugs. Reports and pull requests are welcome on <a href="https://github.com/real-kijmoshi/coop-dungeon-crawler">GitHub</a>.</p></details>
 </section>
 </main>
