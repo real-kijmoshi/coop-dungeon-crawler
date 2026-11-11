@@ -154,6 +154,9 @@ func (g *Game) handleNet(ev NetEvent) {
 			if g.lastStateAt.IsZero() {
 				g.lastStateAt = time.Now()
 			}
+			if g.state != nil && g.app != nil && (g.state.Player.X != st.Player.X || g.state.Player.Y != st.Player.Y) {
+				g.app.audio.SFX("step")
+			}
 			g.state = &st
 			g.clockOffset = st.Now - nowMs()
 			if st.SafeRoomID != nil {
@@ -221,6 +224,11 @@ func (g *Game) handleNet(ev NetEvent) {
 			if len(g.floaters) > 40 {
 				g.floaters = g.floaters[1:]
 			}
+		}
+	case "sound":
+		var s Sound
+		if json.Unmarshal(ev.D, &s) == nil && g.app != nil {
+			g.app.audio.SFXAt(s.Name, s.DX, s.DY)
 		}
 	case "shop":
 		var s Shop
@@ -800,14 +808,45 @@ func (g *Game) desiredTrack(now time.Time) string {
 	if st.Player.Safe {
 		return "town"
 	}
-	if st.Depth >= 6 {
-		return "deep"
+	// Every biome has its own music.
+	if _, ok := moods[st.Biome.ID]; ok {
+		return st.Biome.ID
 	}
-	return "explore"
+	if st.Biome.ID == "throne" {
+		return "abyss"
+	}
+	if st.Depth >= 6 {
+		return "crypts"
+	}
+	return "cellars"
+}
+
+// tension is how much of a fight the hero is in: it brings drums into the music.
+func (g *Game) tension() float64 {
+	st := g.state
+	if st == nil || st.Player.Safe {
+		return 0
+	}
+	t := 0.0
+	for _, m := range st.Monsters {
+		switch {
+		case m.Boss:
+			t += 1
+		case m.Hunting && m.Elite:
+			t += 0.6
+		case m.Hunting:
+			t += 0.34
+		}
+	}
+	if st.Player.Stats.MaxHP > 0 && st.Player.Stats.HP/st.Player.Stats.MaxHP < 0.35 && t > 0 {
+		t += 0.3
+	}
+	return clampf(t, 0, 1)
 }
 
 func (g *Game) updateMusic(now time.Time) {
 	want := g.desiredTrack(now)
+	g.app.audio.SetTension(g.tension())
 	if want != g.music.want {
 		g.music.want, g.music.since = want, now
 	}

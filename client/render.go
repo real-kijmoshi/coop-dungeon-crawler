@@ -216,10 +216,14 @@ func (g *Game) drawMap(r rect) {
 	warm := Color{255, 220, 170}
 	pulse := 0.5 + 0.5*math.Sin(float64(time.Now().UnixMilli())/110)
 
-	// Red danger zone around bosses that are about to slam.
+	// Red danger zones: tiles an attack is about to land on. Newer servers list
+	// them; for older ones it is the area around a boss winding up its slam.
 	danger := map[[2]int]bool{}
+	for _, d := range st.Danger {
+		danger[d] = true
+	}
 	for _, m := range st.Monsters {
-		if !m.Charging {
+		if !m.Charging || st.Danger != nil {
 			continue
 		}
 		for dy := -2; dy <= 2; dy++ {
@@ -400,8 +404,10 @@ func (g *Game) drawMap(r rect) {
 		switch {
 		case m.Hit:
 			bg = ptr(Color{200, 200, 200})
-		case m.Charging:
+		case m.Charging || m.Windup:
 			bg = ptr(mix(Color{150, 30, 30}, Color{255, 200, 60}, pulse))
+		case m.Primed != "":
+			bg = ptr(scale(primeColor(m.Primed), 0.35+0.15*pulse))
 		case m.Enraged:
 			bg = ptr(Color{150, 20, 20})
 		case m.Frozen:
@@ -749,6 +755,9 @@ func (g *Game) drawSidebar(r rect) {
 			if m.Frozen {
 				name += " ❄"
 			}
+			if m.Primed != "" {
+				name += " ✦" // marked: an ally's hit sets off a team combo
+			}
 			nc := theme.text
 			if m.Boss {
 				nc = Color{255, 150, 60}
@@ -1043,4 +1052,21 @@ func (g *Game) biomeFor(x, y int) *BiomeInfo {
 		}
 	}
 	return nil
+}
+
+// primeColor is the tint of a monster carrying a hero's mark (see team combos).
+func primeColor(kind string) Color {
+	switch kind {
+	case "fire":
+		return Color{255, 120, 40}
+	case "frost":
+		return Color{120, 200, 255}
+	case "shock":
+		return Color{255, 235, 110}
+	case "holy":
+		return Color{255, 245, 190}
+	case "bleed":
+		return Color{255, 70, 100}
+	}
+	return Color{255, 160, 90}
 }

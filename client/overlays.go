@@ -62,6 +62,7 @@ func helpLines(s Settings) []Line {
 		L("", cWhite),
 		L("M Merchant & blacksmith (safe room): potions, upgrades, +N gear, rebirth", cOrange),
 		L("$ gold  ! potion  ♥ heart  = chest  ^ shrine  § lore scroll  Ω waystone", cYellow),
+		L("% urn (smash it)  ≈ healing fountain  ≡ vault (needs 2 heroes)  ¤ cursed chest (a fight!)", cYellow),
 		L("/ ] \" gear - color shows rarity:", cYellow),
 		{Segs: []Seg{
 			{Text: "   "},
@@ -71,7 +72,9 @@ func helpLines(s Settings) []Line {
 			{Text: "Epic  ", Color: rarityColors["epic"], Bold: true},
 			{Text: "LEGENDARY", Color: rarityColors["legendary"], Bold: true},
 		}},
-		L("Capital letters are BOSSES. When one glows and the floor turns red, MOVE!", cOrange),
+		L("Capital letters are BOSSES. RED FLOOR means an attack is about to land there: MOVE!", cOrange),
+		L("Team combo: a skill marks a monster (✦) - when an ALLY hits it, it detonates for big damage.", cOrange),
+		L("Stand next to an ally to take 15% less damage; hit the same monster together to flank it.", cOrange),
 		L("", cWhite),
 		L("Party up (P): shared XP, personal boss loot, travel to friends, pings.", cGreen),
 		L("Fall near an ally and you go DOWN (%) - they have 20s to revive you.", cGreen),
