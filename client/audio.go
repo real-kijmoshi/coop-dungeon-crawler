@@ -56,7 +56,7 @@ func (a *Audio) Status() string {
 
 func volumeCurve(v int) float64 {
 	f := float64(v) / 10
-	return f * f
+	return f * math.Sqrt(f)
 }
 
 func (a *Audio) apply(s Settings) {

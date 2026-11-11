@@ -122,7 +122,7 @@ const ITEMS = {
   shrine: { name: "shrine", char: "^", color: [120, 255, 255] },
   gear: { name: "gear", char: "?", color: [255, 255, 255] }, // char/color depend on the item
   lore: { name: "lore scroll", char: "§", color: [240, 220, 170] },
-  urn: { name: "urn", char: "%", color: [190, 150, 110] },
+  urn: { name: "urn", char: "&", color: [190, 150, 110] },
   fountain: { name: "healing fountain", char: "≈", color: [110, 200, 255] },
   vault: { name: "sealed vault", char: "≡", color: [255, 215, 110] },
   cursed: { name: "cursed chest", char: "¤", color: [210, 110, 255] },

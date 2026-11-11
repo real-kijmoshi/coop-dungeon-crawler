@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Coop Dungeon Crawler — Descend together</title>
-<meta name="description" content="A free, open-source co-op dungeon crawler for your terminal. Four classes, six biomes, levels 1 to 100, an original chiptune soundtrack, and parties of up to four. Download the client or host your own world.">
+<meta name="description" content="A free, open-source co-op dungeon crawler for your terminal. Four classes, six biomes, levels 1 to 100, an original soundtrack composed live as you play, and parties of up to four. Download the client or host your own world.">
 <meta name="theme-color" content="#0b0807">
 <meta property="og:title" content="Coop Dungeon Crawler — Descend together">
 <meta property="og:description" content="Four classes. Six biomes. Levels 1 to 100. One terminal. Grab your party and descend into Emberfall.">
@@ -408,7 +408,7 @@ footer a { margin-left: 18px; color: var(--muted); }
   <div class="wrap">
     <p class="eyebrow">Original soundtrack</p>
     <h2>Music <span class="fire-text">from the depths.</span></h2>
-    <p class="sub">The client composes and synthesizes its own chiptune score on your machine, with no audio files to download. The music follows you: calm in the safe room, eerie in the deep, and loud when a boss shows up.</p>
+    <p class="sub">The client composes its own dark-fantasy score on your machine while you play, with no audio files to download. It never loops, so it never repeats exactly, and it follows you: a lute by the fire in the safe room, bells in the crypts, and drums that fade in when a fight starts. These are one-minute samples.</p>
     <div class="jukebox">
       <div class="player">
         <span class="nowplaying" id="np-label">Press play</span>
@@ -527,7 +527,7 @@ footer a { margin-left: 18px; color: var(--muted); }
       <article class="platform" data-platform="mac"><h3>macOS</h3><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-arm64">Apple Silicon <span>Download ↓</span></a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-darwin-amd64">Intel <span>Download ↓</span></a></article>
       <article class="platform" data-platform="linux"><h3>Linux</h3><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-amd64">x64 <span>Download ↓</span></a><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-linux-arm64">ARM64 <span>Download ↓</span></a></article>
     </div>
-    <div class="note"><p><strong>After downloading:</strong> on Windows, open the .exe in Windows Terminal. On macOS / Linux, run <code>chmod +x cdc-*</code> and then <code>./cdc-…</code>. Use a modern terminal at 100 × 30 or larger. macOS binaries are unsigned. Music plays through your system's player (afplay, PowerShell, PipeWire, PulseAudio or ALSA).</p></div>
+    <div class="note"><p><strong>After downloading:</strong> on Windows, open the .exe in Windows Terminal. On macOS / Linux, run <code>chmod +x cdc-*</code> and then <code>./cdc-…</code>. Use a modern terminal at 100 × 30 or larger. macOS binaries are unsigned. Sound works out of the box on Windows and macOS; on Linux it plays through PulseAudio, PipeWire or ALSA.</p></div>
     <p class="fine"><a href="https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest">Release notes &amp; SHA256 checksums ↗</a></p>
   </div>
 </section>
@@ -667,11 +667,11 @@ showShot(0);
 
 // ----------------------------------------------------------- soundtrack
 const TRACKS = [
-  { id: "title", name: "Emberfall", desc: "The title theme. Heroic, and a little sad: something below the town has woken up.", len: "1:03" },
-  { id: "town", name: "The Safe Room", desc: "Warm and calm. Plays while you sell loot and patch your wounds at the merchant.", len: "1:16" },
-  { id: "explore", name: "Into the Cellars", desc: "Curious and adventurous: the upper dungeon, the caverns, the first goblins.", len: "1:29" },
-  { id: "deep", name: "The Deep", desc: "Crypts, fire and the abyss. A heartbeat and a slow, dark melody.", len: "1:22" },
-  { id: "boss", name: "Lair of the King", desc: "Fast and loud. Starts the moment a boss sees you.", len: "0:39" },
+  { id: "title", name: "Emberfall", desc: "The title theme. Harp, choir and a flute: something below the town has woken up.", len: "1:04" },
+  { id: "town", name: "The Safe Room", desc: "A slow lute waltz by the fire. Plays while you sell loot and patch your wounds.", len: "1:04" },
+  { id: "explore", name: "Into the Cellars", desc: "Quiet and uneasy: the old cellars under the town, and the first goblins.", len: "1:04" },
+  { id: "deep", name: "The Deep", desc: "The sunken crypts. Tolling bells over a low choir, and a heartbeat when you are hunted.", len: "1:04" },
+  { id: "boss", name: "Lair of the King", desc: "War drums, low strings and horns. Starts the moment a boss sees you.", len: "0:48" },
 ];
 const audio = $("#audio"), playBtn = $("#play"), bar = $("#bar"), time = $("#time"), list = $("#tracks");
 let current = 0;

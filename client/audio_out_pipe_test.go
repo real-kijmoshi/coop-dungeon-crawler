@@ -28,6 +28,9 @@ func TestPipeOutputStreamsToThePlayer(t *testing.T) {
 	if err != nil || len(data) < 4096 {
 		t.Fatalf("the player received %d bytes (%v)", len(data), err)
 	}
+	if len(data) > sampleRate*4*2 {
+		t.Errorf("the stream must be paced to real time, got %d bytes in half a second", len(data))
+	}
 	loud := false
 	for _, b := range data {
 		loud = loud || b != 0

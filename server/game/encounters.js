@@ -248,20 +248,20 @@ module.exports = {
         const dx = target.x - m.x;
         const dy = target.y - m.y;
         tiles = [-1, 0, 1].map((s) => ({ x: target.x + dy * s, y: target.y + dx * s }));
-        opts = { mult: 1.8, what: "smash", label: "SMASH!" };
+        opts = { mult: 1.6, what: "smash", label: "SMASH!" };
         break;
       }
       case "bomb":
         if (d < 2 || d > 5 || !sees()) return false;
         tiles = square(target, 1);
         ticks = 3;
-        opts = { mult: 1.5, what: "bomb", label: "BOOM!", sound: "explode", x: target.x, y: target.y };
+        opts = { mult: 1.4, what: "bomb", label: "BOOM!", sound: "explode", x: target.x, y: target.y };
         break;
       case "hex":
         if (d > 6 || !sees()) return false;
         tiles = square(target, 1);
         ticks = 3;
-        opts = { mult: 1.6, what: "hex", label: "HEX!", sound: "shock", x: target.x, y: target.y };
+        opts = { mult: 1.5, what: "hex", label: "HEX!", sound: "shock", x: target.x, y: target.y };
         break;
       case "line":
       case "breath": {
@@ -270,7 +270,7 @@ module.exports = {
         if (m.ability === "breath") {
           tiles = tiles.flatMap((o, i) => (i === 0 ? [o] : [o, { x: o.x + 1, y: o.y }, { x: o.x - 1, y: o.y }, { x: o.x, y: o.y + 1 }, { x: o.x, y: o.y - 1 }]));
         }
-        opts = { mult: 1.6, what: "fire", label: "FWOOSH!", sound: "fire" };
+        opts = { mult: 1.5, what: "fire", label: "FWOOSH!", sound: "fire" };
         break;
       }
       case "leap": {
@@ -343,7 +343,7 @@ module.exports = {
       this.telegraph(square(monster, 1), 3, {
         atk: monster.atk,
         level: monster.level,
-        mult: 1.8,
+        mult: 1.6,
         name: monster.name,
         what: "death blast",
         label: "BOOM!",

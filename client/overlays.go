@@ -62,7 +62,7 @@ func helpLines(s Settings) []Line {
 		L("", cWhite),
 		L("M Merchant & blacksmith (safe room): potions, upgrades, +N gear, rebirth", cOrange),
 		L("$ gold  ! potion  ♥ heart  = chest  ^ shrine  § lore scroll  Ω waystone", cYellow),
-		L("% urn (smash it)  ≈ healing fountain  ≡ vault (needs 2 heroes)  ¤ cursed chest (a fight!)", cYellow),
+		L("& urn (smash it)  ≈ healing fountain  ≡ vault (needs 2 heroes)  ¤ cursed chest (a fight!)", cYellow),
 		L("/ ] \" gear - color shows rarity:", cYellow),
 		{Segs: []Seg{
 			{Text: "   "},

@@ -123,11 +123,21 @@ func (o *pipeOutput) play(src io.Reader, c []string) (time.Duration, bool) {
 		w.Close() // unblocks the writer below
 		close(done)
 	}()
+	// A real player takes audio at the speed it plays it, which paces this loop.
+	// The clock below is a safety net for anything that reads faster than that.
 	buf := make([]byte, 2048) // ~12 ms
+	clock, frames := time.Now(), int64(0)
 	for {
 		_, _ = src.Read(buf)
 		if _, err := w.Write(buf); err != nil {
 			break
+		}
+		frames += int64(len(buf) / 4)
+		ahead := time.Duration(frames)*time.Second/sampleRate - time.Since(clock)
+		if ahead > 250*time.Millisecond {
+			time.Sleep(ahead - 200*time.Millisecond)
+		} else if ahead < -time.Second { // the player stalled for a while: don't rush to catch up
+			clock, frames = time.Now(), 0
 		}
 	}
 	_ = cmd.Process.Kill()
