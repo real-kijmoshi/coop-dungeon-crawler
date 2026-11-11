@@ -295,7 +295,7 @@ and do it again, stronger. Reaching level 100 takes roughly 15-25 hours of play 
 
 #### First session
 
-Preview a class with the arrows or number keys. Press Enter to review the permanent choice and Enter again to confirm. The Field Guide then covers movement, attacks, chat, parties, and the merchant. Press your Help key (default **?**) to reopen it.
+Preview a class with the arrows or number keys. Press Enter to review the permanent choice and Enter again to confirm. Three short terminal scenes introduce Emberfall before the Field Guide covers movement, attacks, chat, parties, and the merchant. Advance with Enter or skip to the guide with Esc. Replay the intro with **C** in **Journal → Lore**. Press your Help key (default **?**) to reopen it.
 
 Default **T** opens world chat and **Tab** opens party chat after you join a party. While typing, **Tab** switches the labeled channel, **Enter** sends, and **Esc** cancels.
 

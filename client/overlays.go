@@ -347,7 +347,7 @@ func (g *Game) showJournal() {
 	}
 	p := g.profile
 	if g.journalPage == 1 {
-		g.overlay = &Overlay{Kind: "journal", Title: "JOURNAL · LORE", Lines: g.loreLines(), Footer: "↑/↓ entries · PgUp/PgDn scroll · Tab bounties · Esc"}
+		g.overlay = &Overlay{Kind: "journal", Title: "JOURNAL · LORE", Lines: g.loreLines(), Footer: "↑/↓ entries · PgUp/PgDn scroll · C replay intro · Tab bounties"}
 		return
 	}
 	lines := []Line{L("BOUNTIES - always 3 active, new ones appear when you finish one", cOrange)}

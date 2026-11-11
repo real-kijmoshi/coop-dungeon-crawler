@@ -36,8 +36,12 @@ func TestOnboardingAndShopPreview(t *testing.T) {
 	}
 
 	g.handleNet(NetEvent{T: "story", D: []byte(`["Emberfall"]`)})
-	if g.overlay == nil || g.overlay.Kind != "tutorial" {
-		t.Fatal("the first hero should see the tutorial")
+	if g.intro == nil || g.overlay.Kind != "intro" {
+		t.Fatal("the first hero should see the intro")
+	}
+	press(tcell.KeyEscape, 0)
+	if g.intro != nil || g.overlay.Kind != "tutorial" {
+		t.Fatal("skipping the intro should open the Field Guide")
 	}
 	press(tcell.KeyRight, 0)
 	press(tcell.KeyRight, 0)

@@ -112,6 +112,8 @@ type Game struct {
 	loreCursor       int
 	loreScroll       int
 	tutorialPage     int
+	intro            *introPlayback
+	heroIntroShown   bool
 	classCursor      int
 	shopCursor       int
 	classConfirm     bool
@@ -193,8 +195,8 @@ func (g *Game) handleNet(ev NetEvent) {
 		}
 	case "story":
 		var lines []string
-		if json.Unmarshal(ev.D, &lines) == nil && (g.profile == nil || g.profile.Cls == nil) {
-			g.showHelp()
+		if json.Unmarshal(ev.D, &lines) == nil && (g.selectionPending || g.profile == nil || g.profile.Cls == nil) {
+			g.beginHeroIntro()
 		}
 	case "fx":
 		var fx Fx
@@ -274,7 +276,7 @@ func (g *Game) onProfile(p *Profile) {
 		g.world = p.World
 	}
 	if p.Cls == nil {
-		if g.overlay == nil || g.overlay.Kind != "class" {
+		if g.intro == nil && (g.overlay == nil || g.overlay.Kind != "class") {
 			g.showClassSelect(nil)
 		}
 	} else if g.overlay != nil && g.overlay.Kind == "class" {
@@ -524,6 +526,10 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 		g.shopKey(name, lr, up, down)
 		return
 
+	case "intro":
+		g.introKey(name)
+		return
+
 	case "tutorial":
 		switch name {
 		case "Left":
@@ -605,6 +611,10 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 		}
 
 	case "journal":
+		if g.journalPage == 1 && name == "c" {
+			g.playIntro(true)
+			return
+		}
 		if g.journalPage == 1 && (name == "PgUp" || name == "PgDn") {
 			if name == "PgUp" {
 				g.loreScroll = maxi(0, g.loreScroll-4)

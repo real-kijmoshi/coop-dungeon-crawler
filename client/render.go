@@ -54,6 +54,12 @@ func (g *Game) draw() {
 	started := time.Now()
 	cv := g.cv
 	cv.BeginFrame()
+	if g.intro != nil {
+		g.drawIntro(started)
+		cv.Show()
+		g.drawTime = time.Since(started)
+		return
+	}
 	W, H := cv.W, cv.H
 	cv.Fill(0, 0, W, H, theme.bg)
 	now := time.Now()

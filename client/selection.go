@@ -38,13 +38,11 @@ func (g *Game) classKey(name string, r rune, up, down bool) {
 				if json.Unmarshal(raw, &result) != nil {
 					result.Message = "Could not confirm your class. Try again."
 				}
-				if g.overlay == nil || g.overlay.Kind != "class" {
-					return
-				}
 				g.classConfirm = false
 				if result.OK {
-					g.showHelp()
-				} else {
+					// Some servers acknowledge the class without sending a story event.
+					g.beginHeroIntro()
+				} else if g.overlay != nil && g.overlay.Kind == "class" {
 					note := L(result.Message, cRed)
 					g.showClassSelect(&note)
 				}
