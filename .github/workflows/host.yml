@@ -1,0 +1,93 @@
+name: Windows host executable
+on:
+  push:
+    branches: [main]
+    paths: ['host/**', '.github/workflows/host.yml', 'server/**']
+  pull_request:
+    paths: ['host/**', '.github/workflows/host.yml', 'server/**']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows-host:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: host/go.mod
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci --no-audit --no-fund
+      - name: Test server transport
+        run: node --test server/test/transport.test.js server/test/game-network.test.js
+      - name: Download host Go dependencies
+        working-directory: host
+        run: go mod download
+      - name: Assemble runtime bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force bundle, host/assets, client/dist | Out-Null
+          Copy-Item (Get-Command node).Source bundle/node.exe
+          Copy-Item server bundle/server -Recurse
+          Copy-Item LICENSE bundle/LICENSE-project.txt
+          New-Item -ItemType Directory -Force bundle/licenses-go | Out-Null
+          Push-Location host
+          $modules = go list -m -f '{{.Path}}|{{.Dir}}' all
+          Pop-Location
+          foreach ($module in $modules) {
+            $parts = $module.Split('|')
+            if ($parts.Length -eq 2 -and $parts[1]) {
+              $label = $parts[0] -replace '[/\\@:]', '_'
+              Get-ChildItem $parts[1] -File | Where-Object { $_.Name -match '^(LICENSE|COPYING|NOTICE)' } | ForEach-Object { Copy-Item $_.FullName ("bundle/licenses-go/" + $label + "-" + $_.Name) }
+            }
+          }
+          $v = node -p process.version
+          Invoke-WebRequest "https://raw.githubusercontent.com/nodejs/node/$v/LICENSE" -OutFile bundle/LICENSE-node.txt
+          Invoke-WebRequest 'https://raw.githubusercontent.com/cloudflare/cloudflared/2026.10.7/LICENSE' -OutFile bundle/LICENSE-cloudflared.txt
+          Invoke-WebRequest 'https://github.com/cloudflare/cloudflared/releases/download/2026.10.7/cloudflared-windows-amd64.exe' -OutFile bundle/cloudflared.exe
+          $hash = (Get-FileHash bundle/cloudflared.exe -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne '2493dbc168923bb3e59e5e7716f71deced92992eea9acd6e9d74f84ac7751343') { throw 'cloudflared checksum mismatch' }
+          python -c "import zipfile,pathlib; z=zipfile.ZipFile('host/assets/bundle.zip','w',zipfile.ZIP_DEFLATED); [z.write(p,p.relative_to('bundle').as_posix()) for p in pathlib.Path('bundle').rglob('*') if p.is_file()]; z.close()"
+      - name: Test and build host executable
+        working-directory: host
+        shell: pwsh
+        run: |
+          gofmt -w .
+          go vet ./...
+          go test -race ./...
+          go build -trimpath -ldflags "-s -w -X main.version=$env:GITHUB_SHA" -o ../client/dist/cdc-host-windows-amd64.exe .
+      - name: Smoke test bundled host and persistent saves
+        run: node host/smoke.js
+      - name: Test client networking
+        working-directory: client
+        run: |
+          go test -race ./...
+          go test -run '^$' -bench '^BenchmarkGameDraw$' -benchtime=250ms
+      - name: Build clients and server archive
+        shell: bash
+        run: |
+          cd client
+          ./build.sh v0.3.1
+          cd ..
+          git archive --format=zip --output=client/dist/cdc-server.zip HEAD server start-server.js start-server.cmd start-server.sh README.md LICENSE
+          cd client/dist
+          sha256sum cdc-* > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cdc-host-release
+          path: client/dist/*
+      - name: Publish v0.3.1
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v0.3.1 *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'v0.3.1 exists; do not overwrite a published release' }
+          gh release create v0.3.1 client/dist/* --target $env:GITHUB_SHA --title 'v0.3.1 — Reduce terminal redraw latency' --notes-file host/RELEASE.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

@@ -112,6 +112,10 @@ type Game struct {
 	journalPage    int
 	travelOpts     *TravelOptions
 
+	showPerformance bool // F3: network and rendering stats
+	drawTime        time.Duration
+	lastStateAt     time.Time
+
 	music     musicState
 	ambient   []ember // drifting dust / sparks in the light
 	lastFrame time.Time
@@ -146,6 +150,10 @@ func (g *Game) handleNet(ev NetEvent) {
 	case "gameState":
 		var st GameState
 		if json.Unmarshal(ev.D, &st) == nil {
+			g.lastStateAt = ev.receivedAt
+			if g.lastStateAt.IsZero() {
+				g.lastStateAt = time.Now()
+			}
 			g.state = &st
 			g.clockOffset = st.Now - nowMs()
 			if st.SafeRoomID != nil {
@@ -284,6 +292,10 @@ func (g *Game) invAction(action string, arg any) {
 
 // ------------------------------------------------------------------ input
 func (g *Game) handleKey(ev *tcell.EventKey) {
+	if ev.Key() == tcell.KeyF3 && g.rebinding == "" {
+		g.showPerformance = !g.showPerformance
+		return
+	}
 	if ev.Key() == tcell.KeyCtrlC {
 		g.quit = true
 		return
@@ -715,6 +727,14 @@ func runGame(app *App, conn *Conn, acc Account) (string, bool) {
 			g.requestInitial()
 			dirty = true
 		case <-ticker.C:
+			// Parse only the newest snapshot once per frame, rather than every
+			// intermediate state delivered together by a congested connection.
+			select {
+			case ev := <-g.conn.States:
+				g.handleNet(ev)
+				dirty = true
+			default:
+			}
 			// prune animations
 			now := time.Now()
 			kept := g.floaters[:0]
@@ -734,14 +754,16 @@ func runGame(app *App, conn *Conn, acc Account) (string, bool) {
 				animating = true
 			}
 			// Timers (cooldowns, buffs, events) tick a few times a second.
-			if animating || now.Sub(lastDraw) > 250*time.Millisecond {
+			if animating || g.showPerformance || now.Sub(lastDraw) > 250*time.Millisecond {
 				dirty = true
 			}
-		}
-		if dirty {
-			g.draw()
-			lastDraw = time.Now()
-			dirty = false
+			// Only the frame ticker redraws. Network bursts and input can mark
+			// the screen dirty without forcing extra terminal work.
+			if dirty {
+				g.draw()
+				lastDraw = time.Now()
+				dirty = false
+			}
 		}
 	}
 	g.conn.Close()

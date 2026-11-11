@@ -89,9 +89,17 @@ var httpClient = &http.Client{Timeout: 10 * time.Second}
 // postAuth calls /login or /register and returns the server's message on failure.
 func postAuth(server, endpoint, username, password string) error {
 	body, _ := json.Marshal(map[string]string{"username": username, "password": password})
-	res, err := httpClient.Post(server+"/"+endpoint, "application/json", bytes.NewReader(body))
+	client, base, err := authClient(server)
 	if err != nil {
-		return fmt.Errorf("could not reach %s", server)
+		return err
+	}
+	if client != httpClient {
+		defer client.CloseIdleConnections()
+	}
+	base.Path += "/" + endpoint
+	res, err := client.Post(base.String(), "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("could not reach %s: %w", server, err)
 	}
 	defer res.Body.Close()
 	var out struct {
@@ -136,9 +144,17 @@ type HeroInfo struct {
 // postJSON sends credentials (plus extra fields) to an account endpoint.
 func postJSON(server, endpoint string, fields map[string]string, out any) error {
 	body, _ := json.Marshal(fields)
-	res, err := httpClient.Post(server+endpoint, "application/json", bytes.NewReader(body))
+	client, base, err := authClient(server)
 	if err != nil {
-		return fmt.Errorf("could not reach %s", server)
+		return err
+	}
+	if client != httpClient {
+		defer client.CloseIdleConnections()
+	}
+	base.Path += endpoint
+	res, err := client.Post(base.String(), "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("could not reach %s", hostOf(server))
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusNotFound {

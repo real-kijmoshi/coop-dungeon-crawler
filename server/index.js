@@ -10,11 +10,14 @@ const { initMap } = require("./utils/map");
 const { World } = require("./game/World");
 
 const PORT = process.env.PORT || 3143;
+const fs = require("fs");
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ---------------------------------------------------------------------------
 // Database
 // ---------------------------------------------------------------------------
-const db = new Database(path.join(__dirname, "users.db"));
+const db = new Database(path.join(DATA_DIR, "users.db"));
 
 db.prepare(
   `
@@ -92,14 +95,18 @@ let broadcastQueued = false;
 const broadcastStates = () => {
   if (broadcastQueued) return;
   broadcastQueued = true;
-  setImmediate(() => {
+  // Coalesce changes from several players into at most 20 snapshots/second.
+  // Simulation and action handling still run immediately.
+  setTimeout(() => {
     broadcastQueued = false;
     for (const p of world.takeDirtyProfiles()) sockets.get(p.id)?.emit("profile", world.profileFor(p));
     for (const [id, socket] of sockets) {
-      const player = world.players.get(id);
-      if (player) socket.emit("gameState", world.stateFor(player));
+      socket.sendState(() => {
+        const player = world.players.get(id);
+        return player ? world.stateFor(player) : null;
+      });
     }
-  });
+  }, 50);
 };
 
 world.on("changed", broadcastStates);
@@ -370,6 +377,22 @@ const shutdown = () => {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-httpServer.listen(PORT, () => {
-  console.log(`Game server running on port ${PORT}`);
+if (process.env.DATA_DIR) {
+  const stopFile = path.join(DATA_DIR, "stop.request");
+  try { fs.unlinkSync(stopFile); } catch {}
+  setInterval(() => { if (fs.existsSync(stopFile)) { fs.unlinkSync(stopFile); shutdown(); } }, 250);
+}
+httpServer.listen(PORT, process.env.HOST || "0.0.0.0", () => {
+  console.log(`Game server ready! Open http://localhost:${PORT} for the play launcher.`);
+  console.log(`On this computer, connect the client to localhost:${PORT}`);
+  let interfaces = {};
+  try { interfaces = require("os").networkInterfaces(); } catch { console.log("Network addresses unavailable; use your computer’s LAN address for friends."); }
+  for (const addresses of Object.values(interfaces)) {
+    for (const address of addresses || []) {
+      if (address.family === "IPv4" && !address.internal) {
+        console.log(`Same-network friends: http://${address.address}:${PORT}`);
+      }
+    }
+  }
+  console.log("Friends outside your network need a reachable host or router port forwarding (TCP). Local addresses only work on your network.");
 });

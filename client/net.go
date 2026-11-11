@@ -1,32 +1,65 @@
 package main
 
 import (
+	"bytes"
+	"compress/flate"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
+	"io"
+	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
+const maxStateBytes = 4 * 1024 * 1024
+
+// Application compression remains effective when a tunnel does not negotiate
+// WebSocket permessage-deflate. Legacy JSON text frames still work unchanged.
+func decodeWireMessage(messageType int, raw []byte) ([]byte, error) {
+	if messageType == websocket.TextMessage {
+		return raw, nil
+	}
+	if messageType != websocket.BinaryMessage || !bytes.HasPrefix(raw, []byte("CDC1")) {
+		return nil, errors.New("unsupported binary game frame")
+	}
+	r := flate.NewReader(bytes.NewReader(raw[4:]))
+	defer r.Close()
+	decoded, err := io.ReadAll(io.LimitReader(r, maxStateBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(decoded) > maxStateBytes {
+		return nil, errors.New("game frame exceeds decompression limit")
+	}
+	return decoded, nil
+}
+
 // NetEvent is something that arrived from the server, delivered to the game loop.
 type NetEvent struct {
-	T     string
-	D     json.RawMessage
-	reply func(json.RawMessage) // set for request replies
+	T          string
+	D          json.RawMessage
+	reply      func(json.RawMessage) // set for request replies
+	receivedAt time.Time
 }
 
 // Conn is a WebSocket connection speaking the server's JSON protocol.
 type Conn struct {
-	ws      *websocket.Conn
-	writeMu sync.Mutex
-	mu      sync.Mutex
-	nextID  int
-	pending map[int]func(json.RawMessage)
-	Events  chan NetEvent
+	ws       *websocket.Conn
+	writeMu  sync.Mutex
+	mu       sync.Mutex
+	nextID   int
+	pending  map[int]func(json.RawMessage)
+	Events   chan NetEvent
+	States   chan NetEvent // latest snapshot only; reliable events keep their FIFO
+	done     chan struct{}
+	rttNanos atomic.Int64
+	lastPong atomic.Int64
 }
 
 type frame struct {
@@ -37,10 +70,7 @@ type frame struct {
 
 // wsURL turns "http://host:port" (or a bare "host:port") into "ws://host:port/ws".
 func wsURL(server string) (string, error) {
-	if !strings.Contains(server, "://") {
-		server = "http://" + server
-	}
-	u, err := url.Parse(server)
+	u, _, err := parseServerAddress(server)
 	if err != nil {
 		return "", err
 	}
@@ -60,14 +90,20 @@ func Dial(server, username, password string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
+	_, pin, err := parseServerAddress(server)
+	if err != nil {
+		return nil, err
+	}
+	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, EnableCompression: true, Proxy: http.ProxyFromEnvironment, TLSClientConfig: serverTLSConfig(pin)}
 	ws, _, err := dialer.Dial(addr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not reach %s: %w", server, err)
 	}
+	ws.SetReadLimit(maxStateBytes)
 	auth, _ := json.Marshal(map[string]any{
-		"t": "auth",
-		"d": map[string]string{"username": username, "password": password},
+		"t":        "auth",
+		"d":        map[string]string{"username": username, "password": password},
+		"features": []string{"state-deflate-v1"},
 	})
 	if err := ws.WriteMessage(websocket.TextMessage, auth); err != nil {
 		ws.Close()
@@ -95,22 +131,71 @@ func Dial(server, username, password string) (*Conn, error) {
 		return nil, errors.New(reason)
 	}
 
-	c := &Conn{ws: ws, pending: map[int]func(json.RawMessage){}, Events: make(chan NetEvent, 256)}
+	c := &Conn{ws: ws, pending: map[int]func(json.RawMessage){}, Events: make(chan NetEvent, 256), States: make(chan NetEvent, 1), done: make(chan struct{})}
+	ws.SetPongHandler(func(payload string) error {
+		if len(payload) == 12 && payload[:4] == "CDCP" {
+			sent := int64(binary.BigEndian.Uint64([]byte(payload[4:])))
+			elapsed := time.Now().UnixNano() - sent
+			if elapsed > 0 && elapsed < int64(time.Minute) {
+				c.rttNanos.Store(elapsed)
+				c.lastPong.Store(time.Now().UnixNano())
+			}
+		}
+		return nil
+	})
 	go c.readLoop()
+	go c.probeLoop()
 	return c, nil
+}
+
+// Control frames measure the live WebSocket path independently of rendering.
+// WriteControl is safe alongside normal writes; closing the socket stops both
+// goroutines. No game RPC or extra world snapshot is needed for a probe.
+func (c *Conn) probeLoop() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		payload := make([]byte, 12)
+		copy(payload, "CDCP")
+		binary.BigEndian.PutUint64(payload[4:], uint64(time.Now().UnixNano()))
+		if err := c.ws.WriteControl(websocket.PingMessage, payload, time.Now().Add(time.Second)); err != nil {
+			return
+		}
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func (c *Conn) latency() (time.Duration, bool) {
+	last := c.lastPong.Load()
+	return time.Duration(c.rttNanos.Load()), last != 0 && time.Since(time.Unix(0, last)) < 6*time.Second
 }
 
 func (c *Conn) readLoop() {
 	defer func() {
+		c.ws.Close()
+		close(c.done)
 		c.Events <- NetEvent{T: "_closed"}
 	}()
 	for {
-		_, raw, err := c.ws.ReadMessage()
+		messageType, raw, err := c.ws.ReadMessage()
+		if err != nil {
+			return
+		}
+		receivedAt := time.Now()
+		raw, err = decodeWireMessage(messageType, raw)
 		if err != nil {
 			return
 		}
 		var f frame
 		if json.Unmarshal(raw, &f) != nil {
+			continue
+		}
+		if f.T == "gameState" {
+			c.queueState(NetEvent{T: f.T, D: f.D, receivedAt: receivedAt})
 			continue
 		}
 		if f.T == "reply" && f.ID != nil {
@@ -124,6 +209,20 @@ func (c *Conn) readLoop() {
 			continue
 		}
 		c.Events <- NetEvent{T: f.T, D: f.D}
+	}
+}
+
+// Only readLoop produces snapshots. Replace an unconsumed frame instead of
+// making the UI play through stale positions after a burst or a slow redraw.
+func (c *Conn) queueState(ev NetEvent) {
+	select {
+	case c.States <- ev:
+	default:
+		select {
+		case <-c.States:
+		default:
+		}
+		c.States <- ev
 	}
 }
 

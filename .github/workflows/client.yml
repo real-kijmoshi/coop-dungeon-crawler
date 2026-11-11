@@ -4,15 +4,34 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
-    paths: ["client/**", ".github/workflows/client.yml"]
+    paths: ["client/**", "server/**", "start-server.*", "scripts/**", ".github/workflows/client.yml"]
+  workflow_dispatch:
   pull_request:
-    paths: ["client/**", ".github/workflows/client.yml"]
+    paths: ["client/**", "server/**", "start-server.*", "scripts/**", ".github/workflows/client.yml"]
 
 permissions:
   contents: write
 
 jobs:
+  server:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Test first-launch dependency setup and server
+        run: node scripts/smoke-server.js
+      - name: Test transport backpressure and compression
+        run: node --test server/test/transport.test.js server/test/game-network.test.js
+      - name: Test repeat launch
+        run: node scripts/smoke-server.js
   build:
+    needs: server
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -23,10 +42,19 @@ jobs:
         with:
           go-version-file: client/go.mod
           cache-dependency-path: client/go.sum
+      - name: Test snapshot bursts
+        run: go test -race ./...
       - name: Vet
         run: go vet ./...
       - name: Build all platforms
         run: ./build.sh "${GITHUB_REF_NAME}"
+      - name: Package easy-start server
+        working-directory: .
+        run: |
+          mkdir -p client/dist
+          git archive --format=zip --output=client/dist/cdc-server.zip HEAD server start-server.js start-server.cmd start-server.sh README.md LICENSE
+      - name: Generate checksums
+        run: cd dist && sha256sum cdc-* > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: cdc-clients

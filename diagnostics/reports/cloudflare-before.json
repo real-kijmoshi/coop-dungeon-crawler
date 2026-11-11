@@ -1,0 +1,169 @@
+{
+  "started": "2026-11-09T18:54:57.726Z",
+  "node": "v24.22.2",
+  "platform": "linux",
+  "players": 4,
+  "durationSeconds": 30,
+  "rounds": 2,
+  "scenario": "Four synthetic heroes in the initial dungeon, 20 full snapshots/s/client, movement every 150ms and reliable probe every 250ms. Clients and origin on same machine; public paths actually traverse Cloudflare. This does not measure a Polish home connection.",
+  "results": [
+    {
+      "label": "direct-local",
+      "round": 1,
+      "negotiatedProtocol": "none",
+      "compression": true,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 478,
+        "p50": 0.2,
+        "p95": 0.3,
+        "max": 1.1
+      },
+      "snapshotAgeMs": {
+        "samples": 2384,
+        "p50": 1,
+        "p95": 1,
+        "max": 6
+      },
+      "snapshots": 2384,
+      "snapshotsPerSecondPerPlayer": 19.9,
+      "websocketBytesReceived": 2165408,
+      "websocketKiBPerSecondAllPlayers": 70.5,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        9,
+        38,
+        38,
+        38
+      ]
+    },
+    {
+      "label": "cloudflare-http2",
+      "round": 1,
+      "negotiatedProtocol": "http2",
+      "compression": false,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 480,
+        "p50": 8.3,
+        "p95": 13,
+        "max": 26.3
+      },
+      "snapshotAgeMs": {
+        "samples": 2384,
+        "p50": 4,
+        "p95": 8,
+        "max": 56
+      },
+      "snapshots": 2384,
+      "snapshotsPerSecondPerPlayer": 19.9,
+      "websocketBytesReceived": 12542600,
+      "websocketKiBPerSecondAllPlayers": 408.3,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        46,
+        31,
+        31,
+        43
+      ]
+    },
+    {
+      "label": "cloudflare-http2",
+      "round": 2,
+      "negotiatedProtocol": "http2",
+      "compression": false,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 480,
+        "p50": 8.9,
+        "p95": 15.3,
+        "max": 74.2
+      },
+      "snapshotAgeMs": {
+        "samples": 2395,
+        "p50": 5,
+        "p95": 9,
+        "max": 103
+      },
+      "snapshots": 2395,
+      "snapshotsPerSecondPerPlayer": 20,
+      "websocketBytesReceived": 12600056,
+      "websocketKiBPerSecondAllPlayers": 410.1,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        17,
+        14,
+        14,
+        10
+      ]
+    },
+    {
+      "label": "cloudflare-auto",
+      "round": 1,
+      "negotiatedProtocol": "quic",
+      "compression": false,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 480,
+        "p50": 9.6,
+        "p95": 17.1,
+        "max": 27.9
+      },
+      "snapshotAgeMs": {
+        "samples": 2387,
+        "p50": 5,
+        "p95": 10,
+        "max": 95
+      },
+      "snapshots": 2387,
+      "snapshotsPerSecondPerPlayer": 19.9,
+      "websocketBytesReceived": 12558021,
+      "websocketKiBPerSecondAllPlayers": 408.8,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        29,
+        29,
+        13,
+        25
+      ]
+    },
+    {
+      "label": "cloudflare-auto",
+      "round": 2,
+      "negotiatedProtocol": "quic",
+      "compression": false,
+      "measuredSeconds": 30,
+      "rttMs": {
+        "samples": 480,
+        "p50": 9.3,
+        "p95": 15.9,
+        "max": 51
+      },
+      "snapshotAgeMs": {
+        "samples": 2387,
+        "p50": 5,
+        "p95": 9,
+        "max": 92
+      },
+      "snapshots": 2387,
+      "snapshotsPerSecondPerPlayer": 19.9,
+      "websocketBytesReceived": 12558101,
+      "websocketKiBPerSecondAllPlayers": 408.8,
+      "disconnects": 0,
+      "errors": [],
+      "clientStateSilenceMs": [
+        12,
+        36,
+        14,
+        14
+      ]
+    }
+  ],
+  "finished": "2026-11-09T18:58:01.076Z",
+  "runnerRegion": "westus",
+  "sourceRun": "https://github.com/real-kijmoshi/coop-dungeon-crawler/actions/runs/42678290529"
+}

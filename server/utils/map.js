@@ -325,7 +325,7 @@ class Grid {
     }
 }
 
-const MAP_FILE = path.join(__dirname, 'map.json');
+const MAP_FILE = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'map.json') : path.join(__dirname, 'map.json');
 
 const loadMap = () => {
     try {

@@ -194,8 +194,10 @@ func (m *menu) mainItems() []menuItem {
 }
 
 func hostOf(server string) string {
-	s := strings.TrimPrefix(strings.TrimPrefix(server, "http://"), "https://")
-	return s
+	if u, _, err := parseServerAddress(server); err == nil {
+		return u.Host
+	}
+	return strings.TrimPrefix(strings.TrimPrefix(server, "http://"), "https://")
 }
 
 func (m *menu) menuRows() []string {
@@ -453,7 +455,11 @@ func (m *menu) formKey(e *tcell.EventKey) *Account {
 		}
 		return m.submit()
 	case tcell.KeyRune:
-		if f.focus < len(f.fields) && runeLen(f.fields[f.focus].value) < 64 {
+		limit := 64
+		if f.focus < len(f.fields) && f.fields[f.focus].label == "Server" {
+			limit = 2048 // direct invite links carry a #key=... fingerprint
+		}
+		if f.focus < len(f.fields) && runeLen(f.fields[f.focus].value) < limit {
 			f.fields[f.focus].value += string(e.Rune())
 		} else if f.focus == len(f.fields) && e.Rune() == ' ' {
 			return m.submit()
@@ -549,7 +555,7 @@ func (m *menu) submit() *Account {
 
 func (m *menu) draw() {
 	cv := m.app.cv
-	cv.W, cv.H = cv.s.Size()
+	cv.BeginFrame()
 	now := time.Now()
 	dt := now.Sub(m.last).Seconds()
 	if dt > 0.2 || m.last.IsZero() {

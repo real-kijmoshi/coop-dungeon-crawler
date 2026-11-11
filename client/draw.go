@@ -17,6 +17,14 @@ type Canvas struct {
 	prev []cellData
 	bw   int // size the buffers were made for
 	bh   int
+
+	changed int // cells sent to the terminal by the last Show (F3 stats)
+}
+
+// BeginFrame starts a new frame at the terminal's current size.
+func (c *Canvas) BeginFrame() {
+	c.W, c.H = c.s.Size()
+	c.ensure()
 }
 
 type cellData struct {
@@ -51,6 +59,7 @@ func (c *Canvas) Get(x, y int) (rune, Color, Color) {
 // Show sends the changed cells to the terminal.
 func (c *Canvas) Show() {
 	c.ensure()
+	c.changed = 0
 	for i, cd := range c.buf {
 		if !cd.set {
 			cd = cellData{' ', theme.text, theme.bg, false, true}
@@ -58,6 +67,7 @@ func (c *Canvas) Show() {
 		if c.prev != nil && c.prev[i] == cd {
 			continue
 		}
+		c.changed++
 		x, y := i%c.W, i/c.W
 		c.s.SetContent(x, y, cd.r, noComb, tcell.StyleDefault.Foreground(tc(cd.fg)).Background(tc(cd.bg)).Bold(cd.bold))
 	}

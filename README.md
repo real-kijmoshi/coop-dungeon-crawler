@@ -1,20 +1,22 @@
 <div align="center">
 
-# Terminal Coop Dungeon Drawler
+# Terminal Coop Dungeon Crawler
 
 <!-- ![Game Preview](https://via.placeholder.com/600x300) -->
 
 A procedurally generated cooperative dungeon crawler that runs in your terminal.
 The server is Node.js; the client is a single small Go binary for Windows, macOS and Linux.
 
-its somewhat working for now all contrributions are welcome
+Early access — contributions and bug reports are welcome.
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/server-node%20%3E%3D%2018-brightgreen)](https://nodejs.org)
+[![Node.js Version](https://img.shields.io/badge/server-node%20%3E%3D%2022-brightgreen)](https://nodejs.org)
 [![Go Version](https://img.shields.io/badge/client-go%201.24-00ADD8)](https://go.dev)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
+[Website](https://real-kijmoshi.github.io/coop-dungeon-crawler/) •
+[Download](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest) •
 [Features](#features) •
 [Installation](#installation) •
 [Usage](#usage) •
@@ -31,6 +33,71 @@ its somewhat working for now all contrributions are welcome
 - Persistent character progression
 - Cross-platform compatibility (Windows, macOS, Linux)
 - Custom server hosting capabilities
+
+## Host on Windows — Cloudflare, Direct, or Both
+
+Download [cdc-host-windows-amd64.exe](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-host-windows-amd64.exe) and double-click it. Node.js and the server dependencies are bundled. No domain or VPS is required.
+
+| Menu | Mode | What friends receive |
+| --- | --- | --- |
+| 1 | Cloudflare | A temporary HTTPS URL; no router changes or Administrator access |
+| 2 | Direct Internet | An encrypted direct invite with your public IPv4, port, and server key |
+| 3 | Both | Both addresses for the same world |
+| 4 | LAN | Your computer's local-network address |
+| 5 | Local | This computer only |
+
+For command-line use:
+
+```powershell
+.\cdc-host-windows-amd64.exe --public
+.\cdc-host-windows-amd64.exe --direct
+.\cdc-host-windows-amd64.exe --public --direct
+```
+
+**Direct mode:** the host requests elevation only to configure its own Windows firewall rule. The rule allows this executable's TCP port (3143 by default) on Private/Public networks, without disabling the firewall. It tries UPnP/NAT-PMP router forwarding, renews a finite lease while running, and removes its own mapping on normal shutdown. If automatic forwarding or firewall setup is unavailable, it starts Cloudflare as a fallback. Router support and a reachable public IPv4 are still required for direct Internet access; CGNAT or upstream NAT can prevent it. Every direct invite is marked **externally unverified** because router configuration does not prove reachability from a friend's network.
+
+Paste the **entire direct invite**, including `#key=...`, into the Server field in **client v0.3.0 or later**. The client verifies the host's persistent TLS public key for registration, login, and WebSocket traffic. Direct invites are for the game client; a browser does not automatically trust this self-signed certificate. Cloudflare links continue to work normally in browsers. Local players should use the local address printed by the host; in Direct mode this is a stable, pinned loopback HTTPS invite.
+
+If automatic router mapping is unavailable, configure a TCP port-forward from your router to the hosting PC's LAN IPv4 and printed local port. `--external-port` requests a different public port; if the router grants another port, the invite shows the actual one. The public IPv4 can still change when your ISP changes it.
+
+Advanced options: `--no-upnp` for manual forwarding, `--public-ip <IPv4>` to override address discovery, `--no-firewall` to manage firewall rules yourself, and `--no-fallback` to prevent automatic Cloudflare fallback. `--public --direct` explicitly runs both even with `--no-fallback`.
+
+The firewall rule persists so later launches in the same location do not repeatedly request elevation. Remove only this mode's own rule with:
+
+```powershell
+.\cdc-host-windows-amd64.exe --direct --remove-firewall
+```
+
+LAN mode's optional `--lan --open-firewall` rule remains limited to the local subnet and Private profile. It does not forward your router port.
+
+Press **Enter** to save and stop. Saves remain in `%LOCALAPPDATA%/CoopDungeonHost/saves`; the direct TLS identity is stored separately in `%LOCALAPPDATA%/CoopDungeonHost/tls`. Preserve the latter to keep the same server key. Back up both before upgrading. Only one host may use a save folder at a time. Closing the Windows launcher also stops its server/tunnel child processes; use Enter for a graceful save.
+
+Cloudflare uses Quick Tunnels: the URL changes after restarting, no account/domain is needed, and no uptime guarantee is provided. It remains the account-free fallback when a router or ISP prevents direct hosting.
+
+### Tunnel performance
+
+**Local lag:** update the client to v0.3.1 or later. Earlier clients invalidated the entire terminal on every frame, even when most cells were unchanged. Press **F3** in game to toggle live WebSocket RTT, previous frame rendering time (including terminal output), changed-cell count, and time since the last state arrived. The state timer can increase normally while the world is idle; it is not network latency. The rendering fix works with a v0.3.0 host, so existing hosts do not need a server update for it.
+
+Use the latest **host and client** together. New clients request application-level snapshot compression, which remains effective when a proxy does not negotiate WebSocket compression. Game snapshots are coalesced to at most 20 per second, and slow connections retain only the latest pending state. The client also replaces old snapshots and caps terminal redraws at approximately 30 FPS. Reliable messages, profiles and request replies stay ordered within their event stream.
+
+If movement is still delayed, compare a local connection (`localhost:3143`) against the public URL. The host player should connect locally to avoid going through the public tunnel. A permanent tunnel hostname keeps the address stable, but does not itself guarantee lower latency. Back up your saves before upgrading the host.
+
+## Host a server from the ZIP — all platforms
+
+1. Install [Node.js LTS](https://nodejs.org/) once.
+2. Download [cdc-server.zip](https://github.com/real-kijmoshi/coop-dungeon-crawler/releases/latest/download/cdc-server.zip) and **extract it**.
+3. **Windows:** double-click `start-server.cmd`. **macOS / Linux:** open a terminal in the extracted folder and run `sh start-server.sh`.
+
+The launcher installs dependencies on first use and starts the server. No Git or Go is required.
+Open **http://localhost:3143** for the server's play launcher, or connect your downloaded client to `localhost:3143`.
+The server window prints addresses for friends on the same network. Keep that window open; **Ctrl+C** stops the server.
+
+Your heroes and world are saved in `server/users.db` and `server/utils/map.json` in the extracted folder.
+Restart using the same launcher and folder. Back up those files before updating; do not overwrite or delete them.
+For Internet play, use a reachable server address or forward TCP port 3143 on your router. A LAN address does not work across the Internet.
+Use a modern Node.js LTS; the first launch needs Internet access for dependencies. If native dependency installation fails, use Node.js LTS and retry.
+
+You can also run `node start-server.js` from a source checkout. Set `PORT` in `server/.env` to change the port.
 
 ## Play in one command
 
@@ -68,7 +135,7 @@ go build -o cdc .          # just your platform
 
 ### Server
 
-Requires Node.js 18 or newer.
+Requires Node.js 22 or newer.
 
 ```bash
 cd server
@@ -111,10 +178,14 @@ response buffering for `/watch` so the live stream flows (nginx: `proxy_bufferin
 
 ### Protocol
 
-The client talks to the server over a plain WebSocket at `/ws` with JSON messages, so writing another client
+The client talks to the server over WebSocket at `/ws` (WSS for HTTPS addresses), with JSON events and an optional compressed snapshot codec, so writing another client
 (web, mobile, bots) is easy. See [`server/net/hub.js`](server/net/hub.js) for the message format. Accounts are
 created through `POST /register` and checked with `POST /login`. The main menu uses `POST /account/info`,
 `POST /account/password` and `POST /account/delete` (all take `username` and `password`).
+
+Clients may advertise `features: ["state-deflate-v1"]` in the top-level authentication frame. For those clients, snapshots of at least 1 KiB are sent as binary WebSocket frames: ASCII `CDC1`, followed by raw DEFLATE of the usual JSON game-state event. Other events remain JSON text. Clients without this feature receive the existing JSON-only protocol. The Go client accepts both formats and limits decompressed frames to 4 MiB.
+
+A real four-client tunnel benchmark and repeatable test are in [`diagnostics/`](diagnostics/README.md). The test distinguishes native WebSocket compression from application compression and records what tunnel protocol was actually negotiated.
 
 ## Documentation
 
