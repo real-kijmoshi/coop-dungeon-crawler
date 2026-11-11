@@ -55,12 +55,8 @@ jobs:
           git archive --format=zip --output=client/dist/cdc-server.zip HEAD server start-server.js start-server.cmd start-server.sh README.md LICENSE
       - name: Generate checksums
         run: cd dist && sha256sum cdc-* > SHA256SUMS.txt
+      # Releases are published by host.yml, which also builds the Windows host.
       - uses: actions/upload-artifact@v4
         with:
           name: cdc-clients
           path: client/dist/*
-      - name: Attach binaries to the release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: client/dist/*

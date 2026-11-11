@@ -1,7 +1,10 @@
 name: Windows host executable
+# Pushing a tag like v0.4.0 builds everything and publishes that release.
+# Pushes to main and pull requests only build and test.
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths: ['host/**', '.github/workflows/host.yml', 'server/**']
   pull_request:
     paths: ['host/**', '.github/workflows/host.yml', 'server/**']
@@ -72,7 +75,8 @@ jobs:
         shell: bash
         run: |
           cd client
-          ./build.sh v0.3.1
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="$GITHUB_REF_NAME"; else version="dev-${GITHUB_SHA::7}"; fi
+          ./build.sh "$version"
           cd ..
           git archive --format=zip --output=client/dist/cdc-server.zip HEAD server start-server.js start-server.cmd start-server.sh README.md LICENSE
           cd client/dist
@@ -81,13 +85,15 @@ jobs:
         with:
           name: cdc-host-release
           path: client/dist/*
-      - name: Publish v0.3.1
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          gh release view v0.3.1 *> $null
-          if ($LASTEXITCODE -eq 0) { throw 'v0.3.1 exists; do not overwrite a published release' }
-          gh release create v0.3.1 client/dist/* --target $env:GITHUB_SHA --title 'v0.3.1 — Reduce terminal redraw latency' --notes-file host/RELEASE.md
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) { throw "$env:TAG exists; do not overwrite a published release" }
+          $title = (Get-Content host/RELEASE.md -TotalCount 1) -replace '^#\s*', ''
+          gh release create $env:TAG client/dist/* --target $env:GITHUB_SHA --title "$env:TAG — $title" --notes-file host/RELEASE.md
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
