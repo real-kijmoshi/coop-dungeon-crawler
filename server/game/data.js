@@ -181,12 +181,12 @@ const LEGENDARY_NAMES = {
 // --------------------------------------------------------------------- shop
 // Permanent upgrades are percentages (see balance.js); prices grow 16% per purchase.
 const SHOP = [
-  { id: "potion", name: "Healing potion", price: (b, lvl) => potionPrice(lvl) },
-  { id: "atk", name: "Whetstone (+2% ATK)", price: (b) => upgradePrice(60, b.atk) },
-  { id: "def", name: "Reinforced plating (+3% DEF)", price: (b) => upgradePrice(70, b.def) },
-  { id: "hp", name: "Vitality tonic (+3% max HP)", price: (b) => upgradePrice(65, b.hp) },
-  { id: "gamble", name: "Mystery item (gamble!)", price: (b, lvl) => gamblePrice(lvl) },
-  { id: "rebirth", name: `REBIRTH (Lv ${MAX_LEVEL}): restart stronger`, price: () => 0 },
+  { id: "potion", description: "Adds one potion. Drinking it restores 40% max HP, at least 15.", name: "Healing potion", price: (b, lvl) => potionPrice(lvl) },
+  { id: "atk", description: "Permanent attack upgrade. Increases your damage.", name: "Whetstone (+2% ATK)", price: (b) => upgradePrice(60, b.atk) },
+  { id: "def", description: "Permanent defense upgrade. Reduces incoming damage.", name: "Reinforced plating (+3% DEF)", price: (b) => upgradePrice(70, b.def) },
+  { id: "hp", description: "Permanent max HP upgrade. Also heals the amount gained.", name: "Vitality tonic (+3% max HP)", price: (b) => upgradePrice(65, b.hp) },
+  { id: "gamble", description: "One random item at your current level. Slot and rarity vary.", name: "Mystery item (gamble!)", price: (b, lvl) => gamblePrice(lvl) },
+  { id: "rebirth", description: "Return to level 1 and keep gear and gold. Gain +5% ATK/HP and +10% XP per rebirth.", name: `REBIRTH (Lv ${MAX_LEVEL}): restart stronger`, price: () => 0 },
 ];
 const REBIRTH_LEVEL = MAX_LEVEL;
 

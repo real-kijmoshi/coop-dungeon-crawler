@@ -148,6 +148,8 @@ module.exports = {
     });
     if (!floor.length) return null;
     const by = opts.by || null;
+    // Give early heroes a longer reaction window while they learn the patterns.
+    if (by && by.level <= 12) ticks = Math.max(ticks, 4);
     const t = {
       tiles: floor,
       at: this.tickCount + ticks,
@@ -176,8 +178,8 @@ module.exports = {
     if (!due.length) return false;
     this.telegraphs = this.telegraphs.filter((t) => t.at > this.tickCount);
     for (const t of due) {
+      const m = t.by === null ? null : this.monsters.get(t.by);
       if (t.by !== null) {
-        const m = this.monsters.get(t.by);
         if (!m) continue; // killed before it could strike
         m.windup = 0;
         if (m.frozenUntil > now) {
@@ -195,11 +197,37 @@ module.exports = {
           text: (dmg) => `The ${t.name}'s ${t.what} hits you for ${dmg}!`,
         });
       }
-      this.floater(t.x, t.y, hits.length ? t.label : "miss", DANGER_COLOR);
+      if (m && hits.length === 0) {
+        m.exposedUntil = now + 2400;
+        this.floater(m.x, m.y, "OPENING!", [255, 200, 120]);
+      } else {
+        this.floater(t.x, t.y, hits.length ? t.label : "miss", DANGER_COLOR);
+      }
       this.sound(t.x, t.y, t.sound);
       if (t.after) t.after(hits);
     }
     return true;
+  },
+
+  interruptTelegraph(monster) {
+    if (!monster.windup) return;
+    this.telegraphs = this.telegraphs.filter((attack) => attack.by !== monster.id);
+    monster.windup = 0;
+  },
+
+  threatFor(player, now, tickMs) {
+    if (!this.isPrey(player)) return null;
+    let imminent = null;
+    for (const attack of this.telegraphs) {
+      if (imminent && attack.at >= imminent.at) continue;
+      if (attack.tiles.some((tile) => tile.x === player.x && tile.y === player.y)) imminent = attack;
+    }
+    if (!imminent) return null;
+    return {
+      name: imminent.name,
+      attack: imminent.what,
+      hitsAt: Math.max(now, this.tickAt + (imminent.at - this.tickCount) * tickMs),
+    };
   },
 
   dangerFor(isVisible) {
@@ -401,7 +429,10 @@ module.exports = {
         if (alive) monster.frozenUntil = 0;
         break;
       case "shock":
-        if (alive) monster.frozenUntil = now + 2000;
+        if (alive) {
+          monster.frozenUntil = now + 2000;
+          this.interruptTelegraph(monster);
+        }
         break;
       case "fire":
         for (const o of Array.from(this.monsters.values())) {

@@ -1,6 +1,6 @@
 // Endgame and world-setting systems mixed into World: biomes, lore scrolls,
 // waystones, rebirth and the blacksmith.
-const { BIOMES, biomeForTier, STORY, LORE } = require("./lore");
+const { BIOMES, biomeForTier, STORY, LORE, CHRONICLES } = require("./lore");
 const { generateItem } = require("./loot");
 const { REBIRTH_LEVEL, TIER_DISTANCE, PCT_STATS } = require("./data");
 const { SMITH_PCT, upgradeCost, reforgeCost, levelAtDistance } = require("./balance");
@@ -71,6 +71,10 @@ module.exports = {
 
   loreFor(p) {
     return (p.lore || []).slice().sort((a, b) => a - b).map((i) => ({ n: i + 1, ...LORE[i] }));
+  },
+
+  chroniclesFor(maxDepth) {
+    return CHRONICLES.filter((entry) => entry.depth <= maxDepth);
   },
 
   // -------------------------------------------------------------- waystones

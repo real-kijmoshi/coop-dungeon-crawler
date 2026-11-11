@@ -303,6 +303,11 @@ const onConnection = (socket) => {
     if (typeof callback === "function") callback(result);
   });
 
+  socket.on("dodge", (direction, callback) => {
+    const result = world.dodgePlayer(player, direction);
+    if (typeof callback === "function") callback(result);
+  });
+
   socket.on("potion", () => world.drinkPotion(player));
 
   socket.on("skill", (index) => {
@@ -340,8 +345,12 @@ const onConnection = (socket) => {
     if (typeof callback === "function") callback(result);
   });
 
-  socket.on("buy", (id, callback) => {
-    const result = world.buy(player, id);
+  socket.on("buy", (id, quotedPrice, callback) => {
+    if (typeof quotedPrice === "function") {
+      callback = quotedPrice;
+      quotedPrice = undefined;
+    }
+    const result = world.buy(player, id, quotedPrice);
     if (typeof callback === "function") callback(result);
   });
 

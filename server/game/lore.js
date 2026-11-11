@@ -97,6 +97,17 @@ const LORE = [
   { title: "Emberfall Chronicle", text: "And when the heroes came back up, the wells ran clear and the ground was cool again. No one in the town asked what they had seen. They did not want to know." },
 ];
 
+// Journal records unlocked by a hero's highest explored depth. These are
+// independent of the scroll collection and work with existing saved heroes.
+const CHRONICLES = [
+  { depth: 0, title: "The Warm Well", text: "The merchant set a bucket on his counter. The wood was dry inside, but black water ran from the iron hoops. He said it had come up warm. Then he asked if I needed a sword." },
+  { depth: 3, title: "A Road of Lanterns", text: "The old guides hung lamps at each fork. The lamps are gone. Pale caps have grown through their chains, all leaning toward the same passage." },
+  { depth: 6, title: "The Flood Line", text: "Someone scraped the names off a bronze door. Below the waterline, where their chisel could not reach, two words remain: OUR TURN." },
+  { depth: 10, title: "An Empty Watch", text: "Six watch posts. Five cold braziers. At the sixth, the ash is fresh and there are footprints leading away from the door." },
+  { depth: 14, title: "The Last Light", text: "The claw marks face outward, away from the stairs. Whatever tried to pass this way had to get past the dragon first." },
+  { depth: 18, title: "Cold Iron", text: "An iron chain ends at a ring beside the Throne. The ring is worn through on the side that faces up. Far above, someone is drawing water." },
+];
+
 // What bosses say the first time they see you.
 const BOSS_LINES = {
   goblin_king: "\"Shiny! Bring me the shiny ones, alive!\"",
@@ -118,4 +129,4 @@ const MERCHANT_LINES = [
   "\"The dragon? Oh, it's real. I sold it a hat once.\"",
 ];
 
-module.exports = { BIOMES, biomeForTier, STORY, LORE, BOSS_LINES, MERCHANT_LINES };
+module.exports = { BIOMES, biomeForTier, STORY, LORE, CHRONICLES, BOSS_LINES, MERCHANT_LINES };

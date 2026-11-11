@@ -29,6 +29,7 @@ const TICK_MS = 300;
 const SIGHT = 12; // vision radius in tiles
 const ACTIVE_RANGE = 25;
 const MOVE_COOLDOWN = 110;
+const DODGE_COOLDOWN = 2400;
 const ATTACK_COOLDOWN = 350;
 const REGEN_DELAY = 6000;
 const RESPAWN_EVERY_TICKS = 33; // ~10s
@@ -89,6 +90,7 @@ class World extends EventEmitter {
     this.nextPartyId = 1;
     this.pings = [];
     this.waystones = new Map(); // depth -> { tier, x, y }
+    this.tickAt = Date.now();
     this.telegraphs = []; // attacks about to land, see encounters.js
     this.encounters = new Map(); // cursed chest fights in progress
     this.nextEncounterId = 1;
@@ -467,6 +469,7 @@ class World extends EventEmitter {
       combo: { count: 0, until: 0 },
       downed: null,
       lastMove: 0,
+      dodgeReadyAt: 0,
       lastAttack: 0,
       lastHurt: 0,
     };
@@ -612,8 +615,8 @@ class World extends EventEmitter {
 
   // ---------------------------------------------------------------- moving
   movePlayer(player, direction) {
+    if (typeof direction !== "string" || !Object.hasOwn(DIRS, direction)) return { ok: false, reason: "invalid" };
     const d = DIRS[direction];
-    if (!d) return { ok: false, reason: "invalid" };
     if (!player.cls) return { ok: false, reason: "noclass" };
     if (player.downed) return { ok: false, reason: "downed" };
     const now = Date.now();
@@ -650,6 +653,30 @@ class World extends EventEmitter {
 
     if (!this.isFloor(nx, ny)) return { ok: false, reason: "wall" };
 
+    return this.arrive(player, nx, ny, now);
+  }
+
+  dodgePlayer(player, direction) {
+    if (typeof direction !== "string" || !Object.hasOwn(DIRS, direction)) return { ok: false, reason: "invalid" };
+    if (!player.cls || player.downed) return { ok: false, reason: "unavailable" };
+    const now = Date.now();
+    if (now < player.dodgeReadyAt) return { ok: false, reason: "cooldown" };
+
+    const [dx, dy] = DIRS[direction];
+    const open = (x, y) => this.isFloor(x, y) && !this.monsterAt(x, y) &&
+      !this.isMerchant(x, y) && !this.playerAt(x, y, (p) => p.downed);
+    let x = player.x + dx;
+    let y = player.y + dy;
+    if (!open(x, y)) return { ok: false, reason: "blocked" };
+    if (open(x + dx, y + dy)) {
+      x += dx;
+      y += dy;
+    }
+    player.dodgeReadyAt = now + DODGE_COOLDOWN;
+    return this.arrive(player, x, y, now);
+  }
+
+  arrive(player, nx, ny, now) {
     player.lastMove = now;
     player.x = nx;
     player.y = ny;
@@ -668,7 +695,12 @@ class World extends EventEmitter {
     const depth = this.tierAt(player.x, player.y);
     const s = player.stats;
     if (depth <= s.maxDepth) return;
+    const newRecords = this.chroniclesFor(depth).filter((entry) => entry.depth > s.maxDepth);
     s.maxDepth = depth;
+    if (newRecords.length) {
+      this.notify(player, `Journal unlocked: ${newRecords.at(-1).title}`, [240, 220, 170]);
+      this.markProfile(player);
+    }
     const bonus = 10 * depth + 3 * this.levelAt(player.x, player.y);
     s.gold += bonus;
     this.notify(player, `New depth record: ${depth}! Explorer's bonus +${bonus} gold.`, C.gold);
@@ -917,23 +949,31 @@ class World extends EventEmitter {
     return {
       gold: player.stats.gold,
       greeting: pick(MERCHANT_LINES),
+      potions: player.stats.potions,
+      potionLimit: MAX_POTIONS,
+      priceQuotes: true,
       prestige: player.prestige || 0,
       items: SHOP.map((i, idx) => ({
         key: String(idx + 1),
         id: i.id,
         name: i.name,
+        description: i.description,
         price: Math.round(i.price(player.bonus, player.stats.level)),
         maxed: B.SHOP_MAX[i.id] !== undefined && (player.bonus[i.id] || 0) >= B.SHOP_MAX[i.id],
       })),
     };
   }
 
-  buy(player, id) {
+  buy(player, id, quotedPrice) {
     if (!this.nearMerchant(player) || player.downed) {
       return { ok: false, message: "You need to be next to the merchant." };
     }
     const entry = SHOP.find((i) => i.id === id);
     if (!entry) return { ok: false, message: "Unknown item." };
+    const price = Math.round(entry.price(player.bonus, player.stats.level));
+    if (quotedPrice !== undefined && quotedPrice !== price) {
+      return { ok: false, message: "The price changed. Review the new quote before buying.", shop: this.shopFor(player) };
+    }
     if (id === "rebirth") {
       const r = this.rebirth(player);
       if (!r.ok) return r;
@@ -942,7 +982,6 @@ class World extends EventEmitter {
       return { ok: true, shop: this.shopFor(player) };
     }
     const s = player.stats;
-    const price = Math.round(entry.price(player.bonus, s.level));
     if (s.gold < price) return { ok: false, message: `Not enough gold (need ${price}).` };
     if (id === "potion" && s.potions >= MAX_POTIONS) return { ok: false, message: "Your potion bag is full." };
     if (B.SHOP_MAX[id] !== undefined && (player.bonus[id] || 0) >= B.SHOP_MAX[id]) {
@@ -1107,7 +1146,10 @@ class World extends EventEmitter {
       case "frostnova": {
         const t = near(3);
         if (!t.length) return this.notify(player, "No enemies within 3 tiles."), false;
-        for (const m of t) m.frozenUntil = now + 4000;
+        for (const m of t) {
+          m.frozenUntil = now + 4000;
+          this.interruptTelegraph(m);
+        }
         this.aoe(player, t, 1, "Frost Nova freezes and", { halfDef: true });
         return true;
       }
@@ -1188,6 +1230,11 @@ class World extends EventEmitter {
     if (crit) dmg *= 2;
     if (flank) dmg *= 1 + 0.15 * flank;
     if (combo) dmg *= combo.mult;
+    const exposed = monster.exposedUntil > now;
+    if (exposed) {
+      dmg *= 1.25;
+      monster.exposedUntil = 0;
+    }
     const ward = this.wardedBy(monster);
     if (ward) dmg *= 0.6;
     dmg = Math.max(1, Math.round(dmg));
@@ -1208,7 +1255,7 @@ class World extends EventEmitter {
     if (!opts.quiet) {
       this.notify(
         player,
-        `${crit ? "CRIT! " : ""}${opts.label || "You hit"} the ${monster.name} for ${dmg}${flank ? " (flanked)" : ""}${ward ? " (warded)" : ""}.`,
+        `${crit ? "CRIT! " : ""}${opts.label || "You hit"} the ${monster.name} for ${dmg}${exposed ? " (opening)" : ""}${flank ? " (flanked)" : ""}${ward ? " (warded)" : ""}.`,
         crit ? C.crit : C.hit,
       );
     }
@@ -1221,6 +1268,7 @@ class World extends EventEmitter {
   killMonster(monster, killer) {
     if (!this.monsters.has(monster.id)) return;
     this.monsters.delete(monster.id);
+    this.interruptTelegraph(monster);
     this.sound(monster.x, monster.y, monster.boss ? "bosskill" : "kill");
     this.deathEffects(monster);
     const now = Date.now();
@@ -1665,6 +1713,7 @@ class World extends EventEmitter {
     this.tickCount++;
     let changed = false;
     const now = Date.now();
+    this.tickAt = now;
 
     if (this.resolveTelegraphs(now)) changed = true;
     for (const monster of Array.from(this.monsters.values())) {
@@ -1750,6 +1799,7 @@ class World extends EventEmitter {
       bonus: p.bonus,
       prestige: p.prestige || 0,
       lore: this.loreFor(p),
+      chronicles: this.chroniclesFor(p.stats.maxDepth),
       waystones: p.waystones.length,
       world: this.worldInfo(),
       smith: Object.fromEntries(
@@ -1778,6 +1828,7 @@ class World extends EventEmitter {
             crit: c.crit,
             dodge: c.dodge,
             skills: c.skills.map((s) => `${s.name} (Lv${s.level})`),
+            skillDetails: c.skills.map(({ name, desc, level }) => ({ name, desc, level })),
           })),
     };
   }
@@ -1809,6 +1860,7 @@ class World extends EventEmitter {
         frozen: m.frozenUntil > now,
         charging: m.boss && m.windup > this.tickCount, // older clients draw the slam zone from this
         windup: m.windup > this.tickCount,
+        exposed: m.exposedUntil > now,
         primed: m.primed && m.primed.until > now ? m.primed.type : null,
         enraged: !!m.enraged,
         hit: now - m.lastHit < 250,
@@ -1888,6 +1940,7 @@ class World extends EventEmitter {
         effAtk: this.effAtk(player),
         effDef: this.effDef(player),
         downedUntil: player.downed ? player.downed.until : null,
+        dodgeReadyAt: player.dodgeReadyAt,
         safe: this.inSafeRoom(player.x, player.y),
         combo: player.combo.until > now ? player.combo : null,
         buffs: Object.entries(player.buffs)
@@ -1912,6 +1965,7 @@ class World extends EventEmitter {
       safeRoomId: this.safeRoomId,
       view,
       danger: this.dangerFor(isVisible),
+      threat: this.threatFor(player, now, TICK_MS),
       monsters,
       items,
       npcs,

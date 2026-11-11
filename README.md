@@ -293,6 +293,14 @@ take down the lair bosses, and defeat the **Abyss Lord** waiting at the edge of 
 and do it again, stronger. Reaching level 100 takes roughly 15-25 hours of play (see
 [BALANCE.md](BALANCE.md)).
 
+#### First session
+
+Preview a class with the arrows or number keys. Press Enter to review the permanent choice and Enter again to confirm. The Field Guide then covers movement, attacks, chat, parties, and the merchant. Press your Help key (default **?**) to reopen it.
+
+Default **T** opens world chat and **Tab** opens party chat after you join a party. While typing, **Tab** switches the labeled channel, **Enter** sends, and **Esc** cancels.
+
+At the merchant, the arrows or number keys preview an offer, including its effect, cost, and availability. Press Enter to review the purchase and Enter again to pay.
+
 #### The world of Emberfall
 
 The town of Emberfall sits on top of old wine cellars. Last winter the ground shook, fire rose from the wells,
@@ -307,6 +315,8 @@ stronger the further you go from the safe room (their level is shown in the titl
 | 10-13 | 40-61 | The Infernal Halls | fire and brimstone, golems, trolls and demons |
 | 14-17 | 61-84 | The Dragon's Abyss | drakes, liches and the Ancient Dragon |
 | 18+ | 84-110 | The Throne of the Abyss | the Abyss Lord |
+
+**Emberfall chronicles** unlock as your deepest explored depth increases. Read them alongside the tale and collected scrolls under **Journal → Lore**.
 
 **Lore scrolls** (`§`) are scattered through the dungeon (more common deeper down, and every boss drops one).
 Each one reveals the next part of the story, 12 in all. Read them in the journal (`J`, then `Tab`).
@@ -348,8 +358,11 @@ You pick a class the first time you play (it's permanent for that hero, so make 
 
 #### Combat
 
-- **Red floor means move.** Many monsters have a special attack that marks the tiles it will hit about half a second
-  before it lands: orcs, trolls, golems and zombies **smash** three tiles in front of them, goblins throw **bombs**,
+- **Dodge** with **Space**, then a movement direction. You move up to two open tiles, and a successful dodge takes 2.4 seconds to recharge. A blocked dodge spends nothing.
+- **Attack warnings** name the move when you're in its path. A `!` also marks threatened tiles, and early enemies give you more time to react.
+- **Openings** appear when a monster's telegraphed attack misses everyone. The next hit against it deals 25% more damage if it lands within 2.4 seconds.
+
+- **Red floor means move.** Many monsters have a special attack that marks the tiles it will hit before it lands: orcs, trolls, golems and zombies **smash** three tiles in front of them, goblins throw **bombs**,
   spiders **pounce**, cultists and liches drop a **hex**, imps and drakes breathe a **line of fire**, wraiths **blink**
   next to you. Step off the marked tiles to take no damage. Freezing or stunning the monster cancels the attack, and
   so does killing it.
