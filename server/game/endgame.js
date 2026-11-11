@@ -3,22 +3,21 @@
 const { BIOMES, biomeForTier, STORY, LORE } = require("./lore");
 const { generateItem } = require("./loot");
 const { REBIRTH_LEVEL, TIER_DISTANCE, PCT_STATS } = require("./data");
+const { SMITH_PCT, upgradeCost, reforgeCost, levelAtDistance } = require("./balance");
 
 const MAX_PLUS = 10;
 const WAYSTONE_LOOK = { name: "Waystone", char: "Ω", color: [120, 230, 255] };
 
-const upgradeCost = (item) => {
-  const plus = item.plus || 0;
-  return Math.round(30 + item.value * (plus + 1) * 0.8 + (plus + 1) ** 2 * 15);
-};
-const reforgeCost = (item) => Math.round(item.value * 2 + 50);
-
-// One upgrade step: flat stats +10% (at least +1), percent stats +1 point.
-const applyUpgrade = (item) => {
-  for (const [k, v] of Object.entries(item.stats)) {
-    if (PCT_STATS.has(k)) item.stats[k] = Math.round((v + Math.max(0.01, v * 0.08)) * 100) / 100;
-    else item.stats[k] = v + Math.max(1, Math.round(v * 0.1));
+// Recompute an item's stats from its base stats and its +level (non-compounding).
+const applyPlus = (item) => {
+  if (!item.baseStats) item.baseStats = { ...item.stats };
+  const p = item.plus || 0;
+  const stats = {};
+  for (const [k, v] of Object.entries(item.baseStats)) {
+    if (PCT_STATS.has(k)) stats[k] = Math.round(v * (1 + SMITH_PCT * p) * 100) / 100;
+    else stats[k] = Math.max(v + Math.ceil(p / 2), Math.round(v * (1 + SMITH_PCT * p)));
   }
+  item.stats = stats;
 };
 
 module.exports = {
@@ -49,6 +48,7 @@ module.exports = {
       story: STORY,
       loreTotal: LORE.length,
       rebirthLevel: REBIRTH_LEVEL,
+      maxLevel: REBIRTH_LEVEL,
     };
   },
 
@@ -137,8 +137,8 @@ module.exports = {
       const cost = upgradeCost(item);
       if (s.gold < cost) return { ok: false, message: `Upgrading costs ${cost} gold.` };
       s.gold -= cost;
-      applyUpgrade(item);
       item.plus = plus + 1;
+      applyPlus(item);
       item.value = Math.round(item.value * 1.15);
       p.counters.bestPlus = Math.max(p.counters.bestPlus || 0, item.plus);
       this.notify(p, `The blacksmith hammers your ${item.name} to +${item.plus} (-${cost} gold).`, [255, 200, 120]);
@@ -149,8 +149,8 @@ module.exports = {
       s.gold -= cost;
       const fresh = generateItem(item.ilvl, { slot: item.slot, base: item.base, rarity: item.rarity });
       item.name = fresh.name;
-      item.stats = fresh.stats;
-      for (let i = 0; i < (item.plus || 0); i++) applyUpgrade(item);
+      item.baseStats = fresh.baseStats;
+      applyPlus(item);
       this.notify(p, `The blacksmith reforges it into ${item.name} (-${cost} gold).`, [255, 200, 120]);
     } else {
       return { ok: false, message: "Unknown smithing action." };

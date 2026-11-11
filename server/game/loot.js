@@ -9,6 +9,7 @@ const {
   PCT_STATS,
   LEGENDARY_NAMES,
 } = require("./data");
+const { gearRolls, itemValue } = require("./balance");
 
 const randf = (min, max) => min + Math.random() * (max - min);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -29,10 +30,11 @@ const roundStat = (stat, v) => (PCT_STATS.has(stat) ? Math.round(v * 100) / 100 
 
 /**
  * Create an item.
- * @param {number} ilvl item level (usually depth + 1)
+ * @param {number} ilvl item level (the level of the area or monster it came from)
  * @param {object} opts { boost, slot, base, rarity }
  */
 const generateItem = (ilvl, opts = {}) => {
+  ilvl = Math.max(1, Math.round(ilvl));
   const slot = opts.slot || pick(SLOTS);
   const rarity = opts.rarity ? rarityById(opts.rarity) : rollRarity(opts.boost || 1);
   const base = opts.base || pick(ITEM_BASES[slot]);
@@ -42,10 +44,10 @@ const generateItem = (ilvl, opts = {}) => {
   };
 
   // Base stats by slot
-  if (slot === "weapon") add("atk", randf(1 + ilvl * 0.6, 2 + ilvl * 1.0) * rarity.mult);
+  if (slot === "weapon") add("atk", randf(...gearRolls.weaponAtk(ilvl)) * rarity.mult);
   if (slot === "armor") {
-    add("def", randf(1 + ilvl * 0.25, 1 + ilvl * 0.5) * rarity.mult);
-    add("maxHp", randf(2 + ilvl * 1.5, 4 + ilvl * 3) * rarity.mult);
+    add("def", randf(...gearRolls.armorDef(ilvl)) * rarity.mult);
+    add("maxHp", randf(...gearRolls.armorHp(ilvl)) * rarity.mult);
   }
 
   // Affixes (trinkets always get at least one)
@@ -68,8 +70,9 @@ const generateItem = (ilvl, opts = {}) => {
     name = `${prefix}${base}${suffix}`;
   }
 
-  const value = Math.round((5 + ilvl * 4) * (1 + RARITIES.indexOf(rarity) * 1.5));
-  return { uid: newUid(), slot, name, base, rarity: rarity.id, ilvl, stats, value };
+  const value = itemValue(ilvl, RARITIES.indexOf(rarity));
+  // base: the stats before blacksmith upgrades (each +1 adds a % of these).
+  return { uid: newUid(), slot, name, base, rarity: rarity.id, ilvl, stats, baseStats: { ...stats }, value };
 };
 
 const describeStats = (stats) =>

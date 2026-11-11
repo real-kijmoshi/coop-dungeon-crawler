@@ -1,4 +1,5 @@
 // Co-op systems mixed into World: parties, pings, travel and boss mechanics.
+const { rollDamage } = require("./balance");
 const { BOSS_LINES } = require("./lore");
 
 const PARTY_SIZE = 4;
@@ -317,7 +318,7 @@ module.exports = {
     for (const p of Array.from(this.players.values())) {
       if (!this.isPrey(p) || chebyshev(p, m) > SLAM_RADIUS) continue;
       hits++;
-      let dmg = Math.round(m.atk * 1.6) + rand(-1, 3) - this.effDef(p);
+      let dmg = rollDamage(m.atk * 1.6, this.effDef(p), m.level);
       if (this.hasBuff(p, "ironskin")) dmg = Math.round(dmg * 0.3);
       dmg = Math.max(1, dmg);
       p.stats.hp -= dmg;

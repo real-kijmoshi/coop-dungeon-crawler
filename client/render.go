@@ -88,6 +88,10 @@ func (g *Game) draw() {
 		if st.Biome.Name != "" {
 			title += " · " + strings.ToUpper(st.Biome.Name)
 		}
+		if st.AreaLevel > 0 {
+			title += fmt.Sprintf(" · MONSTERS LV %d", st.AreaLevel)
+			titleColor = levelColor(st.AreaLevel, st.Player.Stats.Level)
+		}
 		if st.Player.Safe {
 			title, titleColor = "SAFE ROOM", cGreen
 		}
@@ -160,8 +164,12 @@ func (g *Game) drawTopBar(w int, compact bool) {
 			}
 		}
 		seg(fmt.Sprintf("HP %d/%d", int(math.Max(0, s.HP)), int(s.MaxHP)), hpColor(s.HP, s.MaxHP), true)
-		seg(fmt.Sprintf("Lv %d", s.Level), p.ClassColor, true)
-		seg(fmt.Sprintf("D%d", st.Depth), Color{200, 160, 255}, false)
+		seg(levelLabel(s.Level, st.MaxLevel), p.ClassColor, true)
+		if st.AreaLevel > 0 {
+			seg(fmt.Sprintf("area Lv%d", st.AreaLevel), levelColor(st.AreaLevel, s.Level), false)
+		} else {
+			seg(fmt.Sprintf("D%d", st.Depth), Color{200, 160, 255}, false)
+		}
 		seg(fmt.Sprintf("◆%d", int(s.Gold)), Color{255, 215, 0}, false)
 		if p.Combo != nil && p.Combo.Count >= 2 {
 			seg(fmt.Sprintf("x%d", p.Combo.Count), Color{255, 170, 40}, true)
@@ -529,7 +537,7 @@ func (g *Game) drawSidebar(r rect) {
 		lines++
 	}
 	ch := mini(lines+2, bottom-y)
-	cv.Box(x, y, w, ch, BoxOpts{Color: theme.border, BG: pb, Title: strings.ToUpper(p.ClassName), TitleColor: &p.ClassColor, RightTitle: fmt.Sprintf("Lv %d", s.Level), RightColr: ptr(theme.title)})
+	cv.Box(x, y, w, ch, BoxOpts{Color: theme.border, BG: pb, Title: strings.ToUpper(p.ClassName), TitleColor: &p.ClassColor, RightTitle: levelLabel(s.Level, st.MaxLevel), RightColr: ptr(theme.title)})
 	cy := y + 1
 	row := func(fn func(yy int)) {
 		if cy < y+ch-1 {
@@ -586,8 +594,14 @@ func (g *Game) drawSidebar(r rect) {
 		cv.Text(xx, yy, fmt.Sprint(s.Kills), theme.text, &pb, false, -1)
 	})
 	row(func(yy int) {
-		cv.Text(x+2, yy, fmt.Sprintf("Depth %d", st.Depth), Color{200, 160, 255}, &pb, true, -1)
-		cv.Text(x+11, yy, fmt.Sprintf("best %d", s.MaxDepth), theme.muted, &pb, false, -1)
+		xx := x + 2
+		if st.AreaLevel > 0 {
+			xx += cv.Text(xx, yy, fmt.Sprintf("Area Lv %d", st.AreaLevel), levelColor(st.AreaLevel, s.Level), &pb, true, -1) + 1
+			cv.Text(xx, yy, fmt.Sprintf("d%d", st.Depth), theme.muted, &pb, false, -1)
+		} else {
+			cv.Text(xx, yy, fmt.Sprintf("Depth %d", st.Depth), Color{200, 160, 255}, &pb, true, -1)
+			cv.Text(x+11, yy, fmt.Sprintf("best %d", s.MaxDepth), theme.muted, &pb, false, -1)
+		}
 		if st.Home != nil {
 			dx, dy := st.Home.X-p.X, st.Home.Y-p.Y
 			txt, col := fmt.Sprintf("⌂ %d %s", int(math.Round(math.Hypot(float64(dx), float64(dy)))), compass(dx, dy)), theme.muted
@@ -654,6 +668,13 @@ func (g *Game) drawSidebar(r rect) {
 			}
 			cv.Put(x+2, yy, firstRune(m.Char), m.Color, &bg, true)
 			nameW := inner - 12
+			nx := x + 4 // where the name starts
+			if m.Level > 0 {
+				lv := fmt.Sprintf("%d", m.Level)
+				cv.Text(nx, yy, lv, levelColor(m.Level, p.Stats.Level), &pb, true, -1)
+				nx += runeLen(lv) + 1
+				nameW -= runeLen(lv) + 1
+			}
 			name := m.Name
 			if m.Hunting {
 				name += " !"
@@ -667,8 +688,8 @@ func (g *Game) drawSidebar(r rect) {
 			} else if m.Elite {
 				nc = Color{255, 220, 90}
 			}
-			cv.Text(x+4, yy, pad(name, nameW), nc, &pb, m.Boss || m.Elite, nameW)
-			cv.Bar(x+4+nameW, yy, 8, m.HP, m.MaxHP, hpColor(m.HP, m.MaxHP), "")
+			cv.Text(nx, yy, pad(name, nameW), nc, &pb, m.Boss || m.Elite, nameW)
+			cv.Bar(nx+nameW, yy, 8, m.HP, m.MaxHP, hpColor(m.HP, m.MaxHP), "")
 		}
 		y += eh
 	}

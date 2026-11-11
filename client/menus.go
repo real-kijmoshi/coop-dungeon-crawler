@@ -214,7 +214,7 @@ func (g *Game) showParty(note *Line) {
 		lines = append(lines, line)
 	}
 	lines = append(lines, L("", cWhite),
-		L("Party perks: +10% XP per nearby member, 60% XP share up to 30 tiles,", theme.faint),
+		L("Party perks: full XP for every party kill within 30 tiles, +10% per member,", theme.faint),
 		L("personal boss loot, travel to members (V), party chat (Tab), pings (G).", theme.faint))
 	if note != nil {
 		lines = append(lines, *note)

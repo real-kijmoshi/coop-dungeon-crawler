@@ -69,8 +69,10 @@ func (g *Game) showHelp() {
 		L("", cWhite),
 		L("Party up (P): shared XP, personal boss loot, travel to friends, pings.", cGreen),
 		L("Fall near an ally and you go DOWN (%) - they have 20s to revive you.", cGreen),
-		L("Waystones (Ω) let you travel back deep. Reach Lv 15 to be REBORN stronger.", cGreen),
-		L("Somewhere past depth 12 the Abyss Lord waits. Bring friends.", cRed),
+		L("Monsters get stronger the further you go from the safe room: their level is", cGreen),
+		L("shown in the title bar and the enemy list (white = your level, red = run).", cGreen),
+		L("Waystones (Ω) let you travel back deep. At Lv 100 you can be REBORN stronger.", cGreen),
+		L("At the edge of the world (monster level 95+) the Abyss Lord waits. Bring friends.", cRed),
 	}
 	g.overlay = &Overlay{Kind: "help", Title: "HOW TO PLAY", Lines: lines, Footer: "any key to close · " + k("settings") + " settings"}
 }
@@ -103,7 +105,7 @@ func (g *Game) showShop(s *Shop, note *Line) {
 	if g.state != nil {
 		lvl = g.state.Player.Stats.Level
 	}
-	rebirthAt := 15
+	rebirthAt := 100
 	if g.world != nil {
 		rebirthAt = g.world.RebirthLevel
 	}
@@ -120,7 +122,11 @@ func (g *Game) showShop(s *Shop, note *Line) {
 			lines = append(lines, L(fmt.Sprintf("[%s] %s", it.Key, it.Name), c))
 			continue
 		}
-		lines = append(lines, L(fmt.Sprintf("[%s] %s %5d g", it.Key, pad(it.Name, 30), int(it.Price)), c))
+		if it.Maxed {
+			lines = append(lines, L(fmt.Sprintf("[%s] %s  MAXED", it.Key, pad(it.Name, 30)), cDark))
+			continue
+		}
+		lines = append(lines, L(fmt.Sprintf("[%s] %s %6s g", it.Key, pad(it.Name, 30), commas(int(it.Price))), c))
 	}
 	if s.Prestige > 0 {
 		lines = append(lines, L(fmt.Sprintf("    Rebirths: ✦%d (+%d%% ATK/HP, +%d%% XP)", s.Prestige, 5*s.Prestige, 10*s.Prestige), Color{255, 215, 120}))

@@ -101,6 +101,7 @@ type Monster struct {
 	Y        int     `json:"y"`
 	HP       float64 `json:"hp"`
 	MaxHP    float64 `json:"maxHp"`
+	Level    int     `json:"level"`
 	Boss     bool    `json:"boss"`
 	Elite    bool    `json:"elite"`
 	Frozen   bool    `json:"frozen"`
@@ -197,6 +198,8 @@ type GameState struct {
 	Player        PlayerState `json:"player"`
 	Event         *Event      `json:"event"`
 	Depth         int         `json:"depth"`
+	AreaLevel     int         `json:"areaLevel"`
+	MaxLevel      int         `json:"maxLevel"`
 	Home          *Point      `json:"home"`
 	SafeRoomID    *int        `json:"safeRoomId"`
 	View          View        `json:"view"`
@@ -316,6 +319,7 @@ type ShopItem struct {
 	ID    string  `json:"id"`
 	Name  string  `json:"name"`
 	Price float64 `json:"price"`
+	Maxed bool    `json:"maxed"`
 }
 
 type Shop struct {

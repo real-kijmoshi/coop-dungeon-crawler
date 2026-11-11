@@ -1,5 +1,6 @@
 // Bounty quests: every player always has 3 active bounties scaled to their progress.
-const { MONSTERS, BOSSES, xpToNext } = require("./data");
+const { MONSTERS, BOSSES } = require("./data");
+const { xpToNext } = require("./balance");
 
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -17,26 +18,26 @@ const generateQuest = (player, existing = []) => {
     let q = null;
     switch (kind) {
       case "kill_type": {
-        const options = MONSTERS.filter((m) => m.tier <= Math.max(1, depth) && m.tier >= depth - 2);
+        const options = MONSTERS.filter((m) => m.minLevel <= s.level && m.minLevel >= s.level - 25);
         const m = pick(options.length ? options : MONSTERS.slice(0, 3));
         const need = rand(5, 12);
         q = { kind, target: m.type, need, desc: `Slay ${need} ${m.name}s` };
         break;
       }
       case "kill_depth": {
-        const d = Math.max(1, depth);
+        const lvl = Math.max(1, s.level - 3);
         const need = rand(8, 15);
-        q = { kind, target: d, need, desc: `Slay ${need} monsters at depth ${d}+` };
+        q = { kind, target: lvl, need, desc: `Slay ${need} monsters of level ${lvl}+` };
         break;
       }
       case "elite":
-        if (depth < 2) continue;
+        if (s.level < 10) continue;
         q = { kind, need: rand(2, 4), desc: "" };
         q.desc = `Slay ${q.need} elite monsters`;
         break;
       case "boss": {
-        if (s.level < 4 || depth < 2) continue;
-        const options = BOSSES.filter((b) => b.tier <= depth + 1);
+        if (s.level < 8) continue;
+        const options = BOSSES.filter((b) => b.minLevel <= s.level + 2);
         if (!options.length) continue;
         const b = options[options.length - 1];
         q = { kind, target: b.type, need: 1, desc: `Defeat the ${b.name}` };
@@ -67,7 +68,7 @@ const generateQuest = (player, existing = []) => {
     q.have = 0;
     q.reward = {
       gold: Math.round((40 + s.level * 20) * difficulty),
-      xp: Math.round(xpToNext(s.level) * 0.45 * difficulty),
+      xp: Math.round(xpToNext(s.level) * 0.2 * difficulty),
       item: q.kind === "boss" || Math.random() < 0.3,
     };
     return q;
@@ -86,7 +87,7 @@ const progressQuests = (quests, event, data = {}) => {
         if (event === "kill" && data.type === q.target) inc = 1;
         break;
       case "kill_depth":
-        if (event === "kill" && data.depth >= q.target) inc = 1;
+        if (event === "kill" && (data.level || 0) >= q.target) inc = 1;
         break;
       case "elite":
         if (event === "kill" && data.elite) inc = 1;

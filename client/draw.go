@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/gdamore/tcell/v2"
@@ -229,6 +230,29 @@ var rarityColors = map[string]Color{
 	"rare":      {255, 230, 70},
 	"epic":      {200, 100, 255},
 	"legendary": {255, 140, 0},
+}
+
+// levelColor shows how dangerous something of level `lvl` is for a hero of level `hero`.
+func levelColor(lvl, hero int) Color {
+	switch d := lvl - hero; {
+	case d >= 6:
+		return activePalette.hpLow
+	case d >= 3:
+		return Color{255, 150, 60}
+	case d >= -2:
+		return theme.text
+	case d >= -8:
+		return activePalette.hpHigh
+	default:
+		return theme.faint
+	}
+}
+
+func levelLabel(level, max int) string {
+	if max > 0 && level >= max {
+		return "Lv MAX"
+	}
+	return fmt.Sprintf("Lv %d", level)
 }
 
 func hpColor(hp, max float64) Color {

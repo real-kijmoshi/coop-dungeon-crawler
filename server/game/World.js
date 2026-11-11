@@ -15,8 +15,9 @@ const {
   INVENTORY_SIZE,
   TIER_DISTANCE,
   SLOTS,
-  xpToNext,
 } = require("./data");
+const B = require("./balance");
+const { xpToNext, MAX_LEVEL } = B;
 const { generateItem, describeStats, itemLabel, floorLook, rarityById } = require("./loot");
 const { generateQuest, progressQuests } = require("./quests");
 const { MERCHANT_LINES } = require("./lore");
@@ -29,10 +30,14 @@ const ACTIVE_RANGE = 25;
 const MOVE_COOLDOWN = 110;
 const ATTACK_COOLDOWN = 350;
 const REGEN_DELAY = 6000;
-const RESPAWN_EVERY_TICKS = 100; // ~30s
+const RESPAWN_EVERY_TICKS = 33; // ~10s
+const NEARBY_RADIUS = 32; // respawns keep this area around each hero populated...
+const NEARBY_MONSTERS = 14; // ...with about this many monsters
 const DOWNED_MS = 20000;
 const REVIVE_RANGE = 25;
 const COMBO_WINDOW = 4000;
+const LEASH = 10;
+const PARTY_XP_SHARE = 1; // party members within 30 tiles get the full XP of every kill (no splitting)
 
 const C = {
   info: [200, 200, 200],
@@ -65,7 +70,7 @@ const BOSS_NAMES = new Set(BOSSES.map((b) => b.name));
 const withArticle = (name) =>
   BOSS_NAMES.has(name) ? `the ${name}` : /^[aeiou]/i.test(name) ? `an ${name}` : `a ${name}`;
 
-const NO_CLASS = { name: "Adventurer", base: { maxHp: 30, atk: 5, def: 1 }, growth: { maxHp: 8, atk: 2, def: 0.5 }, crit: 0.08, dodge: 0.03, skills: [] };
+const NO_CLASS = { name: "Adventurer", base: { maxHp: 30, atk: 5, def: 1 }, growth: { maxHp: 12, atk: 2.2, def: 1 }, crit: 0.08, dodge: 0.03, skills: [] };
 
 class World extends EventEmitter {
   constructor(map, opts = {}) {
@@ -136,6 +141,11 @@ class World extends EventEmitter {
 
   tierAt(x, y) {
     return Math.floor(dist({ x, y }, this.spawn) / TIER_DISTANCE);
+  }
+
+  // Monster level of the area (1 near the spawn, 100 near the map edge).
+  levelAt(x, y) {
+    return B.levelAtDistance(dist({ x, y }, this.spawn));
   }
 
   monsterAt(x, y) {
@@ -272,11 +282,11 @@ class World extends EventEmitter {
     return null;
   }
 
-  bossForTier(tier) {
+  bossForLevel(level) {
     const final = BOSSES.find((b) => b.final);
-    if (tier >= final.tier) return final;
-    const options = BOSSES.filter((b) => !b.final && b.tier <= tier && b.tier >= tier - 1);
-    if (!options.length) return tier >= 8 ? BOSSES.find((b) => b.type === "ancient_dragon") : null;
+    if (level >= final.minLevel) return final;
+    const options = BOSSES.filter((b) => !b.final && b.minLevel <= level && b.minLevel >= level - 12);
+    if (!options.length) return level >= 78 ? BOSSES.find((b) => b.type === "ancient_dragon") : null;
     return options[options.length - 1];
   }
 
@@ -285,17 +295,17 @@ class World extends EventEmitter {
     return false;
   }
 
-  tryMakeLair(room, tier) {
-    const boss = this.bossForTier(tier);
+  tryMakeLair(room, level) {
+    const boss = this.bossForLevel(level);
     if (!boss || this.bossAlive(boss.type)) return false;
     const pos = this.randomFreeTileInRoom(room);
     if (!pos) return false;
-    this.spawnMonster(pos.x, pos.y, tier, room.id, boss);
+    this.spawnMonster(pos.x, pos.y, level, room.id, boss);
     const chestPos = this.randomFreeTileInRoom(room);
-    if (chestPos) this.dropItem(chestPos.x, chestPos.y, { kind: "chest", tier });
+    if (chestPos) this.dropItem(chestPos.x, chestPos.y, { kind: "chest", level });
     for (let i = 0; i < 2; i++) {
       const p = this.randomFreeTileInRoom(room);
-      if (p) this.spawnMonster(p.x, p.y, tier, room.id);
+      if (p) this.spawnMonster(p.x, p.y, level, room.id);
     }
     return true;
   }
@@ -305,20 +315,21 @@ class World extends EventEmitter {
     const c = this.roomCenter(room);
     if (dist(c, this.spawn) < 10) return;
     const tier = this.tierAt(c.x, c.y);
+    const level = this.levelAt(c.x, c.y);
     this.maybePlaceWaystone(room, tier);
 
-    // The final boss always waits in the first room of the Throne.
-    const finalTier = BOSSES.find((b) => b.final).tier;
-    if (tier >= finalTier && !this.finalLairPlaced && this.tryMakeLair(room, tier)) {
+    // The final boss always waits in the first room deep enough for it.
+    const finalLevel = BOSSES.find((b) => b.final).minLevel;
+    if (level >= finalLevel && !this.finalLairPlaced && this.tryMakeLair(room, level)) {
       this.finalLairPlaced = true;
       return;
     }
-    if (tier >= 2 && chance(0.1) && this.tryMakeLair(room, tier)) return;
+    if (level >= 8 && chance(0.1) && this.tryMakeLair(room, level)) return;
 
-    const count = rand(0, 2) + (tier >= 3 ? 1 : 0);
+    const count = rand(0, 2) + (level >= 12 ? 1 : 0);
     for (let i = 0; i < count; i++) {
       const pos = this.randomFreeTileInRoom(room);
-      if (pos) this.spawnMonster(pos.x, pos.y, tier, room.id);
+      if (pos) this.spawnMonster(pos.x, pos.y, level, room.id);
     }
 
     const place = (item, p = 1) => {
@@ -326,18 +337,19 @@ class World extends EventEmitter {
       const pos = this.randomFreeTileInRoom(room);
       if (pos) this.dropItem(pos.x, pos.y, item);
     };
-    place({ kind: "gold", amount: rand(2, 6) * (tier + 1) }, 0.35);
+    place({ kind: "gold", amount: B.roomGold(level) }, 0.35);
     place({ kind: "potion" }, 0.15);
-    place({ kind: "chest", tier }, 0.04);
+    place({ kind: "chest", level }, 0.04);
     place({ kind: "shrine" }, 0.05);
-    place({ kind: "gear", item: generateItem(tier + 1) }, 0.06);
-    place({ kind: "lore" }, 0.03 + tier * 0.004);
+    place({ kind: "gear", item: generateItem(level) }, 0.06);
+    place({ kind: "lore" }, 0.03 + Math.min(0.05, tier * 0.003));
   }
 
-  pickMonsterType(tier) {
-    let candidates = MONSTERS.filter((m) => m.tier <= tier && m.tier >= tier - 2);
-    if (!candidates.length) candidates = MONSTERS.slice(-3);
-    const weights = candidates.map((m) => 1 + m.tier);
+  // Monsters that fit an area level; newer (stronger) kinds are more common.
+  pickMonsterType(level) {
+    let candidates = MONSTERS.filter((m) => m.minLevel <= level && m.minLevel >= level - 30);
+    if (!candidates.length) candidates = MONSTERS.filter((m) => m.minLevel <= level).slice(-3);
+    const weights = candidates.map((m) => 1 + Math.max(0, 30 - (level - m.minLevel)) / 6);
     let r = Math.random() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < candidates.length; i++) {
       r -= weights[i];
@@ -346,13 +358,16 @@ class World extends EventEmitter {
     return candidates[candidates.length - 1];
   }
 
-  spawnMonster(x, y, tier, roomId, forcedDef = null) {
-    const def = forcedDef || this.pickMonsterType(tier);
+  // level: the level of the area. Stats = level formula x archetype x elite/boss.
+  spawnMonster(x, y, level, roomId, forcedDef = null) {
+    const def = forcedDef || this.pickMonsterType(level);
     const boss = !!forcedDef && BOSS_NAMES.has(def.name);
-    const elite = !forcedDef && tier >= 2 && chance(0.08 + tier * 0.015);
-    const bonus = Math.max(0, tier - def.tier) * 0.25;
-    const mult = elite ? 2 : 1;
-    const maxHp = Math.round(def.hp * (1 + bonus) * mult);
+    const elite = !forcedDef && level >= 8 && chance(0.07 + Math.min(0.08, level * 0.001));
+    const lvl = B.clamp(Math.round(level + (elite ? 1 : 0) + (boss ? 2 : 0)), 1, B.MONSTER_MAX_LEVEL);
+    const base = B.monsterBase(lvl);
+    const mods = boss ? (def.final ? B.FINAL_BOSS : B.BOSS) : elite ? B.ELITE : { hp: 1, atk: 1, def: 1, xp: 1, gold: 1 };
+    const goldMult = (def.gold || 1) * mods.gold;
+    const maxHp = Math.round(base.hp * def.hp * mods.hp);
     const monster = {
       id: this.nextMonsterId++,
       type: def.type,
@@ -361,12 +376,15 @@ class World extends EventEmitter {
       color: elite ? def.color.map((v) => Math.min(255, v + 60)) : def.color,
       x,
       y,
+      homeX: x,
+      homeY: y,
       hp: maxHp,
       maxHp,
-      atk: Math.round(def.atk * (1 + bonus * 0.7) * (elite ? 1.4 : 1)),
-      def: def.def + (elite ? 1 : 0),
-      xp: Math.round(def.xp * (1 + bonus) * (elite ? 2.5 : 1)),
-      gold: def.gold.map((g) => g * mult),
+      level: lvl,
+      atk: Math.round(base.atk * def.atk * mods.atk * 10) / 10,
+      def: Math.round(base.def * def.def * mods.def),
+      xp: Math.round(base.xp * def.xp * mods.xp),
+      gold: base.gold.map((g) => Math.round(g * goldMult)),
       speed: def.speed,
       aggro: def.aggro,
       ranged: def.ranged || 0,
@@ -401,7 +419,7 @@ class World extends EventEmitter {
 
   // --------------------------------------------------------------- players
   addPlayer(user, data = {}) {
-    const level = user.level || 1;
+    const level = Math.min(MAX_LEVEL, user.level || 1);
     const p = {
       id: user.id,
       username: user.username,
@@ -421,7 +439,7 @@ class World extends EventEmitter {
         maxDepth: user.max_depth || 0,
         bossKills: user.boss_kills || 0,
       },
-      bonus: { atk: 0, def: 0, hp: 0, ...(data.bonus || {}) },
+      bonus: this.migrateBonus(data),
       equipment: { weapon: null, armor: null, trinket: null, ...(data.equipment || {}) },
       inventory: Array.isArray(data.inventory) ? data.inventory : [],
       quests: Array.isArray(data.quests) ? data.quests : [],
@@ -465,9 +483,17 @@ class World extends EventEmitter {
     return p;
   }
 
+  // Merchant upgrades used to be flat (+1 ATK, +10 HP); now each purchase is a percentage.
+  migrateBonus(data) {
+    const b = { atk: 0, def: 0, hp: 0, hearts: 0, ...(data.bonus || {}) };
+    if (data.balance !== 2) b.hp = Math.floor(b.hp / 10);
+    return b;
+  }
+
   // Data that is persisted as JSON alongside the user row.
   saveData(p) {
     return {
+      balance: 2,
       potions: p.stats.potions,
       bonus: p.bonus,
       equipment: p.equipment,
@@ -500,9 +526,11 @@ class World extends EventEmitter {
       for (const [k, v] of Object.entries(item.stats)) gear[k] = (gear[k] || 0) + v;
     }
     const prestige = 1 + 0.05 * (p.prestige || 0); // rebirth bonus
-    s.maxHp = Math.round((Math.round(c.base.maxHp + c.growth.maxHp * L) + p.bonus.hp + (gear.maxHp || 0)) * prestige);
-    s.atk = Math.round((Math.round(c.base.atk + c.growth.atk * L) + p.bonus.atk + (gear.atk || 0)) * prestige);
-    s.def = Math.floor(c.base.def + c.growth.def * L) + p.bonus.def + (gear.def || 0);
+    const b = p.bonus;
+    const hpMult = (1 + B.SHOP_PCT.hp * (b.hp || 0) + B.SHOP_PCT.heart * (b.hearts || 0)) * prestige;
+    s.maxHp = Math.round((c.base.maxHp + c.growth.maxHp * L + (gear.maxHp || 0)) * hpMult);
+    s.atk = Math.round((c.base.atk + c.growth.atk * L + (gear.atk || 0)) * (1 + B.SHOP_PCT.atk * (b.atk || 0)) * prestige);
+    s.def = Math.round((c.base.def + c.growth.def * L + (gear.def || 0)) * (1 + B.SHOP_PCT.def * (b.def || 0)));
     s.crit = Math.min(0.75, c.crit + (gear.crit || 0));
     s.dodge = Math.min(0.5, c.dodge + (gear.dodge || 0));
     s.lifesteal = gear.lifesteal || 0;
@@ -562,7 +590,8 @@ class World extends EventEmitter {
     let m = 1;
     if (this.hasBuff(p, "protection")) m *= 1.5;
     if (this.hasBuff(p, "warcry")) m *= 1.5;
-    return Math.round(p.stats.def * m) + (this.hasBuff(p, "sanctuary") ? 3 : 0);
+    if (this.hasBuff(p, "sanctuary")) m *= 1.3;
+    return Math.round(p.stats.def * m);
   }
 
   effLifesteal(p) {
@@ -627,7 +656,7 @@ class World extends EventEmitter {
     const s = player.stats;
     if (depth <= s.maxDepth) return;
     s.maxDepth = depth;
-    const bonus = 10 * depth;
+    const bonus = 10 * depth + 3 * this.levelAt(player.x, player.y);
     s.gold += bonus;
     this.notify(player, `New depth record: ${depth}! Explorer's bonus +${bonus} gold.`, C.gold);
     if (depth >= 3) this.announce(`${player.username} has delved to depth ${depth}!`, C.epic);
@@ -769,12 +798,14 @@ class World extends EventEmitter {
             this.notify(player, "You pick up a healing potion. (H to drink)", ITEMS.potion.color);
           }
           break;
-        case "heart":
-          player.bonus.hp += 5;
+        case "heart": {
+          const before = s.maxHp;
+          player.bonus.hearts = Math.min(B.SHOP_MAX.hearts, (player.bonus.hearts || 0) + 1);
           this.recalc(player);
-          s.hp += 5;
-          this.notify(player, "A heart crystal! Max HP +5 permanently.", ITEMS.heart.color);
+          s.hp += s.maxHp - before;
+          this.notify(player, `A heart crystal! Max HP +${Math.round(B.SHOP_PCT.heart * 100)}% permanently.`, ITEMS.heart.color);
           break;
+        }
         case "shrine": {
           const shrine = pick(SHRINES);
           this.addBuff(player, shrine.id, shrine.name.replace(/^Shrine of /, ""), shrine.duration);
@@ -795,14 +826,14 @@ class World extends EventEmitter {
           this.readLore(player);
           break;
         case "chest": {
-          const tier = item.tier || 0;
-          const gold = rand(15, 30) * (tier + 1);
+          const level = item.level || (item.tier || 0) * 5 + 1;
+          const gold = B.chestGold(level);
           this.addGold(player, gold);
           s.potions = Math.min(MAX_POTIONS, s.potions + 1);
           this.notify(player, `You open a treasure chest: ${gold} gold and a potion!`, ITEMS.chest.color);
-          const n = tier >= 3 ? 2 : 1;
+          const n = level >= 15 ? 2 : 1;
           for (let i = 0; i < n; i++) {
-            const loot = generateItem(tier + 1, { boost: 3 });
+            const loot = generateItem(level + 1, { boost: 3 });
             if (!this.giveItem(player, loot)) this.dropItem(player.x, player.y, { kind: "gear", item: loot });
           }
           player.counters.chests = (player.counters.chests || 0) + 1;
@@ -857,6 +888,7 @@ class World extends EventEmitter {
         id: i.id,
         name: i.name,
         price: Math.round(i.price(player.bonus, player.stats.level)),
+        maxed: B.SHOP_MAX[i.id] !== undefined && (player.bonus[i.id] || 0) >= B.SHOP_MAX[i.id],
       })),
     };
   }
@@ -878,6 +910,9 @@ class World extends EventEmitter {
     const price = Math.round(entry.price(player.bonus, s.level));
     if (s.gold < price) return { ok: false, message: `Not enough gold (need ${price}).` };
     if (id === "potion" && s.potions >= MAX_POTIONS) return { ok: false, message: "Your potion bag is full." };
+    if (B.SHOP_MAX[id] !== undefined && (player.bonus[id] || 0) >= B.SHOP_MAX[id]) {
+      return { ok: false, message: "The merchant has nothing stronger to sell you. Look for gear and the blacksmith." };
+    }
     if (id === "gamble" && player.inventory.length >= INVENTORY_SIZE) {
       return { ok: false, message: "Your inventory is full." };
     }
@@ -892,12 +927,15 @@ class World extends EventEmitter {
       case "def":
         player.bonus.def++;
         break;
-      case "hp":
-        player.bonus.hp += 10;
-        s.hp += 10;
+      case "hp": {
+        const before = s.maxHp;
+        player.bonus.hp++;
+        this.recalc(player);
+        s.hp += s.maxHp - before;
         break;
+      }
       case "gamble": {
-        const item = generateItem(Math.max(1, s.maxDepth + 1), { boost: 2.5 });
+        const item = generateItem(s.level, { boost: 2.5 });
         this.notify(player, "The merchant hands you a wrapped bundle...", C.gold);
         this.giveItem(player, item);
         break;
@@ -959,7 +997,7 @@ class World extends EventEmitter {
       case "cleave": {
         const t = near(1);
         if (!t.length) return this.notify(player, "No enemies next to you."), false;
-        this.aoe(player, t, 1, "Cleave");
+        this.aoe(player, t, 1.4, "Cleave");
         return true;
       }
       case "warcry": {
@@ -1097,11 +1135,10 @@ class World extends EventEmitter {
   // ---------------------------------------------------------------- combat
   // opts: label, forceCrit, halfDef, quiet. Returns { dmg, killed }.
   hitMonster(player, monster, mult, opts = {}) {
-    const def = opts.halfDef ? Math.floor(monster.def / 2) : monster.def;
-    let dmg = Math.round(this.effAtk(player) * mult) + rand(-1, 2) - def;
+    const def = opts.halfDef ? monster.def / 2 : monster.def;
+    let dmg = B.rollDamage(this.effAtk(player) * mult, def, player.stats.level);
     const crit = opts.forceCrit || chance(player.stats.crit);
     if (crit) dmg *= 2;
-    dmg = Math.max(1, dmg);
     monster.hp -= dmg;
     monster.lastHit = Date.now();
     this.floater(monster.x, monster.y, crit ? `${dmg}!` : dmg, crit ? [255, 230, 60] : [255, 255, 255]);
@@ -1145,33 +1182,35 @@ class World extends EventEmitter {
     // Party bonus: +10% XP for each party member fighting nearby.
     const partyNear = this.partyMembers(killer).filter((m) => m !== killer && !m.downed && dist(m, monster) <= 30);
     const partyMult = 1 + 0.1 * partyNear.length;
-    const xp = Math.round(monster.xp * xpMult * comboMult * partyMult);
+    const xp = Math.max(1, Math.round(monster.xp * xpMult * comboMult * partyMult * B.xpLevelMult(k.level, monster.level)));
     const comboText = combo.count >= 3 ? `  COMBO x${combo.count}! (+${Math.round((comboMult - 1) * 100)}% XP)` : "";
     this.notify(killer, `You slay the ${monster.name}! +${xp} XP${comboText}`, combo.count >= 3 ? C.crit : C.good);
     this.gainXp(killer, xp);
 
-    // Co-op XP: party members within 30 tiles get 60%, other heroes within 12 get 35%.
+    // Co-op XP: party members within 30 tiles get the full XP, other heroes within 12 get 35%.
     for (const ally of this.players.values()) {
       if (ally === killer || ally.downed || !ally.cls) continue;
       const inParty = this.sameParty(ally, killer);
       const range = inParty ? 30 : 12;
       if (dist(ally, monster) > range) continue;
-      const share = Math.max(1, Math.floor(monster.xp * xpMult * (inParty ? 0.6 * partyMult : 0.35)));
+      let share = Math.max(1, Math.floor(monster.xp * xpMult * (inParty ? PARTY_XP_SHARE * partyMult : 0.35) * B.xpLevelMult(ally.stats.level, monster.level)));
+      // Being carried by stronger friends is great, but not instant: at most 20% of a level per kill.
+      share = Math.min(share, Math.ceil(xpToNext(ally.stats.level) * 0.2));
       this.notify(ally, `${killer.username} slays the ${monster.name}. +${share} XP`, [120, 220, 120]);
       this.gainXp(ally, share);
-      if (inParty) this.questEvent(ally, "kill", { type: monster.type, elite: monster.elite, depth: this.tierAt(monster.x, monster.y) });
+      if (inParty) this.questEvent(ally, "kill", { type: monster.type, elite: monster.elite, level: monster.level });
     }
 
-    const tier = this.tierAt(monster.x, monster.y);
+    const level = monster.level;
     const goldMult = this.eventActive("goldrush") ? 2 : 1;
     const gold = rand(monster.gold[0], monster.gold[1]) * goldMult;
     if (gold > 0) this.dropItem(monster.x, monster.y, { kind: "gold", amount: gold });
 
     const dropMult = (this.eventActive("frenzy") ? 3 : 1) * (this.eventActive("bloodmoon") ? 1.5 : 1);
-    const dropGear = (boost) => this.dropItem(monster.x, monster.y, { kind: "gear", item: generateItem(tier + 1, { boost }) });
+    const dropGear = (boost) => this.dropItem(monster.x, monster.y, { kind: "gear", item: generateItem(level, { boost }) });
 
     if (monster.boss) {
-      this.dropItem(monster.x, monster.y, { kind: "chest", tier: tier + 1 });
+      this.dropItem(monster.x, monster.y, { kind: "chest", level: level + 1 });
       this.dropItem(monster.x, monster.y, { kind: "potion" });
       this.dropItem(monster.x, monster.y, { kind: "lore" });
       dropGear(5);
@@ -1183,10 +1222,10 @@ class World extends EventEmitter {
         f.stats.bossKills++;
         if (f !== killer) {
           f.counters.kinds[monster.type] = (f.counters.kinds[monster.type] || 0) + 1;
-          this.questEvent(f, "kill", { type: monster.type, elite: false, depth: tier });
+          this.questEvent(f, "kill", { type: monster.type, elite: false, level });
         }
         if (party3 && this.sameParty(f, killer)) f.counters.partyBosses = (f.counters.partyBosses || 0) + 1;
-        const loot = generateItem(tier + 1, { boost: monster.final ? 12 : 5 });
+        const loot = generateItem(level + 1, { boost: monster.final ? 12 : 5 });
         if (!this.giveItem(f, loot)) this.dropItem(f.x, f.y, { kind: "gear", item: loot });
         this.fx(f, "toast", `${monster.name.toUpperCase()} DEFEATED!`, C.epic);
         this.checkAchievements(f);
@@ -1212,7 +1251,7 @@ class World extends EventEmitter {
       if (chance(0.015)) this.dropItem(monster.x, monster.y, { kind: "heart" });
     }
 
-    this.questEvent(killer, "kill", { type: monster.type, elite: monster.elite, depth: tier });
+    this.questEvent(killer, "kill", { type: monster.type, elite: monster.elite, level });
     if (combo.count >= 3) this.questEvent(killer, "combo", { combo: combo.count });
     this.checkAchievements(killer);
     this.markProfile(killer);
@@ -1220,8 +1259,13 @@ class World extends EventEmitter {
 
   gainXp(player, amount) {
     const s = player.stats;
+    if (s.level >= MAX_LEVEL) {
+      s.xp = 0;
+      s.xpNext = xpToNext(s.level);
+      return;
+    }
     s.xp += Math.round(amount * (1 + 0.1 * (player.prestige || 0)));
-    while (s.xp >= xpToNext(s.level)) {
+    while (s.level < MAX_LEVEL && s.xp >= xpToNext(s.level)) {
       s.xp -= xpToNext(s.level);
       s.level++;
       this.recalc(player);
@@ -1234,7 +1278,12 @@ class World extends EventEmitter {
       }
       this.fx(player, "levelup", `★ LEVEL ${s.level} ★`, [255, 220, 80]);
       this.floater(player.x, player.y, "LEVEL UP!", [255, 230, 80]);
-      this.announce(`${player.username} reached level ${s.level}!`, [255, 230, 120]);
+      if (s.level % 5 === 0 || s.level <= 5) this.announce(`${player.username} reached level ${s.level}!`, [255, 230, 120]);
+      if (s.level >= MAX_LEVEL) {
+        s.xp = 0;
+        this.notify(player, `You reached the MAX LEVEL (${MAX_LEVEL})! Rebirth at the merchant to start again stronger.`, C.epic);
+        this.announce(`*** ${player.username} has reached level ${MAX_LEVEL}! ***`, C.epic);
+      }
       this.checkAchievements(player);
     }
     s.xpNext = xpToNext(s.level);
@@ -1250,7 +1299,7 @@ class World extends EventEmitter {
       this.addGold(player, q.reward.gold);
       player.counters.quests = (player.counters.quests || 0) + 1;
       if (q.reward.item) {
-        const item = generateItem(Math.max(1, player.stats.maxDepth + 1), { boost: 3 });
+        const item = generateItem(player.stats.level, { boost: 3 });
         if (!this.giveItem(player, item)) this.dropItem(player.x, player.y, { kind: "gear", item });
       }
       this.gainXp(player, q.reward.xp);
@@ -1284,7 +1333,7 @@ class World extends EventEmitter {
     }
     let atk = ranged ? Math.round(monster.atk * 0.75) : monster.atk;
     if (this.eventActive("bloodmoon")) atk = Math.round(atk * 1.3);
-    let dmg = atk + rand(-1, 2) - this.effDef(player);
+    let dmg = B.rollDamage(atk, this.effDef(player), monster.level);
     const crit = chance(0.08);
     if (crit) dmg *= 2;
     if (this.hasBuff(player, "ironskin")) dmg = Math.round(dmg * 0.3);
@@ -1320,7 +1369,7 @@ class World extends EventEmitter {
     this.fx(player, "toast", `Revived by ${saviour.username}!`, C.good);
     if (saviour !== player) {
       saviour.counters.revives = (saviour.counters.revives || 0) + 1;
-      this.gainXp(saviour, 5 * saviour.stats.level);
+      this.gainXp(saviour, Math.round(xpToNext(saviour.stats.level) * 0.03));
       this.checkAchievements(saviour);
     }
     this.markDirty(player);
@@ -1388,8 +1437,28 @@ class World extends EventEmitter {
       return this.wander(monster);
     }
 
-    let target = monster.target ? this.players.get(monster.target) : null;
+    // Leash: monsters don't follow heroes across the map. Past LEASH tiles from home
+    // they give up and walk back, healing on the way.
     const taunted = monster.tauntUntil > now;
+    if (!monster.boss) {
+      const away = Math.hypot(monster.x - monster.homeX, monster.y - monster.homeY);
+      if (!monster.returning && away > LEASH && !taunted) monster.returning = true;
+      if (monster.returning) {
+        if (away <= 2) {
+          monster.returning = false;
+        } else {
+          monster.target = null;
+          monster.hp = Math.min(monster.maxHp, monster.hp + Math.ceil(monster.maxHp * 0.05));
+          if (this.stepMonster(monster, monster.homeX, monster.homeY)) return true;
+          monster.returning = false; // stuck: settle here
+          monster.homeX = monster.x;
+          monster.homeY = monster.y;
+          return false;
+        }
+      }
+    }
+
+    let target = monster.target ? this.players.get(monster.target) : null;
     if (target && (!this.isPrey(target) || (!taunted && dist(target, monster) > monster.aggro * 1.5))) {
       target = null;
     }
@@ -1423,6 +1492,9 @@ class World extends EventEmitter {
 
   wander(monster) {
     if (!chance(0.25)) return false;
+    if (monster.homeX !== undefined && Math.hypot(monster.x - monster.homeX, monster.y - monster.homeY) > 5) {
+      return this.stepMonster(monster, monster.homeX, monster.homeY);
+    }
     const [dx, dy] = STEPS[rand(0, 3)];
     const wx = monster.x + dx;
     const wy = monster.y + dy;
@@ -1434,24 +1506,41 @@ class World extends EventEmitter {
     return false;
   }
 
+  // Keep the dungeon around every hero populated, plus a trickle everywhere else.
   respawnMonsters() {
     const cap = Math.floor(this.map.rooms.length * (this.eventActive("bloodmoon") ? 2 : 1.5));
     if (this.monsters.size >= cap) return;
+    const heroes = Array.from(this.players.values()).filter((p) => p.cls);
+    const farFromHeroes = (c) => heroes.every((h) => dist(h, c) >= 13);
+    const spawnIn = (room) => {
+      const c = this.roomCenter(room);
+      const level = this.levelAt(c.x, c.y);
+      if (level >= 8 && chance(0.06) && this.tryMakeLair(room, level)) return true;
+      const pos = this.randomFreeTileInRoom(room);
+      if (!pos) return false;
+      this.spawnMonster(pos.x, pos.y, level, room.id);
+      return true;
+    };
+    const usable = (room) => room && room.id !== this.safeRoomId && dist(this.roomCenter(room), this.spawn) >= 10;
+
+    for (const h of heroes) {
+      let near = 0;
+      for (const m of this.monsters.values()) if (dist(m, h) <= NEARBY_RADIUS) near++;
+      // Groups of heroes get proportionally more monsters to share.
+      const company = heroes.filter((o) => dist(o, h) <= NEARBY_RADIUS).length;
+      const want = Math.round(NEARBY_MONSTERS * (1 + 0.75 * (company - 1)));
+      if (near >= want) continue;
+      const rooms = this.map.rooms.filter((r) => {
+        if (!usable(r)) return false;
+        const c = this.roomCenter(r);
+        const d = dist(c, h);
+        return d >= 13 && d <= NEARBY_RADIUS && farFromHeroes(c);
+      });
+      for (let i = 0; i < Math.min(3, want - near) && rooms.length; i++) spawnIn(pick(rooms));
+    }
     for (let i = 0; i < 5; i++) {
       const room = this.map.rooms[rand(0, this.map.rooms.length - 1)];
-      if (!room || room.id === this.safeRoomId) continue;
-      const c = this.roomCenter(room);
-      if (dist(c, this.spawn) < 10) continue;
-      let nearest = Infinity;
-      for (const p of this.players.values()) nearest = Math.min(nearest, dist(p, c));
-      if (nearest < 15) continue;
-      const tier = this.tierAt(c.x, c.y);
-      if (tier >= 2 && chance(0.15) && this.tryMakeLair(room, tier)) return;
-      const pos = this.randomFreeTileInRoom(room);
-      if (pos) {
-        this.spawnMonster(pos.x, pos.y, tier, room.id);
-        return;
-      }
+      if (usable(room) && farFromHeroes(this.roomCenter(room)) && spawnIn(room)) return;
     }
   }
 
@@ -1496,7 +1585,7 @@ class World extends EventEmitter {
     for (let i = 0; i < 6 && rooms.length; i++) {
       const room = pick(rooms);
       const pos = this.randomFreeTileInRoom(room);
-      if (pos) return this.spawnMonster(pos.x, pos.y, this.tierAt(pos.x, pos.y), room.id, def);
+      if (pos) return this.spawnMonster(pos.x, pos.y, this.levelAt(pos.x, pos.y), room.id, def);
     }
     return null;
   }
@@ -1641,6 +1730,7 @@ class World extends EventEmitter {
         y: m.y,
         hp: m.hp,
         maxHp: m.maxHp,
+        level: m.level,
         boss: m.boss,
         elite: m.elite,
         frozen: m.frozenUntil > now,
@@ -1740,6 +1830,8 @@ class World extends EventEmitter {
       },
       event: this.event ? { name: this.event.name, desc: this.event.desc, until: this.event.until, color: this.event.color } : null,
       depth: this.tierAt(player.x, player.y),
+      areaLevel: this.levelAt(player.x, player.y),
+      maxLevel: MAX_LEVEL,
       home: this.spawn,
       safeRoomId: this.safeRoomId,
       view,

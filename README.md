@@ -138,7 +138,7 @@ or **Arrows** layout, or rebind every key yourself.
 | Key | Action |
 | --- | ------ |
 | `W/A/S/D` or arrow keys | Move. Walk into a monster to attack, into the Merchant to shop, into a downed ally to revive them |
-| `1` `2` `3` `4` | Class skills (unlock at level 1, 3, 5 and 8) |
+| `1` `2` `3` `4` | Class skills (unlock at level 1, 6, 15 and 30) |
 | `H` | Drink a healing potion |
 | `I` | Inventory: `E` equip, `X` sell, `D` drop; at the merchant also `U` upgrade and `R` reforge |
 | `J` | Journal: bounties and achievements, `Tab` for lore, `N` changes your title |
@@ -164,22 +164,25 @@ The menu (`O` or `Esc`) saves to your config folder and applies right away:
 
 ### How to play
 
-**The goal:** go down through six biomes, uncover the story of Emberfall, take down the lair bosses, and defeat
-the **Abyss Lord** waiting past depth 12. Then be reborn and do it again, stronger.
+**The goal:** level your hero from **1 to 100** on the way through six biomes, uncover the story of Emberfall,
+take down the lair bosses, and defeat the **Abyss Lord** waiting at the edge of the world. Then be reborn at level 100
+and do it again, stronger. Reaching level 100 takes roughly 15-25 hours of play (see
+[BALANCE.md](BALANCE.md)).
 
 #### The world of Emberfall
 
 The town of Emberfall sits on top of old wine cellars. Last winter the ground shook, fire rose from the wells,
-and the things below began to climb out. Each depth band is its own **biome** with its own look:
+and the things below began to climb out. Each depth band is its own **biome** with its own look, and monsters get
+stronger the further you go from the safe room (their level is shown in the title bar and the enemy list):
 
-| Depth | Biome | |
-| ----- | ----- | - |
-| 0-1 | The Old Cellars | damp stone, rats and slimes |
-| 2-3 | The Fungal Caverns | glowing mushrooms, goblins and spiders |
-| 4-5 | The Sunken Crypts | tombs, skeletons, zombies and wraiths |
-| 6-7 | The Infernal Halls | fire and brimstone, demons and trolls |
-| 8-11 | The Dragon's Abyss | drakes, liches and the Ancient Dragon |
-| 12+ | The Throne of the Abyss | the Abyss Lord |
+| Depth | Monster level | Biome | |
+| ----- | ------------- | ----- | - |
+| 0-2 | 1-8 | The Old Cellars | damp stone, rats, bats and slimes |
+| 3-5 | 8-21 | The Fungal Caverns | glowing mushrooms, goblins, spiders and the first skeletons |
+| 6-9 | 21-40 | The Sunken Crypts | tombs, zombies, orcs, cultists and wraiths |
+| 10-13 | 40-61 | The Infernal Halls | fire and brimstone, golems, trolls and demons |
+| 14-17 | 61-84 | The Dragon's Abyss | drakes, liches and the Ancient Dragon |
+| 18+ | 84-110 | The Throne of the Abyss | the Abyss Lord |
 
 **Lore scrolls** (`§`) are scattered through the dungeon (more common deeper down, and every boss drops one).
 Each one reveals the next part of the story, 12 in all. Read them in the journal (`J`, then `Tab`).
@@ -190,16 +193,17 @@ You pick a class the first time you play (it's permanent for that hero, so make 
 
 | Class | Style | Skills (level) |
 | ----- | ----- | -------------- |
-| **Warrior** | Tank: most HP and DEF, holds monsters' attention | Cleave (1), War Cry (3, taunt + DEF), Iron Skin (5, -70% damage), Berserk (8, +60% ATK & lifesteal) |
-| **Rogue** | Burst: 20% crit, 12% dodge | Backstab (1, 2.5x, crits unaware foes), Smoke Bomb (3, vanish), Fan of Knives (5), Shadow Strike (8, teleport 4x hit) |
-| **Mage** | Ranged glass cannon | Fireball (1), Frost Nova (3, freeze), Chain Lightning (5), Meteor (8) |
-| **Cleric** | Healer & undead-slayer | Heal (1, also revives), Smite (3, 3x vs undead), Sanctuary (5, party heal/revive/DEF), Holy Nova (8) |
+| **Warrior** | Tank: most HP and DEF, holds monsters' attention | Cleave (1), War Cry (6, taunt + DEF), Iron Skin (15, -70% damage), Berserk (30, +60% ATK & lifesteal) |
+| **Rogue** | Burst: 20% crit, 12% dodge | Backstab (1, 2.5x, crits unaware foes), Smoke Bomb (6, vanish), Fan of Knives (15), Shadow Strike (30, teleport 4x hit) |
+| **Mage** | Ranged glass cannon | Fireball (1), Frost Nova (6, freeze), Chain Lightning (15), Meteor (30) |
+| **Cleric** | Healer & undead-slayer | Heal (1, also revives), Smite (6, 3x vs undead), Sanctuary (15, party heal/revive/DEF), Holy Nova (30) |
 
 #### Co-op
 
-- **Parties** of up to 4 (`P` to invite, `Y` to accept). Party members get **+10% XP for each member fighting
-  nearby**, a 60% share of every kill within 30 tiles, a party panel showing where everyone is, party chat (`Tab`),
-  and each other's positions on the minimap.
+- **Parties** of up to 4 (`P` to invite, `Y` to accept). Every party member within 30 tiles gets the **full XP of every
+  kill** (nothing is split), plus **+10% XP for each member fighting nearby**. More heroes in one place also means more
+  monsters spawn around them. Parties get a panel showing where everyone is, party chat (`Tab`), and each other's
+  positions on the minimap.
 - **Pings** (`G`) mark the nearest enemy (bosses first) or your position, for everyone in your party, with distance and
   direction in their log.
 - **Travel to your party:** from the safe room or a waystone, `V` takes you straight to a party member.
@@ -214,36 +218,40 @@ You pick a class the first time you play (it's permanent for that hero, so make 
 Monsters, chests, bosses and the merchant's gamble drop **randomly generated gear** for three slots
 (weapon `/`, armor `]`, trinket `"`) in five rarities, shown by color:
 **Common**, **Magic** (blue), **Rare** (yellow), **Epic** (purple) and **Legendary** (orange, with a unique name).
-Gear rolls ATK, DEF, HP, crit, dodge, lifesteal, gold find, XP bonus and HP regen. Deeper depths mean
-better item levels. Your backpack holds 15 items, and the inventory compares each item to what you wear.
+Gear rolls ATK, DEF, HP, crit, dodge, lifesteal, gold find, XP bonus and HP regen. An item's level is the level of
+the monster or area it came from, so gear keeps pace with you all the way to 100. Your backpack holds 15 items, and
+the inventory compares each item to what you wear.
 
-At the merchant, the **blacksmith** can **upgrade** any item up to **+10** (each step improves every stat) or
-**reforge** it to re-roll its stats while keeping its rarity and upgrades.
+At the merchant, the **blacksmith** can **upgrade** any item up to **+10** (each step adds 4% of the item's base
+stats) or **reforge** it to re-roll its stats while keeping its rarity and upgrades.
 
 #### The dungeon
 
-- **Depth.** The green **safe room** is home: monsters can't enter it, and you heal fast inside. The further
-  you go from it, the deeper and deadlier the dungeon, but loot and XP get better. Depth records pay gold.
+- **Levels and depth.** The green **safe room** is home: monsters can't enter it, and you heal fast inside. The
+  further you go from it, the higher the monsters' level (1 next to the safe room, 100 near the edge of the world),
+  and the better the loot and XP. Monsters far below your level give little XP, monsters above it give up to +50%,
+  so keep moving out as you grow. Monsters only chase you about 10 tiles from where they live. Depth records pay gold.
 - **Waystones** (`Ω`) sit in each new depth. Step next to one to attune, then travel back to it from the safe room or
   any other waystone (`V`), so you never have to walk all the way down again.
 - **Vision.** You only see what's in your line of sight (rooms you stand in are lit). Explored areas stay on your
   map, dimmed. Monsters only notice you if they can see you, and some shoot from range.
 - **Elites** (bold) are tougher and always drop gear. **Bosses** (capital letters) guard treasure chests in their lairs:
-  Goblin King, Bone Lord, Orc Warlord, Wraith Queen, Troll Chieftain, Demon Prince, the **Ancient Dragon** (depth 8+)
-  and the **Abyss Lord** (depth 12+).
+  Goblin King (level 8+), Bone Lord (18+), Orc Warlord (30+), Wraith Queen (42+), Troll Chieftain (54+), Demon
+  Prince (66+), the **Ancient Dragon** (78+) and the **Abyss Lord** (95+).
 - **Shrines** `^` give a random buff for a minute or more: Power, Fortune, Wisdom, Haste, Protection or Blood.
-- **Other pickups:** `$` gold, `!` healing potion (up to 9), `♥` heart crystal (+5 max HP permanently),
+- **Other pickups:** `$` gold, `!` healing potion (up to 9), `♥` heart crystal (+1% max HP permanently, up to 25),
   `=` treasure chest (gold, potion and gear), `§` lore scroll.
 
 #### Endgame and reasons to keep playing
 
-- **Rebirth:** at level 15 the merchant can **rebirth** you: back to level 1, but you keep your gear and gold and gain a
+- **Rebirth:** at level 100 (the max) the merchant can **rebirth** you: back to level 1, but you keep your gear and gold and gain a
   permanent **+5% ATK and HP and +10% XP** per rebirth (shown as `✦N` next to your name and on the leaderboard).
 - **Kill combos:** chain kills within 4 seconds for up to +100% XP.
 - **Bounties:** you always have three, scaled to your progress. Each pays gold, XP and often an item.
-- **29 achievements**, each unlocking a title ("the Dragonslayer", "the Loremaster", "of the Fellowship", ...).
+- **32 achievements**, each unlocking a title ("the Dragonslayer", "the Loremaster", "of the Fellowship", ...).
 - **World events** every 6-9 minutes: **Gold Rush**, **Blood Moon**, **Loot Frenzy** and **Treasure Goblins**.
-- **The Merchant** (`M`) sells potions, permanent ATK/DEF/HP upgrades and a mystery-item gamble.
+- **The Merchant** (`M`) sells potions, permanent percentage upgrades (up to +50% ATK, +60% DEF, +60% HP) and a
+  mystery-item gamble.
 - **Death** drops half your gold where you fell and sends you back to the safe room. Your gear is safe.
 
 Everything is saved on the server: class, level, rebirths, gear, backpack, bounties, achievements, lore, waystones,
@@ -257,6 +265,12 @@ records and position.
 2. In another terminal start the client: `cd client && go run .` (or run a downloaded `cdc` binary)
 3. Choose **Register**, keep the default server address (`localhost:3143`) and pick a username/password.
 4. Start more clients (with other accounts) to play together - you'll see each other on the map.
+
+### Tests and the balance simulator
+
+- `cd server && npm test` runs the engine checks; `cd client && go test ./...` runs the client's.
+- `cd server && node sim/simulate.js --hours 25` fast-forwards AI heroes through 25 hours of play on the real engine
+  and reports how the climb to level 100 went. See [BALANCE.md](BALANCE.md).
 
 The map is saved to `server/utils/map.json` and accounts to `server/users.db`.
 Delete both to start a fresh world.
