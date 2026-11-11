@@ -172,10 +172,40 @@ check("boss intro, party scaling, slam and personal loot", () => {
   w.bossMechanics(boss, Date.now());
   assert(boss.introduced && boss.maxHp > hp0);
   assert(toasts.some((t) => t.includes("BONE LORD")));
-  assert(boss.charging > 0);
+  assert(boss.windup > w.tickCount, "winds up the slam");
+  assert(w.stateFor(a).danger.length >= 9, "the slam zone is shown");
   const hpA = a.stats.hp;
-  for (let i = 0; i < 3; i++) w.bossMechanics(boss, Date.now());
+  w.tickCount += 3;
+  w.resolveTelegraphs();
   assert(a.stats.hp < hpA, "slam hit");
+  assert.equal(w.stateFor(a).danger.length, 0);
+
+  // Doom mark: alone it hits one hero, together the blow is shared.
+  [a, b, c].forEach((p) => (p.stats.hp = p.stats.maxHp));
+  boss.nextMark = 0;
+  boss.target = null;
+  w.bossMark(boss, Date.now());
+  assert(boss.mark, "someone is marked");
+  const marked = w.players.get(boss.mark.target);
+  const friend = [a, b, c].find((p) => p !== marked);
+  friend.x = marked.x;
+  friend.y = marked.y + 1;
+  w.tickCount += 20;
+  w.bossMark(boss, Date.now());
+  assert(marked.stats.hp < marked.stats.maxHp && friend.stats.hp < friend.stats.maxHp, "the blow is shared");
+  assert.equal(boss.mark, null);
+
+  // At 60% health it calls for help, once.
+  const before = w.monsters.size;
+  boss.hp = Math.round(boss.maxHp * 0.5);
+  boss.nextSlam = Date.now() + 1e6;
+  boss.nextMark = Date.now() + 1e6;
+  w.bossMechanics(boss, Date.now());
+  assert(w.monsters.size > before, "adds arrive");
+  const withAdds = w.monsters.size;
+  w.bossMechanics(boss, Date.now());
+  assert.equal(w.monsters.size, withAdds);
+  for (const m of Array.from(w.monsters.values())) if (m !== boss) w.monsters.delete(m.id);
   w.killMonster(boss, a);
   [a, b, c].forEach((p) => assert.equal(p.stats.bossKills, 1));
   assert(c.achievements.includes("fellowship"));
@@ -202,6 +232,243 @@ check("blacksmith upgrades (non-compounding) and reforge keeps the +level", () =
   assert(a.achievements.includes("smith"));
   assert(w.smith(a, "reforge", wpn.uid).ok);
   assert.equal(wpn.plus, 10);
+});
+console.log("combat and exploration");
+const camp = { x: a.x, y: a.y };
+const arena = () => {
+  w.monsters.clear();
+  w.telegraphs = [];
+  const room = map.rooms.find((r) => r.width >= 6 && r.height >= 5 && r.id !== w.safeRoomId && w.levelAt(r.x, r.y) >= 5);
+  for (let x = room.x; x < room.x + room.width; x++) for (let y = room.y; y < room.y + room.height; y++) w.items.delete(`${x},${y}`);
+  [a, b, c].forEach((p, i) => {
+    setLevel(p, 20);
+    p.x = room.x + i * 2;
+    p.y = room.y;
+    p.downed = null;
+    p.buffs = {};
+    p.cooldowns = {};
+  });
+  return room;
+};
+check("telegraphed monster attacks can be dodged", () => {
+  const room = arena();
+  const orc = w.spawnMonster(a.x, a.y + 1, 20, room.id, MONSTERS.find((m) => m.type === "orc"));
+  orc.cooldown = 0;
+  orc.nextAbility = 0;
+  orc.target = a.id;
+  assert(w.updateMonster(orc, Date.now()), "starts the smash");
+  assert(orc.windup > w.tickCount);
+  const danger = w.stateFor(a).danger;
+  assert(danger.some(([x, y]) => x === a.x && y === a.y), "the hero's tile is marked");
+  assert.equal(w.updateMonster(orc, Date.now()), false, "holds still while winding up");
+  // Step out of the marked tiles: the smash misses.
+  const home = { x: a.x, y: a.y };
+  a.x = room.x + 5;
+  a.y = room.y + 4;
+  const hp = a.stats.hp;
+  w.tickCount += 2;
+  w.resolveTelegraphs();
+  assert.equal(a.stats.hp, hp, "dodged");
+  // Stay put: it lands. A frozen monster is interrupted instead.
+  Object.assign(a, home);
+  orc.nextAbility = 0;
+  orc.cooldown = 0;
+  assert(w.updateMonster(orc, Date.now()));
+  w.tickCount += 2;
+  w.resolveTelegraphs();
+  assert(a.stats.hp < hp, "hit");
+  const hp2 = a.stats.hp;
+  orc.nextAbility = 0;
+  orc.cooldown = 0;
+  assert(w.updateMonster(orc, Date.now()));
+  orc.frozenUntil = Date.now() + 5000;
+  w.tickCount += 2;
+  w.resolveTelegraphs();
+  assert.equal(a.stats.hp, hp2, "interrupted by a freeze");
+});
+check("team combos: one hero primes, another detonates", () => {
+  const room = arena();
+  const m = w.spawnMonster(c.x, c.y + 1, 20, room.id, MONSTERS.find((x) => x.type === "golem"));
+  m.maxHp = m.hp = 1e6;
+  w.useSkill(c, "frostnova");
+  assert.equal(m.primed && m.primed.type, "frost");
+  assert.equal(w.stateFor(c).monsters[0].primed, "frost");
+  // The mage's own basic attack does not detonate her own mark...
+  w.hitMonster(c, m, 1);
+  assert(m.primed, "still primed");
+  // ...but an ally's does.
+  const combos = a.counters.teamCombos || 0;
+  a.stats.crit = 0;
+  const r = w.hitMonster(a, m, 1);
+  assert.equal(m.primed, null);
+  assert.equal(a.counters.teamCombos, combos + 1);
+  assert.equal(c.counters.teamCombos >= 1, true);
+  assert(msgs.some((t) => t.includes("TEAM COMBO") && t.includes("SHATTER")));
+  // flanked (the mage hit it a moment ago) and shattered: far more than a plain hit
+  m.hitBy = {};
+  const plain = Math.max(...Array.from({ length: 20 }, () => (m.hitBy = {}, w.hitMonster(a, m, 1, { noCombo: true, prime: null }).dmg)));
+  assert(r.dmg > plain * 1.5, `combo ${r.dmg} vs plain ${plain}`);
+  w.recalc(a);
+  // Solo: a different kind of skill on your own mark gives a smaller bonus and consumes it.
+  m.primed = { type: "frost", by: c.id, until: Date.now() + 5000 };
+  c.cooldowns = {};
+  w.useSkill(c, "fireball");
+  assert.equal(m.primed, null);
+});
+check("fighting side by side: formation and a shared kill combo", () => {
+  const room = arena();
+  b.x = a.x + 1;
+  b.y = a.y;
+  assert(w.inFormation(a) && w.inFormation(b) && !w.inFormation(c));
+  assert(w.stateFor(a).player.buffs.some((x) => x.id === "formation"));
+  a.combo = { count: 0, until: 0 };
+  b.combo = { count: 0, until: 0 };
+  for (let i = 0; i < 3; i++) w.killMonster(w.spawnMonster(room.x + 3, room.y + 3, 20, room.id, MONSTERS[0]), i % 2 ? a : b);
+  assert.equal(a.combo.count, 3);
+  assert.equal(b.combo.count, 3);
+});
+check("elite affixes, slimes and mimics", () => {
+  const room = arena();
+  const slime = w.spawnMonster(room.x + 3, room.y + 3, 20, room.id, MONSTERS.find((x) => x.type === "slime"));
+  w.killMonster(slime, a);
+  const lings = Array.from(w.monsters.values());
+  assert.equal(lings.length, 2);
+  assert(lings.every((s) => s.small && s.name === "Slimeling"));
+  lings.forEach((s) => w.killMonster(s, a));
+  assert.equal(w.monsters.size, 0, "slimelings do not split again");
+
+  const boomer = w.spawnMonster(a.x, a.y + 1, 20, room.id, MONSTERS.find((x) => x.type === "orc"));
+  boomer.affix = "volatile";
+  const hp = a.stats.hp;
+  w.killMonster(boomer, a);
+  assert.equal(w.telegraphs.length, 1);
+  w.tickCount += 3;
+  w.resolveTelegraphs();
+  assert(a.stats.hp < hp, "the blast hits heroes who stay close");
+
+  const warder = w.spawnMonster(room.x + 3, room.y + 3, 20, room.id, MONSTERS.find((x) => x.type === "orc"));
+  warder.affix = "warding";
+  const other = w.spawnMonster(room.x + 4, room.y + 3, 20, room.id, MONSTERS.find((x) => x.type === "orc"));
+  assert.equal(w.wardedBy(other), warder);
+  assert.equal(w.wardedBy(warder), null);
+  w.monsters.clear();
+
+  w.dropItem(room.x + 3, room.y + 2, { kind: "chest", level: 20, mimic: true });
+  const chests = a.counters.chests || 0;
+  a.x = room.x + 3;
+  a.y = room.y + 2;
+  w.pickUp(a);
+  const mimic = Array.from(w.monsters.values())[0];
+  assert(mimic && mimic.mimic, "the chest was a mimic");
+  assert.equal(a.counters.chests || 0, chests);
+  w.killMonster(mimic, a);
+  assert(w.items.get(`${mimic.x},${mimic.y}`).some((i) => i.kind === "chest" && !i.mimic), "it drops the real chest");
+});
+check("urns, fountains and discovering rooms", () => {
+  const room = arena();
+  const gold = a.stats.gold;
+  const potions = a.stats.potions;
+  for (let i = 0; i < 30; i++) {
+    w.dropItem(room.x + 3, room.y + 3, { kind: "urn", level: 20 });
+    a.x = room.x + 3;
+    a.y = room.y + 3;
+    w.pickUp(a);
+  }
+  assert(a.stats.gold > gold || a.stats.potions > potions);
+  assert(!w.items.has(`${a.x},${a.y}`), "urns break");
+  w.monsters.clear();
+
+  w.dropItem(a.x, a.y, { kind: "fountain" });
+  a.stats.hp = 1;
+  a.lastFountain = 0;
+  w.pickUp(a);
+  assert.equal(a.stats.hp, a.stats.maxHp);
+  a.stats.hp = 1;
+  w.pickUp(a);
+  assert.equal(a.stats.hp, 1, "the fountain needs time to recover");
+  assert(w.items.has(`${a.x},${a.y}`), "the fountain stays");
+  w.items.delete(`${a.x},${a.y}`);
+  a.stats.hp = a.stats.maxHp;
+
+  a.seenRooms = new Set();
+  a.quests = [{ id: 9001, kind: "explore", need: 1, have: 0, desc: "Discover 1 new chambers", reward: { gold: 1, xp: 1, item: false } }];
+  const rooms = a.counters.rooms || 0;
+  const xp = a.stats.xp + a.stats.level * 1e6;
+  w.discoverRoom(a);
+  w.discoverRoom(a);
+  assert.equal(a.counters.rooms, rooms + 1, "counted once");
+  assert(a.stats.xp + a.stats.level * 1e6 > xp, "worth some XP");
+  assert(!a.quests.some((q) => q.id === 9001), "explore bounty completed");
+});
+check("sealed vaults want two heroes", () => {
+  const room = arena();
+  const spot = { x: room.x + 3, y: room.y + 3 };
+  w.dropItem(spot.x, spot.y, { kind: "vault", level: 20 });
+  Object.assign(a, spot);
+  const goldA = a.stats.gold;
+  const goldB = b.stats.gold;
+  w.pickUp(a);
+  assert(w.items.has(`${spot.x},${spot.y}`), "stays shut for a lone hero");
+  assert.equal(w.monsters.size, 0);
+  b.x = spot.x + 1;
+  b.y = spot.y;
+  w.pickUp(a);
+  assert(!w.items.has(`${spot.x},${spot.y}`));
+  assert(a.stats.gold > goldA);
+  assert(b.stats.gold > goldB, "the ally gets their own reward");
+  const had = a.stats.gold;
+  assert.equal(w.monsters.size, 0, "no guardians when opened together");
+  // Forced alone: second step opens it, guardians appear.
+  b.x = room.x;
+  b.y = room.y;
+  w.dropItem(spot.x, spot.y, { kind: "vault", level: 20 });
+  w.pickUp(a);
+  w.pickUp(a);
+  assert(!w.items.has(`${spot.x},${spot.y}`));
+  assert(w.monsters.size >= 1, "guardians");
+  assert(a.stats.gold > had);
+});
+check("cursed chests: waves, then a reward for everyone who stayed", () => {
+  const room = arena();
+  const spot = { x: room.x + 3, y: room.y + 3 };
+  w.dropItem(spot.x, spot.y, { kind: "cursed", level: 20 });
+  Object.assign(a, spot);
+  const goldA = a.stats.gold;
+  const goldB = b.stats.gold;
+  const cursed = a.counters.cursed || 0;
+  w.pickUp(a);
+  assert.equal(w.encounters.size, 1);
+  const enc = Array.from(w.encounters.values())[0];
+  for (let wave = 1; wave <= 3; wave++) {
+    w.tickCount += 6;
+    w.updateEncounters();
+    assert.equal(enc.wave, wave);
+    assert(enc.alive.size >= 3, `wave ${wave} spawned ${enc.alive.size}`);
+    while (enc.alive.size) {
+      const id = enc.alive.values().next().value;
+      w.killMonster(w.monsters.get(id), a);
+    }
+  }
+  assert.equal(w.encounters.size, 1, "the reward comes a moment later");
+  w.tickCount += 6;
+  w.updateEncounters();
+  assert.equal(w.encounters.size, 0);
+  assert.equal(a.counters.cursed, cursed + 1);
+  assert(a.stats.gold > goldA && b.stats.gold > goldB, "everyone gets their own reward");
+  assert(toasts.some((t) => t.includes("CURSE BROKEN")));
+});
+check("sound cues reach the client", () => {
+  const room = arena();
+  const heard = [];
+  const listen = (s) => heard.push(s.name);
+  w.on("sound", listen);
+  const m = w.spawnMonster(a.x, a.y + 1, 20, room.id, MONSTERS[0]);
+  m.hp = 1;
+  w.hitMonster(a, m, 1);
+  w.off("sound", listen);
+  assert(heard.includes("hit") || heard.includes("crit"));
+  assert(heard.includes("kill"));
+  Object.assign(a, camp);
 });
 check("rebirth at level 100", () => {
   setLevel(a, 99);

@@ -6,7 +6,7 @@ const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 let qid = 0;
 
-const QUEST_KINDS = ["kill_type", "kill_type", "kill_depth", "elite", "boss", "depth", "gold", "chest", "combo"];
+const QUEST_KINDS = ["kill_type", "kill_type", "kill_depth", "elite", "boss", "depth", "gold", "chest", "combo", "explore", "explore", "cursed", "teamcombo"];
 
 const generateQuest = (player, existing = []) => {
   const s = player.stats;
@@ -55,6 +55,21 @@ const generateQuest = (player, existing = []) => {
         q = { kind, need: rand(1, 2), desc: "" };
         q.desc = `Open ${q.need} treasure chest${q.need > 1 ? "s" : ""}`;
         break;
+      case "explore": {
+        const need = rand(6, 12);
+        q = { kind, need, desc: `Discover ${need} new chambers` };
+        break;
+      }
+      case "cursed":
+        if (s.level < 6) continue;
+        q = { kind, need: 1, desc: "Break the curse of a cursed chest (\u00a4)" };
+        break;
+      case "teamcombo": {
+        if (!player.partyId) continue;
+        const need = rand(3, 6);
+        q = { kind, need, desc: `Land ${need} team combos with your party` };
+        break;
+      }
       case "combo": {
         const need = rand(4, 7);
         q = { kind, target: need, need: 1, desc: `Get a x${need} kill combo` };
@@ -63,7 +78,7 @@ const generateQuest = (player, existing = []) => {
     }
     if (!q || taken.has(q.kind + (q.target || ""))) continue;
 
-    const difficulty = q.kind === "boss" ? 3 : q.kind === "elite" || q.kind === "depth" ? 1.6 : 1;
+    const difficulty = q.kind === "boss" ? 3 : ["elite", "depth", "cursed", "teamcombo"].includes(q.kind) ? 1.6 : 1;
     q.id = ++qid;
     q.have = 0;
     q.reward = {
@@ -106,6 +121,11 @@ const progressQuests = (quests, event, data = {}) => {
         break;
       case "combo":
         if (event === "combo" && data.combo >= q.target) inc = 1;
+        break;
+      case "explore":
+      case "cursed":
+      case "teamcombo":
+        if (event === q.kind) inc = 1;
         break;
     }
     if (inc) {

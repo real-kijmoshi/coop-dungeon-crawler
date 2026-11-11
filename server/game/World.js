@@ -23,6 +23,7 @@ const { generateQuest, progressQuests } = require("./quests");
 const { MERCHANT_LINES } = require("./lore");
 const coop = require("./coop");
 const endgame = require("./endgame");
+const encounters = require("./encounters");
 
 const TICK_MS = 300;
 const SIGHT = 12; // vision radius in tiles
@@ -88,6 +89,9 @@ class World extends EventEmitter {
     this.nextPartyId = 1;
     this.pings = [];
     this.waystones = new Map(); // depth -> { tier, x, y }
+    this.telegraphs = []; // attacks about to land, see encounters.js
+    this.encounters = new Map(); // cursed chest fights in progress
+    this.nextEncounterId = 1;
     this.eventInterval = opts.eventInterval || EVENT_INTERVAL;
     this.nextEventAt = Date.now() + rand(...this.eventInterval);
 
@@ -339,10 +343,11 @@ class World extends EventEmitter {
     };
     place({ kind: "gold", amount: B.roomGold(level) }, 0.35);
     place({ kind: "potion" }, 0.15);
-    place({ kind: "chest", level }, 0.04);
+    place({ kind: "chest", level, mimic: level >= 10 && chance(0.2) }, 0.04);
     place({ kind: "shrine" }, 0.05);
     place({ kind: "gear", item: generateItem(level) }, 0.06);
     place({ kind: "lore" }, 0.03 + Math.min(0.05, tier * 0.003));
+    this.decorateRoom(room, level);
   }
 
   // Monsters that fit an area level; newer (stronger) kinds are more common.
@@ -391,6 +396,12 @@ class World extends EventEmitter {
       verb: def.verb,
       undead: !!def.undead,
       flees: !!def.flees,
+      ability: def.ability || null,
+      pack: !!def.pack,
+      small: !!def.small,
+      mimic: !!def.mimic,
+      affix: null,
+      windup: 0,
       boss,
       elite,
       roomId,
@@ -399,6 +410,7 @@ class World extends EventEmitter {
       frozenUntil: 0,
       tauntUntil: 0,
     };
+    if (elite) this.rollAffix(monster, def);
     this.monsters.set(monster.id, monster);
     return monster;
   }
@@ -646,6 +658,7 @@ class World extends EventEmitter {
     this.checkDepthRecord(player);
     this.checkBiome(player);
     this.discoverWaystones(player);
+    this.discoverRoom(player);
     this.markDirty(player);
     this.changed();
     return { ok: true, reason: "move" };
@@ -787,6 +800,7 @@ class World extends EventEmitter {
           this.addGold(player, amount);
           this.floater(player.x, player.y, `+${amount}g`, ITEMS.gold.color);
           this.notify(player, `You pick up ${amount} gold.`, ITEMS.gold.color);
+          this.soundFor(player, "gold");
           break;
         }
         case "potion":
@@ -796,6 +810,7 @@ class World extends EventEmitter {
           } else {
             s.potions++;
             this.notify(player, "You pick up a healing potion. (H to drink)", ITEMS.potion.color);
+            this.soundFor(player, "item");
           }
           break;
         case "heart": {
@@ -804,6 +819,7 @@ class World extends EventEmitter {
           this.recalc(player);
           s.hp += s.maxHp - before;
           this.notify(player, `A heart crystal! Max HP +${Math.round(B.SHOP_PCT.heart * 100)}% permanently.`, ITEMS.heart.color);
+          this.soundFor(player, "shrine");
           break;
         }
         case "shrine": {
@@ -811,6 +827,7 @@ class World extends EventEmitter {
           this.addBuff(player, shrine.id, shrine.name.replace(/^Shrine of /, ""), shrine.duration);
           this.notify(player, `${shrine.name}: ${shrine.desc} for ${shrine.duration / 1000}s!`, ITEMS.shrine.color);
           this.fx(player, "toast", `${shrine.name}: ${shrine.desc}`, ITEMS.shrine.color);
+          this.sound(player.x, player.y, "shrine");
           break;
         }
         case "gear":
@@ -820,13 +837,30 @@ class World extends EventEmitter {
           } else if (!this.giveItem(player, item.item)) {
             left.push(item);
             this.notify(player, "Your inventory is full! Sell or drop something (I).", C.bad);
+          } else {
+            this.soundFor(player, "item");
           }
           break;
         case "lore":
           this.readLore(player);
+          this.soundFor(player, "discover");
+          break;
+        case "urn":
+          this.smashUrn(player, item);
+          break;
+        case "fountain":
+          if (this.drinkFountain(player)) left.push(item);
+          break;
+        case "vault":
+          if (this.openVault(player, item)) left.push(item);
+          break;
+        case "cursed":
+          this.startCursedChest(player, item);
           break;
         case "chest": {
+          if (item.mimic && this.wakeMimic(player, item)) break;
           const level = item.level || (item.tier || 0) * 5 + 1;
+          this.sound(player.x, player.y, "chest");
           const gold = B.chestGold(level);
           this.addGold(player, gold);
           s.potions = Math.min(MAX_POTIONS, s.potions + 1);
@@ -868,6 +902,7 @@ class World extends EventEmitter {
     s.potions--;
     const healed = this.healPlayer(player, Math.max(15, Math.round(s.maxHp * 0.4)));
     this.notify(player, `You drink a potion and heal ${healed} HP.`, ITEMS.potion.color);
+    this.sound(player.x, player.y, "drink");
     this.markDirty(player);
     this.changed();
     return true;
@@ -966,8 +1001,16 @@ class World extends EventEmitter {
     if (now < readyAt) {
       return this.notify(player, `${skill.name} is ready in ${Math.ceil((readyAt - now) / 1000)}s.`);
     }
-    const used = this.castSkill(player, skill.id);
+    // Hits made by this skill leave its mark on monsters (see team combos).
+    this.castPrime = encounters.SKILL_PRIME[skill.id] || null;
+    let used = false;
+    try {
+      used = this.castSkill(player, skill.id);
+    } finally {
+      this.castPrime = null;
+    }
     if (used) {
+      this.sound(player.x, player.y, encounters.SKILL_SOUND[skill.id] || "buff");
       player.cooldowns[skill.id] = now + skill.cooldown;
       this.changed();
     }
@@ -1136,13 +1179,28 @@ class World extends EventEmitter {
   // opts: label, forceCrit, halfDef, quiet. Returns { dmg, killed }.
   hitMonster(player, monster, mult, opts = {}) {
     const def = opts.halfDef ? monster.def / 2 : monster.def;
+    const now = Date.now();
+    const prime = "prime" in opts ? opts.prime : this.castPrime;
+    const combo = opts.noCombo ? null : this.comboFor(player, monster, prime, now);
+    const flank = this.flankers(player, monster, now);
     let dmg = B.rollDamage(this.effAtk(player) * mult, def, player.stats.level);
     const crit = opts.forceCrit || chance(player.stats.crit);
     if (crit) dmg *= 2;
+    if (flank) dmg *= 1 + 0.15 * flank;
+    if (combo) dmg *= combo.mult;
+    const ward = this.wardedBy(monster);
+    if (ward) dmg *= 0.6;
+    dmg = Math.max(1, Math.round(dmg));
     monster.hp -= dmg;
-    monster.lastHit = Date.now();
+    monster.lastHit = now;
+    (monster.hitBy || (monster.hitBy = {}))[player.id] = now;
     this.floater(monster.x, monster.y, crit ? `${dmg}!` : dmg, crit ? [255, 230, 60] : [255, 255, 255]);
-    if (!monster.flees && !(monster.tauntUntil > Date.now())) monster.target = player.id;
+    if (ward && chance(0.4)) this.floater(ward.x, ward.y, "wards", [150, 200, 255]);
+    this.sound(monster.x, monster.y, crit ? "crit" : "hit");
+    if (monster.pack && !monster.target) this.callPack(monster, player);
+    if (!monster.flees && !(monster.tauntUntil > now)) monster.target = player.id;
+    if (combo) monster.primed = null;
+    else if (prime) monster.primed = { type: prime, by: player.id, until: now + 6000 };
 
     const ls = this.effLifesteal(player);
     if (ls > 0) this.healPlayer(player, Math.max(1, Math.round(dmg * ls)), false);
@@ -1150,18 +1208,21 @@ class World extends EventEmitter {
     if (!opts.quiet) {
       this.notify(
         player,
-        `${crit ? "CRIT! " : ""}${opts.label || "You hit"} the ${monster.name} for ${dmg}.`,
+        `${crit ? "CRIT! " : ""}${opts.label || "You hit"} the ${monster.name} for ${dmg}${flank ? " (flanked)" : ""}${ward ? " (warded)" : ""}.`,
         crit ? C.crit : C.hit,
       );
     }
     const killed = monster.hp <= 0;
     if (killed) this.killMonster(monster, player);
+    if (combo) this.detonate(player, monster, combo, dmg);
     return { dmg, killed };
   }
 
   killMonster(monster, killer) {
     if (!this.monsters.has(monster.id)) return;
     this.monsters.delete(monster.id);
+    this.sound(monster.x, monster.y, monster.boss ? "bosskill" : "kill");
+    this.deathEffects(monster);
     const now = Date.now();
     const k = killer.stats;
     k.kills++;
@@ -1182,6 +1243,12 @@ class World extends EventEmitter {
     // Party bonus: +10% XP for each party member fighting nearby.
     const partyNear = this.partyMembers(killer).filter((m) => m !== killer && !m.downed && dist(m, monster) <= 30);
     const partyMult = 1 + 0.1 * partyNear.length;
+    // A party builds one kill combo together.
+    for (const m of partyNear) {
+      m.combo = { count: combo.count, until: combo.until };
+      m.counters.bestCombo = Math.max(m.counters.bestCombo || 0, combo.count);
+      this.markDirty(m);
+    }
     const xp = Math.max(1, Math.round(monster.xp * xpMult * comboMult * partyMult * B.xpLevelMult(k.level, monster.level)));
     const comboText = combo.count >= 3 ? `  COMBO x${combo.count}! (+${Math.round((comboMult - 1) * 100)}% XP)` : "";
     this.notify(killer, `You slay the ${monster.name}! +${xp} XP${comboText}`, combo.count >= 3 ? C.crit : C.good);
@@ -1329,23 +1396,23 @@ class World extends EventEmitter {
     if (chance(player.stats.dodge)) {
       this.notify(player, `You dodge the ${monster.name}'s attack!`, [160, 255, 200]);
       this.floater(player.x, player.y, "dodge", [160, 255, 220]);
+      this.sound(player.x, player.y, "dodge");
       return;
     }
     let atk = ranged ? Math.round(monster.atk * 0.75) : monster.atk;
     if (this.eventActive("bloodmoon")) atk = Math.round(atk * 1.3);
-    let dmg = B.rollDamage(atk, this.effDef(player), monster.level);
     const crit = chance(0.08);
-    if (crit) dmg *= 2;
-    if (this.hasBuff(player, "ironskin")) dmg = Math.round(dmg * 0.3);
-    dmg = Math.max(1, dmg);
-    player.stats.hp -= dmg;
-    player.lastHurt = Date.now();
-    this.floater(player.x, player.y, `-${dmg}`, [255, 90, 90]);
     const verb = ranged || !monster.verb.includes(" at") ? monster.verb : "hits";
-    this.notify(player, `The ${monster.name} ${crit ? "critically " : ""}${verb} you for ${dmg}.`, C.bad);
-    this.fx(player, "hurt");
-    this.markDirty(player);
-    if (player.stats.hp <= 0) this.downOrKill(player, monster.name);
+    if (ranged) this.sound(monster.x, monster.y, "shoot");
+    this.hurtPlayer(player, atk, monster.level, {
+      crit,
+      by: monster.name,
+      text: (dmg) => `The ${monster.name} ${crit ? "critically " : ""}${verb} you for ${dmg}.`,
+    });
+    if (monster.affix === "vampiric" && monster.hp < monster.maxHp) {
+      monster.hp = Math.min(monster.maxHp, monster.hp + Math.ceil(monster.maxHp * 0.08));
+      this.floater(monster.x, monster.y, "drains", [200, 80, 120]);
+    }
   }
 
   downOrKill(player, by) {
@@ -1359,6 +1426,7 @@ class World extends EventEmitter {
     this.announce(`${player.username} is DOWN! Walk into them within ${DOWNED_MS / 1000}s to revive!`, C.bad);
     this.notify(player, "You are down! Hold on - an ally can revive you.", C.bad);
     this.fx(player, "death", "✚ YOU ARE DOWN ✚", [255, 90, 90]);
+    this.sound(player.x, player.y, "down");
   }
 
   revive(player, saviour) {
@@ -1367,6 +1435,7 @@ class World extends EventEmitter {
     player.lastHurt = Date.now();
     this.announce(`${saviour.username} revived ${player.username}!`, C.good);
     this.fx(player, "toast", `Revived by ${saviour.username}!`, C.good);
+    this.sound(player.x, player.y, "revive");
     if (saviour !== player) {
       saviour.counters.revives = (saviour.counters.revives || 0) + 1;
       this.gainXp(saviour, Math.round(xpToNext(saviour.stats.level) * 0.03));
@@ -1419,6 +1488,7 @@ class World extends EventEmitter {
     for (const p of this.players.values()) nearestDist = Math.min(nearestDist, dist(p, monster));
     if (nearestDist > ACTIVE_RANGE) return false;
     if (monster.frozenUntil > now) return false;
+    if (monster.windup > this.tickCount) return false; // winding up a telegraphed attack
     if (monster.boss && this.bossMechanics(monster, now)) return true;
 
     if (monster.cooldown > 0) {
@@ -1473,6 +1543,7 @@ class World extends EventEmitter {
     monster.target = target ? target.id : null;
 
     if (target) {
+      if (this.monsterAbility(monster, target, now)) return true;
       const adjacent = taunted
         ? manhattan(target, monster) === 1 && target
         : [target, ...this.players.values()].find((p) => this.isPrey(p) && manhattan(p, monster) === 1);
@@ -1595,9 +1666,11 @@ class World extends EventEmitter {
     let changed = false;
     const now = Date.now();
 
+    if (this.resolveTelegraphs(now)) changed = true;
     for (const monster of Array.from(this.monsters.values())) {
       if (this.updateMonster(monster, now)) changed = true;
     }
+    if (this.encounters.size) this.updateEncounters(now);
 
     for (const p of this.players.values()) {
       if (p.downed && now >= p.downed.until) {
@@ -1734,7 +1807,9 @@ class World extends EventEmitter {
         boss: m.boss,
         elite: m.elite,
         frozen: m.frozenUntil > now,
-        charging: m.charging > 0,
+        charging: m.boss && m.windup > this.tickCount, // older clients draw the slam zone from this
+        windup: m.windup > this.tickCount,
+        primed: m.primed && m.primed.until > now ? m.primed.type : null,
         enraged: !!m.enraged,
         hit: now - m.lastHit < 250,
         hunting: m.target === player.id,
@@ -1817,7 +1892,8 @@ class World extends EventEmitter {
         combo: player.combo.until > now ? player.combo : null,
         buffs: Object.entries(player.buffs)
           .filter(([, b]) => b.until > now)
-          .map(([id, b]) => ({ id, name: b.name, until: b.until })),
+          .map(([id, b]) => ({ id, name: b.name, until: b.until }))
+          .concat(!player.downed && this.inFormation(player) ? [{ id: "formation", name: "Formation", until: now + 1000 }] : []),
         skills: c.skills.map((s, i) => ({
           id: s.id,
           key: String(i + 1),
@@ -1835,6 +1911,7 @@ class World extends EventEmitter {
       home: this.spawn,
       safeRoomId: this.safeRoomId,
       view,
+      danger: this.dangerFor(isVisible),
       monsters,
       items,
       npcs,
@@ -1856,7 +1933,7 @@ class World extends EventEmitter {
 }
 
 // Mix in co-op (parties, pings, travel, boss mechanics) and endgame/setting systems.
-Object.assign(World.prototype, coop, endgame);
+Object.assign(World.prototype, coop, endgame, encounters);
 World.prototype.upgradeCostOf = endgame.upgradeCost;
 World.prototype.reforgeCostOf = endgame.reforgeCost;
 
