@@ -231,19 +231,26 @@ You can also create a new hero or log in to an existing one from the menu. In ga
 
 ### Music and sound
 
-The game has its own **chiptune soundtrack**: a title theme, a calm safe-room tune, an exploring theme for the
-upper dungeon, a darker one for the deep, and a boss fight track. The music follows what's happening (it switches
-when you enter the safe room, go deep, or a boss shows up), plus sound effects for level ups, bounties,
-achievements, legendary drops and death.
+The game has its own **dark-fantasy soundtrack** - harp, choir, flute, horns, bells and war drums - and it is
+**composed live while you play**, bar by bar. There is no loop, so it never cuts and never repeats exactly; each track
+has themes that come back and slowly change.
 
-Everything is composed and synthesized by the client itself and played with your system's audio player, so the
-client stays a single small binary with no audio libraries: `afplay` on macOS, PowerShell on Windows, and
-`pw-play`, `paplay`, `aplay` or `ffplay` on Linux. Without one of those (or a sound device, e.g. over SSH) the game
-simply runs silent. Rendered tracks are cached in your cache folder (`~/.cache/coop-dungeon-crawler/audio` on
-Linux).
+- **A mood for every place:** the title theme, a lute waltz in the safe room, and one for each biome (cellars,
+  caverns, crypts, infernal halls, abyss), plus a boss fight track. Tracks crossfade into each other.
+- **It reacts to the fight:** when monsters start hunting you, drums and low strings fade into the same piece of
+  music, and fade out again when it's over.
+- **Sound effects for everything:** hits, crits, kills, getting hurt, dodges, every skill, pickups, chests, urns,
+  shrines, fountains, telegraphed attacks, team combos, revives, level ups and more. They are positional: a fight to
+  your left sounds like it's on your left, and distant ones are quieter.
 
-- Turn music and sounds on or off and set their volumes in **Settings**, or start with `cdc -no-music`.
-- To use another player, set `CDC_AUDIO_PLAYER`, e.g. `CDC_AUDIO_PLAYER="mpv --really-quiet"`.
+Everything is synthesized by the client itself - there are no audio files. Windows and macOS play it directly;
+on Linux the client streams it into `paplay`, `pw-cat`, `aplay` or `ffplay`, whichever is installed. Without a
+sound device (e.g. over SSH) the game simply runs silent.
+
+- Turn music and sounds on or off and set their volumes in **Settings** (changes are heard immediately), or start
+  with `cdc -no-music`.
+- To use another player on Linux, set `CDC_AUDIO_PLAYER` to a command that reads raw 16-bit 44.1 kHz stereo audio
+  from its standard input, e.g. `CDC_AUDIO_PLAYER="sox -t raw -r 44100 -e signed -b 16 -c 2 - -d"`.
 
 ### Game Controls
 
@@ -327,8 +334,41 @@ You pick a class the first time you play (it's permanent for that hero, so make 
 - **Going down instead of dying:** if you fall while an ally is nearby you go **DOWN** (`%`). They have 20 seconds to
   walk into you (or use Heal / Sanctuary) to bring you back.
 - **Bosses are built for groups:** they introduce themselves, get tougher for each hero they face, **telegraph a ground
-  slam** (the boss glows and the floor around it turns red: get out!) and **enrage** at low health. Everyone who
-  fought gets **personal loot** and boss credit, so there's no loot stealing.
+  slam** (the floor around the boss turns red: get out!), **call for help** at 60% health and **enrage** at 30%. Their
+  **doom mark** (☠) works the other way round: the blow is split between everyone standing next to the marked hero, so
+  run *towards* your friend. Everyone who fought gets **personal loot** and boss credit, so there's no loot stealing.
+- **Team combos:** most skills leave a mark on the monsters they hit (they get a tint and a ✦ in the enemy list). When
+  an **ally** then hits a marked monster - even with a plain attack - the mark detonates: Frost Nova → **SHATTER**
+  (2x damage), Fireball → **IGNITE** (splashes to monsters next to it), Chain Lightning → **OVERLOAD** (stuns),
+  Smite → **JUDGEMENT** (heals heroes nearby), Cleave → **CRUSH** and Backstab → **RUPTURE** (+75%). Alone, a different
+  kind of skill on your own mark gives a smaller bonus.
+- **Fight side by side:** standing next to an ally puts you both in **Formation** (15% less damage taken). Hitting a
+  monster another hero hit in the last 3 seconds **flanks** it (+15% damage per extra hero). A party builds **one kill
+  combo** together.
+
+#### Combat
+
+- **Red floor means move.** Many monsters have a special attack that marks the tiles it will hit about half a second
+  before it lands: orcs, trolls, golems and zombies **smash** three tiles in front of them, goblins throw **bombs**,
+  spiders **pounce**, cultists and liches drop a **hex**, imps and drakes breathe a **line of fire**, wraiths **blink**
+  next to you. Step off the marked tiles to take no damage. Freezing or stunning the monster cancels the attack, and
+  so does killing it.
+- **Rats and goblins call their pack** when you hit one, **slimes split** in two when they die.
+- **Elites have an affix:** *Volatile* (explodes a moment after dying), *Frenzied* (acts faster), *Warding* (monsters
+  near it take 40% less damage - kill it first) or *Vampiric* (heals when it hits you).
+
+#### Things to find
+
+| | |
+| --- | --- |
+| `&` Urn | Smash it by walking over it: gold, sometimes a potion, sometimes something that was hiding inside. |
+| `≈` Fountain | Heals you fully (once every 45 seconds). |
+| `≡` Sealed vault | Has two locks. With an ally standing beside you it opens with better loot for both. Alone you can force it (step on it twice) and fight its guardians. |
+| `¤` Cursed chest | Opening it starts a fight in three waves. Everyone who survives gets their own gold and item. |
+| `=` Chest | From level 10 on, some of them are **mimics**. Kill it to get the real chest. |
+
+Walking into a chamber for the first time gives a little **XP**, and there are bounties for discovering rooms, breaking
+curses and landing team combos.
 
 #### Loot and the blacksmith
 

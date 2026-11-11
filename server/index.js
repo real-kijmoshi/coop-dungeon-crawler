@@ -117,6 +117,14 @@ world.on("floater", (f) => {
     if (p && Math.abs(p.x - f.x) <= 20 && Math.abs(p.y - f.y) <= 14) socket.emit("floater", f);
   }
 });
+// Sound cues: personal ones go to one hero, the rest to everyone close enough to hear.
+world.on("sound", (s) => {
+  if (s.to !== undefined) return void sockets.get(s.to)?.emit("sound", { name: s.name });
+  for (const [id, socket] of sockets) {
+    const p = world.players.get(id);
+    if (p && Math.abs(p.x - s.x) <= 16 && Math.abs(p.y - s.y) <= 12) socket.emit("sound", { name: s.name, dx: s.x - p.x, dy: s.y - p.y });
+  }
+});
 world.on("shop", (id, shop) => sockets.get(id)?.emit("shop", shop));
 world.on("story", (id) => sockets.get(id)?.emit("story", world.worldInfo().story));
 world.on("message", ({ to, text, color }) => {

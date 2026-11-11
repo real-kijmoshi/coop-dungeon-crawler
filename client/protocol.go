@@ -106,6 +106,8 @@ type Monster struct {
 	Elite    bool    `json:"elite"`
 	Frozen   bool    `json:"frozen"`
 	Charging bool    `json:"charging"`
+	Windup   bool    `json:"windup"`
+	Primed   string  `json:"primed"`
 	Enraged  bool    `json:"enraged"`
 	Hit      bool    `json:"hit"`
 	Hunting  bool    `json:"hunting"`
@@ -203,6 +205,7 @@ type GameState struct {
 	Home          *Point      `json:"home"`
 	SafeRoomID    *int        `json:"safeRoomId"`
 	View          View        `json:"view"`
+	Danger        [][2]int    `json:"danger"`
 	Monsters      []Monster   `json:"monsters"`
 	Items         []FloorItem `json:"items"`
 	NPCs          []NPC       `json:"npcs"`
@@ -333,6 +336,13 @@ type Fx struct {
 	Type  string `json:"type"`
 	Text  string `json:"text"`
 	Color *Color `json:"color"`
+}
+
+// Sound is a cue from the server; DX, DY are tiles from the hero (0 = here).
+type Sound struct {
+	Name string  `json:"name"`
+	DX   float64 `json:"dx"`
+	DY   float64 `json:"dy"`
 }
 
 type Floater struct {

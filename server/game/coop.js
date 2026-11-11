@@ -1,5 +1,4 @@
 // Co-op systems mixed into World: parties, pings, travel and boss mechanics.
-const { rollDamage } = require("./balance");
 const { BOSS_LINES } = require("./lore");
 
 const PARTY_SIZE = 4;
@@ -292,16 +291,24 @@ module.exports = {
       this.floater(m.x, m.y, "ENRAGED", [255, 80, 60]);
     }
 
-    // Telegraphed ground slam: warn, then hit everyone close by.
-    if (m.charging > 0) {
-      m.charging--;
-      if (m.charging === 0) this.bossSlam(m);
-      return true;
+    // Calls for help once, when the fight turns against it.
+    if (!m.calledAdds && m.hp < m.maxHp * 0.6) {
+      m.calledAdds = true;
+      this.bossCallsAdds(m);
     }
+
+    // Doom mark: heroes must stand together to share it.
+    if (m.introduced) this.bossMark(m, now);
+
+    // Telegraphed ground slam: warn, then hit everyone close by.
     const target = m.target ? this.players.get(m.target) : null;
     if (target && this.isPrey(target) && chebyshev(target, m) <= 3 && now >= (m.nextSlam || 0)) {
-      m.charging = SLAM_WARN_TICKS;
       m.nextSlam = now + SLAM_EVERY_MS;
+      const tiles = [];
+      for (let dy = -SLAM_RADIUS; dy <= SLAM_RADIUS; dy++) {
+        for (let dx = -SLAM_RADIUS; dx <= SLAM_RADIUS; dx++) tiles.push({ x: m.x + dx, y: m.y + dy });
+      }
+      this.telegraph(tiles, SLAM_WARN_TICKS, { by: m, mult: 1.6, what: "ground slam", label: "SLAM!" });
       for (const p of this.players.values()) {
         if (dist(p, m) > 12) continue;
         this.notify(p, `⚠ The ${m.name} gathers its strength - get away from it!`, [255, 200, 60]);
@@ -311,25 +318,5 @@ module.exports = {
       return true;
     }
     return false;
-  },
-
-  bossSlam(m) {
-    let hits = 0;
-    for (const p of Array.from(this.players.values())) {
-      if (!this.isPrey(p) || chebyshev(p, m) > SLAM_RADIUS) continue;
-      hits++;
-      let dmg = rollDamage(m.atk * 1.6, this.effDef(p), m.level);
-      if (this.hasBuff(p, "ironskin")) dmg = Math.round(dmg * 0.3);
-      dmg = Math.max(1, dmg);
-      p.stats.hp -= dmg;
-      p.lastHurt = Date.now();
-      this.floater(p.x, p.y, `-${dmg}`, [255, 90, 90]);
-      this.notify(p, `The ${m.name} SLAMS the ground and hits you for ${dmg}!`, [255, 90, 90]);
-      this.fx(p, "hurt");
-      this.markDirty(p);
-      if (p.stats.hp <= 0) this.downOrKill(p, m.name);
-    }
-    this.floater(m.x, m.y, hits ? "SLAM!" : "miss", [255, 170, 60]);
-    this.changed();
   },
 };

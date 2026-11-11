@@ -76,21 +76,21 @@ const CLASSES = {
 // Archetypes: stats are multipliers on the level formulas in balance.js.
 // minLevel: the lowest area level they appear in. ranged: attack range in tiles.
 const MONSTERS = [
-  { type: "rat", name: "Rat", char: "r", color: [170, 140, 110], hp: 0.75, atk: 0.9, def: 0.6, xp: 0.85, minLevel: 1, speed: 2, aggro: 5, verb: "bites" },
+  { type: "rat", name: "Rat", char: "r", color: [170, 140, 110], hp: 0.75, atk: 0.9, def: 0.6, xp: 0.85, minLevel: 1, speed: 2, aggro: 5, verb: "bites", pack: true },
   { type: "bat", name: "Bat", char: "b", color: [170, 110, 210], hp: 0.6, atk: 0.85, def: 0.5, xp: 0.8, minLevel: 1, speed: 1, aggro: 7, verb: "bites" },
   { type: "slime", name: "Slime", char: "j", color: [120, 230, 200], hp: 1.25, atk: 0.8, def: 1.2, xp: 1, minLevel: 2, speed: 3, aggro: 4, verb: "splashes" },
-  { type: "goblin", name: "Goblin", char: "g", color: [90, 200, 90], hp: 1, atk: 1, def: 1, xp: 1, minLevel: 4, speed: 2, aggro: 7, verb: "stabs" },
-  { type: "spider", name: "Giant Spider", char: "x", color: [200, 80, 80], hp: 0.85, atk: 1.15, def: 0.7, xp: 1.05, minLevel: 7, speed: 1, aggro: 6, verb: "bites" },
+  { type: "goblin", name: "Goblin", char: "g", color: [90, 200, 90], hp: 1, atk: 1, def: 1, xp: 1, minLevel: 4, speed: 2, aggro: 7, verb: "stabs", pack: true, ability: "bomb" },
+  { type: "spider", name: "Giant Spider", char: "x", color: [200, 80, 80], hp: 0.85, atk: 1.15, def: 0.7, xp: 1.05, minLevel: 7, speed: 1, aggro: 6, verb: "bites", ability: "leap" },
   { type: "skeleton", name: "Skeleton", char: "s", color: [230, 230, 210], hp: 0.9, atk: 0.95, def: 1.1, xp: 1.1, minLevel: 11, speed: 2, aggro: 8, ranged: 4, verb: "shoots an arrow at", undead: true },
-  { type: "zombie", name: "Zombie", char: "z", color: [130, 170, 90], hp: 1.55, atk: 0.95, def: 0.8, xp: 1.15, minLevel: 15, speed: 3, aggro: 6, verb: "claws", undead: true },
-  { type: "orc", name: "Orc", char: "o", color: [210, 120, 50], hp: 1.3, atk: 1.1, def: 1.2, xp: 1.2, minLevel: 20, speed: 2, aggro: 8, verb: "smashes" },
-  { type: "cultist", name: "Cultist", char: "c", color: [200, 60, 160], hp: 0.85, atk: 1.2, def: 0.9, xp: 1.15, minLevel: 26, speed: 2, aggro: 9, ranged: 5, verb: "casts a hex on" },
-  { type: "wraith", name: "Wraith", char: "w", color: [120, 200, 255], hp: 0.9, atk: 1.15, def: 0.9, xp: 1.2, minLevel: 32, speed: 1, aggro: 10, ranged: 5, verb: "hurls a shadow bolt at", undead: true },
-  { type: "golem", name: "Stone Golem", char: "m", color: [170, 160, 150], hp: 2.0, atk: 1.0, def: 2.2, xp: 1.4, minLevel: 40, speed: 3, aggro: 6, verb: "pounds" },
-  { type: "troll", name: "Troll", char: "t", color: [60, 170, 120], hp: 1.7, atk: 1.1, def: 1.3, xp: 1.35, minLevel: 48, speed: 3, aggro: 8, verb: "pummels" },
-  { type: "demon", name: "Imp Demon", char: "i", color: [255, 70, 70], hp: 1.05, atk: 1.25, def: 1.1, xp: 1.3, minLevel: 57, speed: 1, aggro: 10, ranged: 4, verb: "spits fire at" },
-  { type: "drake", name: "Drake", char: "d", color: [255, 100, 40], hp: 1.5, atk: 1.2, def: 1.4, xp: 1.45, minLevel: 67, speed: 2, aggro: 10, ranged: 4, verb: "breathes fire at" },
-  { type: "lich", name: "Lich", char: "l", color: [190, 120, 255], hp: 1.25, atk: 1.3, def: 1.3, xp: 1.5, minLevel: 78, speed: 2, aggro: 11, ranged: 6, verb: "blasts", undead: true },
+  { type: "zombie", name: "Zombie", char: "z", color: [130, 170, 90], hp: 1.55, atk: 0.95, def: 0.8, xp: 1.15, minLevel: 15, speed: 3, aggro: 6, verb: "claws", undead: true, ability: "smash" },
+  { type: "orc", name: "Orc", char: "o", color: [210, 120, 50], hp: 1.3, atk: 1.1, def: 1.2, xp: 1.2, minLevel: 20, speed: 2, aggro: 8, verb: "smashes", ability: "smash" },
+  { type: "cultist", name: "Cultist", char: "c", color: [200, 60, 160], hp: 0.85, atk: 1.2, def: 0.9, xp: 1.15, minLevel: 26, speed: 2, aggro: 9, ranged: 5, verb: "casts a hex on", ability: "hex" },
+  { type: "wraith", name: "Wraith", char: "w", color: [120, 200, 255], hp: 0.9, atk: 1.15, def: 0.9, xp: 1.2, minLevel: 32, speed: 1, aggro: 10, ranged: 5, verb: "hurls a shadow bolt at", undead: true, ability: "blink" },
+  { type: "golem", name: "Stone Golem", char: "m", color: [170, 160, 150], hp: 2.0, atk: 1.0, def: 2.2, xp: 1.4, minLevel: 40, speed: 3, aggro: 6, verb: "pounds", ability: "smash" },
+  { type: "troll", name: "Troll", char: "t", color: [60, 170, 120], hp: 1.7, atk: 1.1, def: 1.3, xp: 1.35, minLevel: 48, speed: 3, aggro: 8, verb: "pummels", ability: "smash" },
+  { type: "demon", name: "Imp Demon", char: "i", color: [255, 70, 70], hp: 1.05, atk: 1.25, def: 1.1, xp: 1.3, minLevel: 57, speed: 1, aggro: 10, ranged: 4, verb: "spits fire at", ability: "line" },
+  { type: "drake", name: "Drake", char: "d", color: [255, 100, 40], hp: 1.5, atk: 1.2, def: 1.4, xp: 1.45, minLevel: 67, speed: 2, aggro: 10, ranged: 4, verb: "breathes fire at", ability: "breath" },
+  { type: "lich", name: "Lich", char: "l", color: [190, 120, 255], hp: 1.25, atk: 1.3, def: 1.3, xp: 1.5, minLevel: 78, speed: 2, aggro: 11, ranged: 6, verb: "blasts", undead: true, ability: "hex" },
 ];
 
 // Spawned only during the Treasure Goblin event: runs away, drops riches.
@@ -122,6 +122,10 @@ const ITEMS = {
   shrine: { name: "shrine", char: "^", color: [120, 255, 255] },
   gear: { name: "gear", char: "?", color: [255, 255, 255] }, // char/color depend on the item
   lore: { name: "lore scroll", char: "§", color: [240, 220, 170] },
+  urn: { name: "urn", char: "&", color: [190, 150, 110] },
+  fountain: { name: "healing fountain", char: "≈", color: [110, 200, 255] },
+  vault: { name: "sealed vault", char: "≡", color: [255, 215, 110] },
+  cursed: { name: "cursed chest", char: "¤", color: [210, 110, 255] },
 };
 
 // ---------------------------------------------------------------- equipment
@@ -239,6 +243,10 @@ const ACHIEVEMENTS = [
   { id: "traveler", name: "Wayfinder", desc: "Discover 6 waystones", title: "the Wayfinder", check: (p) => (p.waystones || []).length >= 6 },
   { id: "smith", name: "Master Smith", desc: "Upgrade an item to +10", title: "the Smith", check: (p) => (p.counters.bestPlus || 0) >= 10 },
   { id: "reborn", name: "Reborn", desc: "Complete a rebirth", title: "the Reborn", check: (p) => (p.prestige || 0) >= 1 },
+  { id: "combo25", name: "Better Together", desc: "Land 25 team combos", title: "the Dependable", check: (p) => (p.counters.teamCombos || 0) >= 25 },
+  { id: "cursed5", name: "Curse Breaker", desc: "Break 5 cursed chests", title: "the Curse Breaker", check: (p) => (p.counters.cursed || 0) >= 5 },
+  { id: "vault3", name: "Two Keys", desc: "Open 3 sealed vaults with an ally", title: "the Keyholder", check: (p) => (p.counters.vaults || 0) >= 3 },
+  { id: "rooms150", name: "Cartographer", desc: "Discover 150 chambers", title: "the Cartographer", check: (p) => (p.counters.rooms || 0) >= 150 },
   { id: "abyss", name: "Abyss Conqueror", desc: "Defeat the Abyss Lord", title: "the Conqueror", check: (p) => (p.counters.kinds.abyss_lord || 0) >= 1 },
 ];
 
