@@ -380,32 +380,37 @@ func (g *Game) showTravel(note *Line) {
 	g.overlay = &Overlay{Kind: "travel", Title: "TRAVEL", Lines: lines, Footer: "↑/↓ choose · Enter travel · Esc close", Color: ptr(Color{120, 230, 255})}
 }
 
-// -------------------------------------------------------------------- story
-func (g *Game) showStory(lines []string) {
-	out := []Line{}
-	for _, l := range lines {
-		out = append(out, L(l, Color{240, 225, 190}))
-	}
-	out = append(out, L("", cWhite), L("Press ? for controls and O for settings at any time.", theme.muted))
-	g.overlay = &Overlay{Kind: "story", Title: "THE TALE OF EMBERFALL", Lines: out, Footer: "any key to begin", Color: ptr(Color{240, 200, 120})}
-}
-
 // --------------------------------------------------------------- lore page
 func (g *Game) loreLines() []Line {
+	type entry struct{ title, text string }
 	p := g.profile
+	story := "The wells of Emberfall ran hot. The merchant set up shop in the last safe room before the depths."
 	total := 12
 	if g.world != nil {
 		total = g.world.LoreTotal
-	}
-	lines := []Line{L(fmt.Sprintf("LORE SCROLLS %d/%d  -  find scrolls (§) in the dungeon to learn what woke up below", len(p.Lore), total), cOrange), L("", cWhite)}
-	if len(p.Lore) == 0 {
-		lines = append(lines, L("You haven't found any lore yet. Scrolls are more common deeper down.", theme.faint))
-	}
-	for _, l := range p.Lore {
-		lines = append(lines, L(fmt.Sprintf("%d. %s", l.N, l.Title), Color{240, 220, 170}))
-		for _, w := range wrap(l.Text, 66) {
-			lines = append(lines, L("   "+w, theme.text))
+		if len(g.world.Story) > 0 {
+			story = strings.Join(g.world.Story, " ")
 		}
+	}
+	entries := []entry{{"The Tale of Emberfall", story}}
+	for _, record := range p.Chronicles {
+		entries = append(entries, entry{fmt.Sprintf("Depth %d · %s", record.Depth, record.Title), record.Text})
+	}
+	for _, scroll := range p.Lore {
+		entries = append(entries, entry{fmt.Sprintf("Scroll %d · %s", scroll.N, scroll.Title), scroll.Text})
+	}
+	g.loreCursor = clampi(g.loreCursor, 0, len(entries)-1)
+	selected := entries[g.loreCursor]
+	lines := []Line{
+		L(fmt.Sprintf("ENTRY %d/%d · SCROLLS %d/%d", g.loreCursor+1, len(entries), len(p.Lore), total), cOrange),
+		L(selected.title, cYellow), L("", cWhite),
+	}
+	w, h := g.cv.s.Size()
+	body := wrap(selected.text, clampi(w-10, 12, 66))
+	visible := maxi(1, h-10)
+	g.loreScroll = clampi(g.loreScroll, 0, maxi(0, len(body)-visible))
+	for _, line := range body[g.loreScroll:mini(len(body), g.loreScroll+visible)] {
+		lines = append(lines, L(line, theme.text))
 	}
 	return lines
 }

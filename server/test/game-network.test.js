@@ -65,6 +65,16 @@ test('mixed legacy and application-compressed clients authenticate, move and cha
     }
     await sleep(125);
   }
+  const modern = clients[0];
+  modern.ws.send(JSON.stringify({ t: 'getProfile', id: 30 }));
+  const profile = await until(() => modern.frames.find(f => f.t === 'reply' && f.id === 30));
+  assert.equal(profile.d.chronicles[0].title, 'The Warm Well');
+
+  modern.ws.send(JSON.stringify({ t: 'dodge', a: ['east'], id: 31 }));
+  const dodge = await until(() => modern.frames.find(f => f.t === 'reply' && f.id === 31));
+  assert.equal(dodge.d.ok, true);
+  await until(() => modern.frames.some(f => f.t === 'gameState' && f.d.player.dodgeReadyAt > f.d.now));
+
   assert.ok(clients[0].applicationCompressedFrames>0 && clients[2].applicationCompressedFrames>0);
   assert.equal(clients[1].applicationCompressedFrames+clients[3].applicationCompressedFrames,0);
   clients[0].ws.send(JSON.stringify({ t: 'chat', a: ['transport-test'] }));

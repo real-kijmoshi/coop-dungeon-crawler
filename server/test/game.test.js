@@ -286,6 +286,78 @@ check("telegraphed monster attacks can be dodged", () => {
   w.resolveTelegraphs();
   assert.equal(a.stats.hp, hp2, "interrupted by a freeze");
 });
+check("dodge escapes danger, and a missed attack gives one opening", () => {
+  const room = arena();
+  const orc = w.spawnMonster(room.x, room.y + 1, 20, room.id, MONSTERS.find((m) => m.type === "orc"));
+  const x = a.x;
+  const y = a.y;
+  const hp = a.stats.hp;
+  a.dodgeReadyAt = 0;
+  assert(w.telegraph([{ x, y }], 2, { by: orc, what: "smash" }));
+  assert.equal(w.stateFor(a).threat.attack, "smash");
+  assert.equal(w.dodgePlayer(a, "south").reason, "blocked");
+  assert.equal(a.dodgeReadyAt, 0, "blocked dodge keeps its charge");
+  assert.equal(w.dodgePlayer(a, "constructor").reason, "invalid");
+  assert(w.dodgePlayer(a, "east").ok);
+  assert.equal(a.x, x + 2);
+  assert.equal(w.dodgePlayer(a, "west").reason, "cooldown");
+  assert.equal(w.stateFor(a).threat, null);
+  w.tickCount += 2;
+  w.resolveTelegraphs();
+  assert.equal(a.stats.hp, hp);
+  assert(w.stateFor(a).monsters.find((m) => m.id === orc.id).exposed);
+  orc.hp = orc.maxHp = 10000;
+  const previousRandom = Math.random;
+  try {
+    Math.random = () => 0.5;
+    const opening = w.hitMonster(a, orc, 1, { noCombo: true }).dmg;
+    const normal = w.hitMonster(a, orc, 1, { noCombo: true }).dmg;
+    assert.equal(opening, Math.round(normal * 1.25));
+  } finally {
+    Math.random = previousRandom;
+  }
+  assert.equal(orc.exposedUntil, 0);
+});
+
+check("early attacks give more reaction time and interrupts clear their warning", () => {
+  const room = arena();
+  const goblin = w.spawnMonster(a.x, a.y + 1, 4, room.id, MONSTERS.find((m) => m.type === "goblin"));
+  const attack = w.telegraph([{ x: a.x, y: a.y }], 2, { by: goblin });
+  assert.equal(attack.at - w.tickCount, 4);
+  w.interruptTelegraph(goblin);
+  assert.equal(w.stateFor(a).threat, null);
+  assert.equal(goblin.windup, 0);
+});
+
+check("lore records unlock from saved depth without changing collected scrolls", () => {
+  const originalDepth = a.stats.maxDepth;
+  const originalLore = a.lore.slice();
+  a.stats.maxDepth = 6;
+  const profile = w.profileFor(a);
+  assert.deepEqual(profile.chronicles.map((entry) => entry.depth), [0, 3, 6]);
+  assert.deepEqual(a.lore, originalLore);
+  a.stats.maxDepth = originalDepth;
+});
+
+check("merchant rejects stale quotes and still accepts legacy purchases", () => {
+  const customer = mk(300, "customer", "cleric");
+  Object.assign(customer, { x: w.merchant.x, y: w.merchant.y });
+  customer.stats.gold = 200;
+  customer.stats.potions = 0;
+  const stock = w.shopFor(customer);
+  const offer = stock.items.find((item) => item.id === "potion");
+  assert.match(offer.description, /40% max HP/);
+  const stale = w.buy(customer, "potion", offer.price + 1);
+  assert.equal(stale.ok, false);
+  assert.equal(customer.stats.gold, 200);
+  assert.equal(customer.stats.potions, 0);
+  assert(w.buy(customer, "potion", offer.price).ok);
+  assert(w.buy(customer, "potion").ok);
+  assert.equal(customer.stats.potions, 2);
+  assert.equal(customer.stats.gold, 200 - 2 * offer.price);
+  w.removePlayer(customer.id);
+});
+
 check("team combos: one hero primes, another detonates", () => {
   const room = arena();
   const m = w.spawnMonster(c.x, c.y + 1, 20, room.id, MONSTERS.find((x) => x.type === "golem"));

@@ -90,7 +90,6 @@ type Game struct {
 	chat      string
 	overlay   *Overlay
 	invCursor int
-	lastShop  *Shop
 
 	flash      *Color
 	flashUntil time.Time
@@ -103,14 +102,25 @@ type Game struct {
 	quit        bool
 	exitReason  string
 
-	settings       Settings
-	world          *WorldInfo
-	partyChannel   bool   // chat goes to the party
-	confirmSellUID string // second X press confirms selling a rare+ item
-	rebinding      string // action waiting for a new key
-	menuCursor     int    // cursor for settings / party / travel menus
-	journalPage    int
-	travelOpts     *TravelOptions
+	settings         Settings
+	world            *WorldInfo
+	partyChannel     bool   // chat goes to the party
+	confirmSellUID   string // second X press confirms selling a rare+ item
+	rebinding        string // action waiting for a new key
+	menuCursor       int    // cursor for settings / party / travel menus
+	journalPage      int
+	loreCursor       int
+	loreScroll       int
+	tutorialPage     int
+	intro            *introPlayback
+	heroIntroShown   bool
+	classCursor      int
+	shopCursor       int
+	classConfirm     bool
+	shopConfirm      bool
+	selectionPending bool
+	dodgeArmed       bool
+	travelOpts       *TravelOptions
 
 	showPerformance bool // F3: network and rendering stats
 	drawTime        time.Duration
@@ -145,6 +155,11 @@ func (g *Game) handleNet(ev NetEvent) {
 			return
 		}
 		g.connected = false
+		g.selectionPending, g.dodgeArmed = false, false
+		if g.overlay != nil && g.overlay.Kind == "shop" {
+			g.overlay = nil
+			g.log("Check your gold at the merchant after reconnecting.", cYellow)
+		}
 		g.log("Disconnected from the server. Reconnecting...", cRed)
 		go g.reconnect()
 	case "gameState":
@@ -180,8 +195,8 @@ func (g *Game) handleNet(ev NetEvent) {
 		}
 	case "story":
 		var lines []string
-		if json.Unmarshal(ev.D, &lines) == nil {
-			g.showStory(lines)
+		if json.Unmarshal(ev.D, &lines) == nil && (g.selectionPending || g.profile == nil || g.profile.Cls == nil) {
+			g.beginHeroIntro()
 		}
 	case "fx":
 		var fx Fx
@@ -233,6 +248,7 @@ func (g *Game) handleNet(ev NetEvent) {
 	case "shop":
 		var s Shop
 		if json.Unmarshal(ev.D, &s) == nil {
+			g.shopCursor, g.shopConfirm = 0, false
 			g.showShop(&s, nil)
 		}
 	case "kicked":
@@ -260,7 +276,9 @@ func (g *Game) onProfile(p *Profile) {
 		g.world = p.World
 	}
 	if p.Cls == nil {
-		g.showClassSelect()
+		if g.intro == nil && (g.overlay == nil || g.overlay.Kind != "class") {
+			g.showClassSelect(nil)
+		}
 	} else if g.overlay != nil && g.overlay.Kind == "class" {
 		g.overlay = nil
 	}
@@ -322,14 +340,18 @@ func (g *Game) chatKey(ev *tcell.EventKey) {
 	switch ev.Key() {
 	case tcell.KeyEnter:
 		if t := strings.TrimSpace(g.chat); t != "" {
-			if g.partyChannel && !strings.HasPrefix(t, "/") {
+			if g.partyChannel {
 				t = "/p " + t
 			}
 			g.conn.Send("chat", t)
 		}
 		g.chatting, g.chat = false, ""
 	case tcell.KeyTab:
-		g.partyChannel = !g.partyChannel
+		if g.partyChannel || (g.state != nil && g.state.Party != nil) {
+			g.partyChannel = !g.partyChannel
+		} else {
+			g.log("Join a party before switching to party chat.", cYellow)
+		}
 	case tcell.KeyEscape:
 		g.chatting, g.chat = false, ""
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
@@ -345,6 +367,10 @@ func (g *Game) chatKey(ev *tcell.EventKey) {
 
 func (g *Game) gameKey(ev *tcell.EventKey) {
 	name := keyName(ev)
+	if g.dodgeArmed && name == "Esc" {
+		g.dodgeArmed = false
+		return
+	}
 	if name == "Esc" { // Esc opens the menu instead of quitting by accident
 		g.menuCursor = 0
 		g.showSettings()
@@ -363,6 +389,14 @@ func (g *Game) gameKey(ev *tcell.EventKey) {
 		g.move("west")
 	case "right":
 		g.move("east")
+	case "dodge":
+		if g.state != nil && g.state.Player.DodgeReadyAt != nil && g.connected && g.state.Player.DownedUntil == nil {
+			if *g.state.Player.DodgeReadyAt > g.serverNow() {
+				g.log("Dodge is recovering.", cYellow)
+			} else {
+				g.dodgeArmed = !g.dodgeArmed
+			}
+		}
 	case "skill1", "skill2", "skill3", "skill4":
 		g.conn.Send("skill", int(g.settings.actionFor(name)[5]-'1'))
 	case "potion":
@@ -374,7 +408,7 @@ func (g *Game) gameKey(ev *tcell.EventKey) {
 		}
 		g.showInventory(nil)
 	case "journal":
-		g.journalPage = 0
+		g.journalPage, g.loreCursor, g.loreScroll = 0, 0, 0
 		g.showJournal()
 	case "party":
 		g.menuCursor = 0
@@ -412,8 +446,12 @@ func (g *Game) gameKey(ev *tcell.EventKey) {
 }
 
 func (g *Game) openChat(party bool) {
-	g.chatting = true
-	g.partyChannel = party && g.state != nil && g.state.Party != nil
+	if party && (g.state == nil || g.state.Party == nil) {
+		g.log("Join a party first. "+g.settings.keyLabel("party")+" opens the party list.", cYellow)
+		return
+	}
+	g.dodgeArmed = false
+	g.chatting, g.partyChannel = true, party
 }
 
 func (g *Game) partyRequest(action string, arg any) {
@@ -441,9 +479,28 @@ func (g *Game) openTravel() {
 }
 
 func (g *Game) move(dir string) {
-	if g.state != nil && g.connected {
-		g.conn.Send("move", dir)
+	if g.state == nil || !g.connected {
+		return
 	}
+	if !g.dodgeArmed {
+		g.conn.Send("move", dir)
+		return
+	}
+	g.dodgeArmed = false
+	g.conn.Request("dodge", func(raw json.RawMessage) {
+		var res struct {
+			OK     bool
+			Reason string
+		}
+		if json.Unmarshal(raw, &res) == nil && !res.OK {
+			switch res.Reason {
+			case "blocked":
+				g.log("Dodge blocked. Choose an open direction.", cYellow)
+			case "cooldown":
+				g.log("Dodge is recovering.", cYellow)
+			}
+		}
+	}, dir)
 }
 
 func (g *Game) overlayKey(ev *tcell.EventKey) {
@@ -462,52 +519,33 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 
 	switch o.Kind {
 	case "class":
-		if isRune && lr == 'q' {
-			g.quit = true
-			return
-		}
-		if isRune && r >= '1' && r <= '9' && g.profile != nil {
-			i := int(r - '1')
-			if i < len(g.profile.Classes) {
-				g.conn.Request("chooseClass", func(raw json.RawMessage) {
-					var res Result
-					if json.Unmarshal(raw, &res) == nil && res.OK && g.overlay != nil && g.overlay.Kind == "class" {
-						g.overlay = nil
-					}
-				}, g.profile.Classes[i].ID)
-			}
-		}
+		g.classKey(name, r, up, down)
 		return
 
 	case "shop":
-		if isRune && r >= '1' && r <= '9' && o.shop != nil {
-			for _, it := range o.shop.Items {
-				if it.Key == string(r) {
-					item := it
-					g.conn.Request("buy", func(raw json.RawMessage) {
-						var res Result
-						if json.Unmarshal(raw, &res) != nil {
-							return
-						}
-						if res.OK && res.Shop != nil {
-							g.showShop(res.Shop, &Line{Segs: []Seg{{Text: "Done: " + item.Name, Color: cGreen}}})
-						} else {
-							g.showShop(g.lastShop, &Line{Segs: []Seg{{Text: res.Message, Color: cRed}}})
-						}
-					}, item.ID)
-				}
+		g.shopKey(name, lr, up, down)
+		return
+
+	case "intro":
+		g.introKey(name)
+		return
+
+	case "tutorial":
+		switch name {
+		case "Left":
+			g.tutorialPage = maxi(0, g.tutorialPage-1)
+		case "Right", "Enter":
+			if g.tutorialPage+1 == len(g.tutorialPages()) {
+				g.overlay = nil
+				return
 			}
+			g.tutorialPage++
+		case "Esc", "q":
+			g.overlay = nil
 			return
 		}
-		if isRune && lr == 'x' {
-			g.invAction("selljunk", nil)
-			return
-		}
-		if isRune && lr == 'i' {
-			g.invCursor = 3
-			g.showInventory(nil)
-			return
-		}
+		g.showTutorial()
+		return
 
 	case "inventory":
 		entries := g.inventoryEntries()
@@ -573,6 +611,29 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 		}
 
 	case "journal":
+		if g.journalPage == 1 && name == "c" {
+			g.playIntro(true)
+			return
+		}
+		if g.journalPage == 1 && (name == "PgUp" || name == "PgDn") {
+			if name == "PgUp" {
+				g.loreScroll = maxi(0, g.loreScroll-4)
+			} else {
+				g.loreScroll += 4
+			}
+			g.showJournal()
+			return
+		}
+		if g.journalPage == 1 && (up || down) {
+			g.loreScroll = 0
+			if up {
+				g.loreCursor = maxi(0, g.loreCursor-1)
+			} else {
+				g.loreCursor++
+			}
+			g.showJournal()
+			return
+		}
 		if isRune && lr == 'n' {
 			g.invAction("title", nil)
 			return
@@ -706,7 +767,6 @@ func runGame(app *App, conn *Conn, acc Account) (string, bool) {
 		reconnectCh: make(chan *Conn, 1),
 	}
 	g.log("Connected to "+acc.Server+" as "+acc.Username, cGray)
-	g.showHelp()
 	g.requestInitial()
 	app.audio.Play("title")
 
@@ -723,6 +783,14 @@ func runGame(app *App, conn *Conn, acc Account) (string, bool) {
 				g.handleKey(e)
 			case *tcell.EventResize:
 				cv.Invalidate()
+				if g.overlay != nil {
+					switch g.overlay.Kind {
+					case "tutorial":
+						g.showTutorial()
+					case "journal":
+						g.showJournal()
+					}
+				}
 			}
 			dirty = true
 		case ev := <-g.conn.Events:

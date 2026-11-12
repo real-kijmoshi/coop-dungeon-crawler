@@ -54,24 +54,25 @@ type Combo struct {
 }
 
 type PlayerState struct {
-	ID          int          `json:"id"`
-	Username    string       `json:"username"`
-	Title       string       `json:"title"`
-	Prestige    int          `json:"prestige"`
-	Cls         string       `json:"cls"`
-	ClassName   string       `json:"className"`
-	ClassColor  Color        `json:"classColor"`
-	X           int          `json:"x"`
-	Y           int          `json:"y"`
-	Stats       Stats        `json:"stats"`
-	EffAtk      float64      `json:"effAtk"`
-	EffDef      float64      `json:"effDef"`
-	DownedUntil *float64     `json:"downedUntil"`
-	Safe        bool         `json:"safe"`
-	Combo       *Combo       `json:"combo"`
-	Buffs       []Buff       `json:"buffs"`
-	Skills      []Skill      `json:"skills"`
-	Quests      []QuestBrief `json:"quests"`
+	ID           int          `json:"id"`
+	Username     string       `json:"username"`
+	Title        string       `json:"title"`
+	Prestige     int          `json:"prestige"`
+	Cls          string       `json:"cls"`
+	ClassName    string       `json:"className"`
+	ClassColor   Color        `json:"classColor"`
+	X            int          `json:"x"`
+	Y            int          `json:"y"`
+	Stats        Stats        `json:"stats"`
+	EffAtk       float64      `json:"effAtk"`
+	EffDef       float64      `json:"effDef"`
+	DownedUntil  *float64     `json:"downedUntil"`
+	Safe         bool         `json:"safe"`
+	DodgeReadyAt *float64     `json:"dodgeReadyAt"`
+	Combo        *Combo       `json:"combo"`
+	Buffs        []Buff       `json:"buffs"`
+	Skills       []Skill      `json:"skills"`
+	Quests       []QuestBrief `json:"quests"`
 }
 
 type Event struct {
@@ -107,6 +108,7 @@ type Monster struct {
 	Frozen   bool    `json:"frozen"`
 	Charging bool    `json:"charging"`
 	Windup   bool    `json:"windup"`
+	Exposed  bool    `json:"exposed"`
 	Primed   string  `json:"primed"`
 	Enraged  bool    `json:"enraged"`
 	Hit      bool    `json:"hit"`
@@ -191,6 +193,12 @@ type Ping struct {
 	Until float64 `json:"until"`
 }
 
+type Threat struct {
+	Name   string  `json:"name"`
+	Attack string  `json:"attack"`
+	HitsAt float64 `json:"hitsAt"`
+}
+
 type GameState struct {
 	Now           float64     `json:"now"`
 	Biome         Biome       `json:"biome"`
@@ -206,6 +214,7 @@ type GameState struct {
 	SafeRoomID    *int        `json:"safeRoomId"`
 	View          View        `json:"view"`
 	Danger        [][2]int    `json:"danger"`
+	Threat        *Threat     `json:"threat"`
 	Monsters      []Monster   `json:"monsters"`
 	Items         []FloorItem `json:"items"`
 	NPCs          []NPC       `json:"npcs"`
@@ -254,17 +263,24 @@ type Achievement struct {
 	Unlocked bool   `json:"unlocked"`
 }
 
+type ClassSkill struct {
+	Name  string `json:"name"`
+	Desc  string `json:"desc"`
+	Level int    `json:"level"`
+}
+
 type ClassInfo struct {
-	ID     string   `json:"id"`
-	Name   string   `json:"name"`
-	Desc   string   `json:"desc"`
-	Color  Color    `json:"color"`
-	HP     float64  `json:"hp"`
-	Atk    float64  `json:"atk"`
-	Def    float64  `json:"def"`
-	Crit   float64  `json:"crit"`
-	Dodge  float64  `json:"dodge"`
-	Skills []string `json:"skills"`
+	ID           string       `json:"id"`
+	Name         string       `json:"name"`
+	Desc         string       `json:"desc"`
+	Color        Color        `json:"color"`
+	HP           float64      `json:"hp"`
+	Atk          float64      `json:"atk"`
+	Def          float64      `json:"def"`
+	Crit         float64      `json:"crit"`
+	Dodge        float64      `json:"dodge"`
+	Skills       []string     `json:"skills"`
+	SkillDetails []ClassSkill `json:"skillDetails"`
 }
 
 type TilePalette struct {
@@ -301,9 +317,16 @@ type SmithCost struct {
 	Reforge float64  `json:"reforge"`
 }
 
+type Chronicle struct {
+	Depth int    `json:"depth"`
+	Title string `json:"title"`
+	Text  string `json:"text"`
+}
+
 type Profile struct {
 	Prestige      int                  `json:"prestige"`
 	Lore          []LoreEntry          `json:"lore"`
+	Chronicles    []Chronicle          `json:"chronicles"`
 	Waystones     int                  `json:"waystones"`
 	World         *WorldInfo           `json:"world"`
 	Smith         map[string]SmithCost `json:"smith"`
@@ -318,18 +341,22 @@ type Profile struct {
 }
 
 type ShopItem struct {
-	Key   string  `json:"key"`
-	ID    string  `json:"id"`
-	Name  string  `json:"name"`
-	Price float64 `json:"price"`
-	Maxed bool    `json:"maxed"`
+	Key         string  `json:"key"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Price       float64 `json:"price"`
+	Maxed       bool    `json:"maxed"`
+	Description string  `json:"description"`
 }
 
 type Shop struct {
-	Greeting string     `json:"greeting"`
-	Prestige int        `json:"prestige"`
-	Gold     float64    `json:"gold"`
-	Items    []ShopItem `json:"items"`
+	Potions     int        `json:"potions"`
+	PotionLimit int        `json:"potionLimit"`
+	PriceQuotes bool       `json:"priceQuotes"`
+	Greeting    string     `json:"greeting"`
+	Prestige    int        `json:"prestige"`
+	Gold        float64    `json:"gold"`
+	Items       []ShopItem `json:"items"`
 }
 
 type Fx struct {

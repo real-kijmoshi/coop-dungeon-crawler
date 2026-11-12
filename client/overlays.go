@@ -43,7 +43,8 @@ func fmtStats(stats map[string]float64) string {
 }
 
 func (g *Game) showHelp() {
-	g.overlay = &Overlay{Kind: "help", Title: "HOW TO PLAY", Lines: helpLines(g.settings), Footer: "any key to close · " + g.settings.keyLabel("settings") + " settings"}
+	g.tutorialPage = 0
+	g.showTutorial()
 }
 
 // helpLines is the how-to-play page (also shown from the main menu).
@@ -59,6 +60,7 @@ func helpLines(s Settings) []Line {
 		L(fmt.Sprintf("%s potion   %s inventory   %s journal   %s party   %s travel", k("potion"), k("inventory"), k("journal"), k("party"), k("travel")), cCyan),
 		L(fmt.Sprintf("%s ping   %s chat   %s party chat   %s ranks   %s settings   %s quit", k("ping"), k("chat"), k("partychat"), k("leaderboard"), k("settings"), k("quit")), cCyan),
 		L("F3 toggles network latency and terminal rendering diagnostics", cCyan),
+		L(k("dodge")+" then a direction: dodge up to two tiles (newer servers)", cCyan),
 		L("", cWhite),
 		L("M Merchant & blacksmith (safe room): potions, upgrades, +N gear, rebirth", cOrange),
 		L("$ gold  ! potion  ♥ heart  = chest  ^ shrine  § lore scroll  Ω waystone", cYellow),
@@ -86,71 +88,125 @@ func helpLines(s Settings) []Line {
 	return lines
 }
 
-func (g *Game) showClassSelect() {
-	lines := []Line{L("Choose your class. This is permanent for this hero!", cYellow), L("", cWhite)}
-	for i, c := range g.profile.Classes {
-		lines = append(lines, Line{Segs: []Seg{
-			{Text: fmt.Sprintf("[%d] ", i+1), Color: cWhite, Bold: true},
-			{Text: strings.ToUpper(c.Name), Color: c.Color, Bold: true},
-			{Text: fmt.Sprintf("  HP %d  ATK %d  DEF %d  crit %d%%  dodge %d%%", int(c.HP), int(c.Atk), int(c.Def), int(math.Round(c.Crit*100)), int(math.Round(c.Dodge*100))), Color: theme.muted},
-		}})
-		lines = append(lines, L("    "+c.Desc, cWhite))
-		lines = append(lines, L("    "+strings.Join(c.Skills, ", "), cGray))
-	}
-	g.overlay = &Overlay{Kind: "class", Title: "CHOOSE YOUR CLASS", Lines: lines, Footer: "press 1-4"}
-}
-
-func (g *Game) showShop(s *Shop, note *Line) {
-	if s == nil {
+func (g *Game) showClassSelect(note *Line) {
+	classes := g.profile.Classes
+	lines := []Line{L("Choose a role and preview its skills. Your choice is permanent.", cYellow)}
+	if len(classes) == 0 {
+		g.overlay = &Overlay{Kind: "class", Title: "CHOOSE YOUR CLASS", Lines: lines, Footer: "Waiting for class data · Q quit"}
 		return
 	}
-	g.lastShop = s
-	greeting := s.Greeting
-	if greeting == "" {
-		greeting = "\"Welcome, traveller!\""
-	}
-	lines := []Line{L(greeting, cOrange), L("", cWhite)}
-	lvl := 0
-	if g.state != nil {
-		lvl = g.state.Player.Stats.Level
-	}
-	rebirthAt := 100
-	if g.world != nil {
-		rebirthAt = g.world.RebirthLevel
-	}
-	for _, it := range s.Items {
-		c := cWhite
-		if s.Gold < it.Price {
-			c = cDark
+	g.classCursor = clampi(g.classCursor, 0, len(classes)-1)
+	for i, c := range classes {
+		marker := " "
+		if i == g.classCursor {
+			marker = "▶"
 		}
-		if it.ID == "rebirth" {
-			c = Color{255, 215, 120}
-			if lvl < rebirthAt {
-				c = cDark
-			}
-			lines = append(lines, L(fmt.Sprintf("[%s] %s", it.Key, it.Name), c))
-			continue
-		}
-		if it.Maxed {
-			lines = append(lines, L(fmt.Sprintf("[%s] %s  MAXED", it.Key, pad(it.Name, 30)), cDark))
-			continue
-		}
-		lines = append(lines, L(fmt.Sprintf("[%s] %s %6s g", it.Key, pad(it.Name, 30), commas(int(it.Price))), c))
+		lines = append(lines, L(fmt.Sprintf("%s %d  %-8s  HP %d · ATK %d · DEF %d", marker, i+1, c.Name, int(c.HP), int(c.Atk), int(c.Def)), c.Color))
 	}
-	if s.Prestige > 0 {
-		lines = append(lines, L(fmt.Sprintf("    Rebirths: ✦%d (+%d%% ATK/HP, +%d%% XP)", s.Prestige, 5*s.Prestige, 10*s.Prestige), Color{255, 215, 120}))
+	selected := classes[g.classCursor]
+	lines = append(lines, L("", cWhite), L(selected.Name, selected.Color))
+	w, _ := g.cv.s.Size()
+	for _, line := range wrap(selected.Desc, clampi(w-10, 12, 65)) {
+		lines = append(lines, L(line, cWhite))
 	}
-	lines = append(lines,
-		L("[X] Sell all Common & Magic items", cYellow),
-		L("[I] Open inventory to sell single items", cYellow),
-		L("", cWhite),
-		L(fmt.Sprintf("Your gold: %s", commas(int(s.Gold))), cYellow),
-	)
+	for _, skill := range selected.SkillDetails {
+		lines = append(lines, L(fmt.Sprintf("Lv %-2d %s", skill.Level, skill.Name), cCyan))
+		// Details matter most for the first skill a new hero can actually use.
+		if skill.Level == 1 {
+			lines = append(lines, L("  "+skill.Desc, theme.muted))
+		}
+	}
+	if len(selected.SkillDetails) == 0 {
+		for _, skill := range selected.Skills {
+			lines = append(lines, L(skill, cCyan))
+		}
+	}
+	footer := "↑/↓ or 1-4 preview · Enter choose · Q quit"
+	if g.classConfirm {
+		lines = append(lines, L("Choose "+selected.Name+" permanently?", cYellow))
+		footer = "Enter confirm · Esc back"
+	}
 	if note != nil {
 		lines = append(lines, *note)
 	}
-	lines = append(lines, L("[I] Blacksmith: open inventory, U upgrade (+1..+10), R reforge stats", cYellow))
-	g.overlay = &Overlay{Kind: "shop", Title: "MERCHANT & BLACKSMITH", Lines: lines, Footer: "1-6 buy · X sell junk · I inventory/smith · Esc close", shop: s}
+	g.overlay = &Overlay{Kind: "class", Title: "CHOOSE YOUR CLASS", Lines: lines, Footer: footer}
+}
+
+var legacyShopDescriptions = map[string]string{
+	"potion":  "Adds one potion. It heals 40% of max HP, at least 15.",
+	"atk":     "Permanent attack upgrade.",
+	"def":     "Permanent defense upgrade.",
+	"hp":      "Permanent max HP upgrade. Heals the amount gained.",
+	"gamble":  "One random item at your level. Slot and rarity vary.",
+	"rebirth": "Return to level 1. Keep gear and gold. Gain permanent ATK, HP and XP bonuses.",
+}
+
+func (g *Game) shopStatus(s *Shop, it ShopItem) string {
+	switch {
+	case it.Maxed:
+		return "Maxed out"
+	case it.ID == "potion" && s.PotionLimit > 0 && s.Potions >= s.PotionLimit:
+		return "Potion bag full"
+	case it.ID == "gamble" && g.profile != nil && g.profile.InventorySize > 0 && len(g.profile.Inventory) >= g.profile.InventorySize:
+		return "Backpack full"
+	case it.ID == "rebirth":
+		level := 100
+		if g.world != nil && g.world.RebirthLevel > 0 {
+			level = g.world.RebirthLevel
+		}
+		if g.state == nil || g.state.Player.Stats.Level < level {
+			return fmt.Sprintf("Unlocks at level %d", level)
+		}
+	case s.Gold < it.Price:
+		return fmt.Sprintf("Need %s more gold", commas(int(it.Price-s.Gold)))
+	}
+	return ""
+}
+
+func (g *Game) showShop(s *Shop, note *Line) {
+	if s == nil || len(s.Items) == 0 {
+		return
+	}
+	g.shopCursor = clampi(g.shopCursor, 0, len(s.Items)-1)
+	lines := []Line{L(fmt.Sprintf("Your gold: %s", commas(int(s.Gold))), cYellow)}
+	if s.Greeting != "" {
+		lines = append(lines, L(s.Greeting, cOrange))
+	}
+	for i, it := range s.Items {
+		marker, color := " ", cWhite
+		if i == g.shopCursor {
+			marker, color = "▶", cYellow
+		}
+		if g.shopStatus(s, it) != "" && i != g.shopCursor {
+			color = theme.muted
+		}
+		lines = append(lines, L(fmt.Sprintf("%s %s  %s  ·  %s g", marker, it.Key, it.Name, commas(int(it.Price))), color))
+	}
+	it := s.Items[g.shopCursor]
+	desc := it.Description
+	if desc == "" {
+		desc = legacyShopDescriptions[it.ID]
+	}
+	lines = append(lines, L("", cWhite), L(fmt.Sprintf("%s · %s gold", it.Name, commas(int(it.Price))), cYellow))
+	w, _ := g.cv.s.Size()
+	for _, line := range wrap(desc, clampi(w-10, 12, 64)) {
+		lines = append(lines, L(line, theme.text))
+	}
+	if it.ID == "potion" && s.PotionLimit > 0 {
+		lines = append(lines, L(fmt.Sprintf("Potion bag: %d/%d", s.Potions, s.PotionLimit), theme.muted))
+	}
+	if status := g.shopStatus(s, it); status != "" {
+		lines = append(lines, L(status, cRed))
+	}
+	footer := "↑/↓ or 1-6 preview · Enter select · I gear · X sell junk"
+	if g.shopConfirm {
+		lines = append(lines, L(fmt.Sprintf("Confirm purchase? Gold after: %s", commas(int(s.Gold-it.Price))), cYellow))
+		footer = "Enter buy · Esc cancel"
+	}
+	if note != nil {
+		lines = append(lines, *note)
+	}
+	g.overlay = &Overlay{Kind: "shop", Title: "MERCHANT & BLACKSMITH", Lines: lines, Footer: footer, shop: s}
 }
 
 type invEntry struct {
@@ -291,7 +347,7 @@ func (g *Game) showJournal() {
 	}
 	p := g.profile
 	if g.journalPage == 1 {
-		g.overlay = &Overlay{Kind: "journal", Title: "JOURNAL · LORE", Lines: g.loreLines(), Footer: "Tab bounties & achievements · any key to close"}
+		g.overlay = &Overlay{Kind: "journal", Title: "JOURNAL · LORE", Lines: g.loreLines(), Footer: "↑/↓ entries · PgUp/PgDn scroll · C replay intro · Tab bounties"}
 		return
 	}
 	lines := []Line{L("BOUNTIES - always 3 active, new ones appear when you finish one", cOrange)}

@@ -20,7 +20,7 @@ type Action struct {
 var actions = []Action{
 	{"up", "Move up"}, {"down", "Move down"}, {"left", "Move left"}, {"right", "Move right"},
 	{"skill1", "Skill 1"}, {"skill2", "Skill 2"}, {"skill3", "Skill 3"}, {"skill4", "Skill 4"},
-	{"potion", "Drink potion"}, {"inventory", "Inventory"}, {"journal", "Journal"},
+	{"dodge", "Dodge (then direction)"}, {"potion", "Drink potion"}, {"inventory", "Inventory"}, {"journal", "Journal"},
 	{"party", "Party"}, {"travel", "Travel (waystones)"}, {"ping", "Ping / mark target"},
 	{"chat", "Chat"}, {"partychat", "Party chat"}, {"leaderboard", "Leaderboard"},
 	{"help", "Help"}, {"settings", "Settings"}, {"accept", "Accept invite"}, {"decline", "Decline invite"},
@@ -30,21 +30,21 @@ var actions = []Action{
 var presets = map[string]map[string]string{
 	"WASD": {
 		"up": "w", "down": "s", "left": "a", "right": "d",
-		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4",
+		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
 		"potion": "h", "inventory": "i", "journal": "j", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "l", "help": "?", "settings": "o",
 		"accept": "y", "decline": "n", "quit": "q",
 	},
 	"Vim (hjkl)": {
 		"up": "k", "down": "j", "left": "h", "right": "l",
-		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4",
+		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
 		"potion": "e", "inventory": "i", "journal": "u", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "r", "help": "?", "settings": "o",
 		"accept": "y", "decline": "n", "quit": "q",
 	},
 	"Arrows": {
 		"up": "Up", "down": "Down", "left": "Left", "right": "Right",
-		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4",
+		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
 		"potion": "h", "inventory": "i", "journal": "j", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "l", "help": "?", "settings": "o",
 		"accept": "y", "decline": "n", "quit": "q",
@@ -99,11 +99,23 @@ func loadSettings() Settings {
 	if err != nil {
 		return s
 	}
-	_ = json.Unmarshal(raw, &s)
+	s.Keys = nil
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return defaultSettings()
+	}
+	if s.Keys == nil {
+		s.Keys = map[string]string{}
+	}
 	// Fill bindings added in newer versions.
 	base := presets["WASD"]
 	if p, ok := presets[s.Preset]; ok {
 		base = p
+	}
+	if _, ok := s.Keys["dodge"]; !ok {
+		s.Keys["dodge"] = ""
+		if s.actionFor(base["dodge"]) == "" {
+			s.Keys["dodge"] = base["dodge"]
+		}
 	}
 	for k, v := range base {
 		if _, ok := s.Keys[k]; !ok {
@@ -147,6 +159,10 @@ func keyName(ev *tcell.EventKey) string {
 		return "Backspace"
 	case tcell.KeyDelete:
 		return "Delete"
+	case tcell.KeyPgUp:
+		return "PgUp"
+	case tcell.KeyPgDn:
+		return "PgDn"
 	}
 	if ev.Key() >= tcell.KeyF1 && ev.Key() <= tcell.KeyF12 {
 		return fmt.Sprintf("F%d", int(ev.Key()-tcell.KeyF1)+1)
@@ -158,7 +174,7 @@ func keyName(ev *tcell.EventKey) string {
 // the player bound them to something else.
 func (s *Settings) actionFor(name string) string {
 	for _, a := range actions {
-		if s.Keys[a.ID] == name {
+		if name != "" && s.Keys[a.ID] == name {
 			return a.ID
 		}
 	}

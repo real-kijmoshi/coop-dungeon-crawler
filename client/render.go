@@ -54,6 +54,12 @@ func (g *Game) draw() {
 	started := time.Now()
 	cv := g.cv
 	cv.BeginFrame()
+	if g.intro != nil {
+		g.drawIntro(started)
+		cv.Show()
+		g.drawTime = time.Since(started)
+		return
+	}
 	W, H := cv.W, cv.H
 	cv.Fill(0, 0, W, H, theme.bg)
 	now := time.Now()
@@ -97,6 +103,12 @@ func (g *Game) draw() {
 			title, titleColor = "SAFE ROOM", cGreen
 		}
 		right = fmt.Sprintf("%d,%d", st.Player.X, st.Player.Y)
+		if ready := st.Player.DodgeReadyAt; ready != nil && g.settings.keyLabel("dodge") != "" && !st.Player.Safe {
+			right = g.settings.keyLabel("dodge") + " dodge"
+			if left := *ready - g.serverNow(); left > 0 {
+				right = fmt.Sprintf("dodge %.1fs", left/1000)
+			}
+		}
 	}
 	cv.Box(0, top, mapW, mapH, BoxOpts{Color: border, BG: theme.bg, Title: title, TitleColor: &titleColor, RightTitle: right, RightColr: ptr(theme.faint)})
 	inner := rect{1, top + 1, mapW - 2, mapH - 2}
@@ -107,6 +119,7 @@ func (g *Game) draw() {
 			g.drawSidebar(rect{mapW, top, sidebarW, mapH + 1 + logH})
 		}
 		g.drawHotbar(rect{0, top + mapH, mapW, 1})
+		g.drawCombatHint(inner)
 		if st.Invite != nil {
 			secs := int(math.Max(0, math.Ceil((st.Invite.Until-g.serverNow())/1000)))
 			msg := fmt.Sprintf("  ✉ %s invites you to their party  ·  %s accept  ·  %s decline  (%ds)  ", st.Invite.From, g.settings.keyLabel("accept"), g.settings.keyLabel("decline"), secs)
@@ -136,6 +149,31 @@ func (g *Game) draw() {
 }
 
 // ------------------------------------------------------------------ top bar
+func (g *Game) drawCombatHint(r rect) {
+	st := g.state
+	label := ""
+	bg, fg := Color{112, 34, 42}, cWhite
+	if threat := st.Threat; threat != nil {
+		left := math.Max(0, threat.HitsAt-g.serverNow())
+		if left > 0 {
+			label = fmt.Sprintf("! MOVE · %s %s (%.1fs)", threat.Name, threat.Attack, left/1000)
+		} else {
+			label = fmt.Sprintf("! MOVE · %s %s", threat.Name, threat.Attack)
+		}
+	}
+	if g.dodgeArmed {
+		if label != "" {
+			label = "! DODGE · choose a direction"
+		} else {
+			label = "DODGE · choose a direction (Esc cancels)"
+			bg, fg = Color{135, 100, 48}, cWhite
+		}
+	}
+	if label != "" {
+		g.cv.Text(r.x+maxi(0, (r.w-runeLen(label))/2), r.y, label, fg, &bg, true, r.w)
+	}
+}
+
 func (g *Game) drawTopBar(w int, compact bool) {
 	cv := g.cv
 	bg := theme.topbar
@@ -343,8 +381,9 @@ func (g *Game) drawMap(r rect) {
 				fg = mix(scale(t.fg, activePalette.memory*jitter), Color{40, 50, 90}, 0.35)
 				bg = mix(scale(t.bg, activePalette.memory*jitter), Color{16, 20, 40}, 0.4)
 			}
-			if danger[[2]int{wx, wy}] && cell != 0 {
-				bg = mix(bg, Color{255, 40, 30}, 0.35+0.3*pulse)
+			isDanger := danger[[2]int{wx, wy}] && cell != 0
+			if isDanger {
+				bg = mix(bg, Color{255, 40, 30}, 0.48+0.17*pulse)
 			}
 			cv.Put(sx, sy, chars[0], fg, &bg, false)
 			cv.Put(sx+1, sy, chars[1], fg, &bg, false)
@@ -359,6 +398,9 @@ func (g *Game) drawMap(r rect) {
 					dc = mix(scale(dc, activePalette.memory), Color{40, 50, 90}, 0.4)
 				}
 				cv.Put(sx+decor.side, sy, decor.ch, dc, &bg, false)
+			}
+			if isDanger {
+				cv.Put(sx, sy, '!', Color{255, 218, 182}, &bg, true)
 			}
 		}
 	}
@@ -406,6 +448,8 @@ func (g *Game) drawMap(r rect) {
 			bg = ptr(Color{200, 200, 200})
 		case m.Charging || m.Windup:
 			bg = ptr(mix(Color{150, 30, 30}, Color{255, 200, 60}, pulse))
+		case m.Exposed:
+			bg = ptr(Color{86, 56, 27})
 		case m.Primed != "":
 			bg = ptr(scale(primeColor(m.Primed), 0.35+0.15*pulse))
 		case m.Enraged:
@@ -755,6 +799,9 @@ func (g *Game) drawSidebar(r rect) {
 			if m.Frozen {
 				name += " ❄"
 			}
+			if m.Exposed {
+				name += " ↯"
+			}
 			if m.Primed != "" {
 				name += " ✦" // marked: an ally's hit sets off a team combo
 			}
@@ -921,8 +968,12 @@ func (g *Game) drawHotbar(r rect) {
 	if p.Stats.Potions == 0 {
 		keyBg, txt = Color{60, 40, 50}, theme.faint
 	}
-	cv.Text(px, r.y, " H ", dark, &keyBg, true, -1)
-	cv.Text(px+3, r.y, pad(fmt.Sprintf(" Potion ×%d", p.Stats.Potions), potW-3), txt, ptr(Color{45, 25, 38}), true, potW-3)
+	key := " " + g.settings.keyLabel("potion") + " "
+	keyW := mini(potW, runeLen(key))
+	cv.Text(px, r.y, key, dark, &keyBg, true, keyW)
+	if potW > keyW {
+		cv.Text(px+keyW, r.y, pad(fmt.Sprintf(" Potion ×%d", p.Stats.Potions), potW-keyW), txt, ptr(Color{45, 25, 38}), true, potW-keyW)
+	}
 }
 
 // ---------------------------------------------------------------------- log
@@ -931,7 +982,7 @@ func (g *Game) drawLog(r rect) {
 	pb := theme.panel
 	title, hint := "LOG", g.settings.keyLabel("chat")+" chat · "+g.settings.keyLabel("partychat")+" party chat"
 	if g.chatting {
-		title, hint = "CHAT", "Enter send · Tab channel · Esc cancel"
+		title, hint = "WORLD CHAT", "Enter send · Tab channel · Esc cancel"
 		if g.partyChannel {
 			title = "PARTY CHAT"
 		}
@@ -970,11 +1021,16 @@ func (g *Game) drawLog(r rect) {
 		cv.Text(r.x+2, r.y+1+i, text, scale(m.Color, fade), &pb, age == 0, r.w-4)
 	}
 	if g.chatting {
-		shown := []rune("› " + g.chat + "▌")
-		if len(shown) > r.w-4 {
-			shown = shown[len(shown)-(r.w-4):]
+		prefix := "[World] › "
+		if g.partyChannel {
+			prefix = "[Party] › "
 		}
-		cv.Text(r.x+2, r.y+r.h-2, string(shown), Color{140, 220, 255}, ptr(Color{30, 34, 50}), true, r.w-4)
+		limit := maxi(0, r.w-4-runeLen(prefix))
+		shown := []rune(g.chat + "▌")
+		if len(shown) > limit {
+			shown = shown[len(shown)-limit:]
+		}
+		cv.Text(r.x+2, r.y+r.h-2, prefix+string(shown), Color{140, 220, 255}, ptr(Color{30, 34, 50}), true, r.w-4)
 	}
 }
 
