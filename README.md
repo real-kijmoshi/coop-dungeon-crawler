@@ -309,7 +309,9 @@ New heroes meet in **Emberfall's Post Court**. Talk to Postmaster Dena (`D`) and
 
 Walk the western road through the goblin-held Tollworks to Rootmarket and Sporehold, or take the rescue route to Bellhaven and Siltwatch. Safe city districts have people to talk to and time to recover. Clear defenders at the armed Foundry Gate and the Glass Aqueduct to open their onward routes. The aqueduct ladder opens a shortcut to Emberfall. Follow the fourth stamp through Kilnward to Long Ward and face Chief Surveyor Veyr in the proving chamber.
 
-The atlas (`M`) remembers your discoveries and walked routes. The host saves the hinge setting, cleared encounters and the unlocked ladder. Existing dungeon positions still load. The Old Cellars connects to the procedural dungeon, and its safe room is also a destination on the travel menu.
+Take the Lantern Steps from Bellhaven to **Lantern Row**, a night market with a cartographer who tells you what you have missed. **Inns** (`I`) in Emberfall, Long Ward and Lantern Row heal you, top up potions and leave you **Well Rested** (+15% XP for 10 minutes). Rootmarket, Cinderkeep, Long Ward and Lantern Row have their own merchants. Search the 13 **hidden caches** (`%`) once per hero, and meet every resident for a little XP.
+
+The atlas (`M`) remembers your discoveries and walked routes, plus the residents you have met and the caches you have found. The host saves the hinge setting, cleared encounters and the unlocked ladder. Existing dungeon positions still load. The Old Cellars connects to the procedural dungeon, and its safe room is also a destination on the travel menu.
 
 #### The procedural dungeon
 
@@ -323,6 +325,8 @@ Each depth band is its own **biome** with its own look. Monsters get stronger th
 | 10-13 | 40-61 | The Infernal Halls | fire and brimstone, golems, trolls and demons |
 | 14-17 | 61-84 | The Dragon's Abyss | drakes, liches and the Ancient Dragon |
 | 18+ | 84-110 | The Throne of the Abyss | the Abyss Lord |
+
+**Exploring pays.** Finding new chambers in quick succession builds a **Pathfinder** streak (up to +60% discovery XP). Every 15 chambers you map earns a survey cache. About one chamber in 13 is a named **landmark**: the first hero to find it digs up a buried chest.
 
 **Emberfall chronicles** unlock as your deepest explored depth increases. Read them alongside the tale and collected scrolls under **Journal → Lore**.
 
@@ -339,6 +343,8 @@ You pick a class the first time you play (it's permanent for that hero, so make 
 | **Rogue** | Burst: 20% crit, 12% dodge | Backstab (1, 2.5x, crits unaware foes), Smoke Bomb (6, vanish), Fan of Knives (15), Shadow Strike (30, teleport 4x hit) |
 | **Mage** | Ranged glass cannon | Fireball (1), Frost Nova (6, freeze), Chain Lightning (15), Meteor (30) |
 | **Cleric** | Healer & undead-slayer | Heal (1, also revives), Smite (6, 3x vs undead), Sanctuary (15, party heal/revive/DEF), Holy Nova (30) |
+| **Ranger** | Ranged hunter: 14% crit, 9% dodge | Aimed Shot (1, stronger at range), Snare Trap (6, root), Volley (15, everything in sight), Hunter's Mark (30, expose foes, party +25% crit) |
+| **Necromancer** | Drain and curse | Drain Life (1, heals you), Curse of Frailty (6, foes take +25%), Bone Prison (15, trap), Soul Harvest (30, party heal per foe hit) |
 
 #### Co-op
 
@@ -358,7 +364,8 @@ You pick a class the first time you play (it's permanent for that hero, so make 
 - **Team combos:** most skills leave a mark on the monsters they hit (they get a tint and a ✦ in the enemy list). When
   an **ally** then hits a marked monster - even with a plain attack - the mark detonates: Frost Nova → **SHATTER**
   (2x damage), Fireball → **IGNITE** (splashes to monsters next to it), Chain Lightning → **OVERLOAD** (stuns),
-  Smite → **JUDGEMENT** (heals heroes nearby), Cleave → **CRUSH** and Backstab → **RUPTURE** (+75%). Alone, a different
+  Smite → **JUDGEMENT** (heals heroes nearby), Aimed Shot → **PIERCE** (leaves it exposed), Drain Life →
+  **WITHER** (heals the necromancer), Cleave → **CRUSH** and Backstab → **RUPTURE** (+75%). Alone, a different
   kind of skill on your own mark gives a smaller bonus.
 - **Fight side by side:** standing next to an ally puts you both in **Formation** (15% less damage taken). Hitting a
   monster another hero hit in the last 3 seconds **flanks** it (+15% damage per extra hero). A party builds **one kill
