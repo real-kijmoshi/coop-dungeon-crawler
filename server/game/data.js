@@ -70,6 +70,38 @@ const CLASSES = {
       { id: "holynova", name: "Holy Nova", level: 30, cooldown: 20000, desc: "2x to foes within 4, heals allies" },
     ],
   },
+  ranger: {
+    name: "Ranger",
+    color: [120, 210, 140],
+    desc: "Patient hunter. Strikes from range, pins foes in place and marks them for the party.",
+    base: { maxHp: 34, atk: 6, def: 1 },
+    growth: { maxHp: 11.5, atk: 2.45, def: 0.8 },
+    crit: 0.14,
+    dodge: 0.09,
+    starter: { slot: "weapon", base: "Spear" },
+    skills: [
+      { id: "aimedshot", name: "Aimed Shot", level: 1, cooldown: 3500, desc: "2.2x to the farthest foe in sight (up to 9 tiles)" },
+      { id: "snare", name: "Snare Trap", level: 6, cooldown: 16000, desc: "root and hurt foes within 2 tiles for 3s" },
+      { id: "volley", name: "Volley", level: 15, cooldown: 9000, desc: "1.1x to every foe in sight within 7 tiles" },
+      { id: "huntersmark", name: "Hunter's Mark", level: 30, cooldown: 30000, desc: "expose all foes in sight, party crits +25% for 8s" },
+    ],
+  },
+  necromancer: {
+    name: "Necromancer",
+    color: [170, 120, 220],
+    desc: "Grim survivor. Drains life to stay standing and curses foes so allies hit harder.",
+    base: { maxHp: 34, atk: 6, def: 0 },
+    growth: { maxHp: 11.5, atk: 2.4, def: 0.7 },
+    crit: 0.08,
+    dodge: 0.05,
+    starter: { slot: "weapon", base: "Scythe" },
+    skills: [
+      { id: "drain", name: "Drain Life", level: 1, cooldown: 4000, desc: "1.8x to the nearest foe in sight, heal half the damage" },
+      { id: "frailty", name: "Curse of Frailty", level: 6, cooldown: 15000, desc: "foes in sight take +25% from their next hit" },
+      { id: "boneprison", name: "Bone Prison", level: 15, cooldown: 18000, desc: "trap foes within 2 tiles for 3s, 1.2x damage" },
+      { id: "harvest", name: "Soul Harvest", level: 30, cooldown: 35000, desc: "2.5x to foes within 6, heal party per foe hit" },
+    ],
+  },
 };
 
 // ----------------------------------------------------------------- monsters
@@ -247,6 +279,7 @@ const ACHIEVEMENTS = [
   { id: "cursed5", name: "Curse Breaker", desc: "Break 5 cursed chests", title: "the Curse Breaker", check: (p) => (p.counters.cursed || 0) >= 5 },
   { id: "vault3", name: "Two Keys", desc: "Open 3 sealed vaults with an ally", title: "the Keyholder", check: (p) => (p.counters.vaults || 0) >= 3 },
   { id: "rooms150", name: "Cartographer", desc: "Discover 150 chambers", title: "the Cartographer", check: (p) => (p.counters.rooms || 0) >= 150 },
+  { id: "landmarks5", name: "Wayfarer", desc: "Discover 5 landmark chambers", title: "the Wayfarer", check: (p) => (p.counters.landmarks || 0) >= 5 },
   { id: "abyss", name: "Abyss Conqueror", desc: "Defeat the Abyss Lord", title: "the Conqueror", check: (p) => (p.counters.kinds.abyss_lord || 0) >= 1 },
 ];
 

@@ -1,27 +1,32 @@
-# Fight Together: telegraphed combat, team combos, things to find, and a new soundtrack
+# Cities of Orraveth: new districts, two new classes, and exploring that pays
 
-**Update both your server (or Windows host) and your client.** Old clients still connect, but they won't see the red danger tiles or hear the new sounds.
+**Update both your server (or Windows host) and your client.** The cities, the atlas and the new classes need the new client. Existing heroes and dungeon maps keep working.
 
-## Combat you can play, together
+## Two new classes
 
-- **Red floor means move.** Monsters now have special attacks that mark the tiles they will hit about half a second before they land: smashes, bombs, pounces, hexes, lines of fire and blinks. Step out and take nothing. Freezing or killing the monster cancels the attack.
-- **Team combos.** Most skills leave a mark on the monsters they hit (a tint and a ✦ in the enemy list). When an ally hits a marked monster, the mark detonates: Frost Nova → SHATTER, Fireball → IGNITE, Chain Lightning → OVERLOAD, Smite → JUDGEMENT, and more.
-- **Fight side by side.** Standing next to an ally gives you both 15% less damage. Hitting a monster another hero just hit flanks it for bonus damage. A party now builds one shared kill combo.
-- **Smarter bosses.** They call for help at 60% health, and their doom mark (☠) is split between everyone standing next to the marked hero: run towards your friend.
-- **More variety.** Elites get an affix (Volatile, Frenzied, Warding, Vampiric), slimes split, and rats and goblins call their pack.
+- **Ranger.** A hunter who fights from range: **Aimed Shot** (stronger the farther the target), **Snare Trap** (roots everything next to you), **Volley** (hits every foe in sight) and **Hunter's Mark** (exposes foes and gives nearby allies +25% crit chance).
+- **Necromancer.** Drains life to stay standing and curses foes for the party: **Drain Life** (heals you for half the damage), **Curse of Frailty** (foes take +25% from their next hit), **Bone Prison** (traps foes around you) and **Soul Harvest** (heavy area damage that heals the party for every foe hit).
+- **Two new team combos.** Aimed Shot marks become **PIERCE** (the foe is left exposed) and Drain Life marks become **WITHER** (the necromancer who set the mark is healed).
 
-## More to find
+## The cities of Orraveth
 
-- **Urns** to smash, **healing fountains**, and **mimics** hiding in some chests from level 10.
-- **Sealed vaults** that open with better loot when two heroes stand together.
-- **Cursed chests** that start a three-wave fight and reward everyone who stays.
-- First visits to a chamber give a little XP, and there are new bounties and achievements for exploring, breaking curses and landing team combos.
+- **A new start.** New heroes meet in Emberfall's Post Court. Deliver Postmaster Dena's letters to open the Old Cellars, and work the survey hinge with your party to choose between Market Stair and Rescue Landing.
+- **A road of districts to walk.** Goblin-held Tollworks, Rootmarket, Sporehold, Bellhaven, Siltwatch, the Glass Aqueduct, Foundry Gate, Cinderkeep, Kilnward and Long Ward, ending with Chief Surveyor Veyr in the proving chamber.
+- **Lantern Row**, a new night market off Bellhaven, with a cartographer who tells you what you have missed.
+- **Inns** in Emberfall, Long Ward and Lantern Row fully heal you, top up your potions and leave you **Well Rested** (+15% XP for 10 minutes).
+- **More merchants** in Rootmarket, Cinderkeep, Long Ward and Lantern Row. Any city stall buys, sells and upgrades.
+- **13 hidden caches** (`%`) with gold and potions, one search per hero. Searched caches fade on your screen.
+- **Residents** give a little XP the first time you talk to them.
+- **The world atlas** (`M`) remembers districts, walked routes, residents met and caches found. A ★ marks a district you have fully explored. Talk with `F`, or walk into anyone.
 
-## A new soundtrack, and sound effects
+## Exploring pays
 
-- **No more cut or repetition.** The music is composed live while you play, so there is no loop point and it never repeats exactly. It is dark fantasy now (harp, choir, flute, horns, bells and war drums) with a mood for every biome.
-- **It reacts to fights:** drums and low strings fade into the music when monsters hunt you.
-- **About 50 sound effects**: hits, crits, skills, pickups, chests, telegraphed attacks, combos, revives and more. They are positional, so a fight to your left sounds like it is on your left.
-- Audio now goes through one built-in mixer: directly on Windows and macOS, and streamed into `paplay`, `pw-cat`, `aplay` or `ffplay` on Linux. Without a sound device the game simply runs silent.
-- `CDC_AUDIO_PLAYER` must now be a command that reads raw 16-bit 44.1 kHz stereo audio from stdin.
-- Windows and macOS audio is new in this release. If you have no sound there, please open an issue.
+- **Pathfinder streaks.** Finding new chambers in quick succession raises discovery XP, up to +60%.
+- **Survey caches.** Every 15 chambers you map earns gold and a potion. Every 45 also brings a piece of gear.
+- **Landmarks.** About one chamber in 13 has a name, like *the Drowned Ossuary*. The first hero to find it digs up a buried chest. A new achievement, **Wayfarer**, rewards finding five.
+
+## A smoother first session
+
+- **A first-hero guide.** Preview every class and its skills before the permanent choice, then watch three short scenes that introduce Emberfall. Replay them from **Journal → Lore**.
+- **Merchant previews.** Each offer shows what it does, what it costs and whether you can buy it, and asks you to confirm before you pay.
+- **Tactical dodging** to get out of telegraphed attacks, and **Emberfall chronicles** that unlock as you explore deeper.

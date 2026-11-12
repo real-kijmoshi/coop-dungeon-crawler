@@ -58,6 +58,9 @@ func (g *Game) showAtlas(detail bool) {
 		for _, line := range wrap(description, clampi(w-10, 12, 58)) {
 			lines = append(lines, L(line, theme.text))
 		}
+		if place.Visited && (place.People > 0 || place.Caches > 0) {
+			lines = append(lines, L(placeTally(place), theme.muted))
+		}
 		lines = append(lines, L("", cWhite))
 		for _, route := range place.Routes {
 			marker, col := "·", theme.muted
@@ -74,6 +77,9 @@ func (g *Game) showAtlas(detail bool) {
 	for _, line := range wrap(atlas.Lead, clampi(w-10, 12, 58)) {
 		lines = append(lines, L(line, cYellow))
 	}
+	if atlas.Residents > 0 || atlas.Caches > 0 {
+		lines = append(lines, L(fmt.Sprintf("Residents met %d/%d · Hidden caches %d/%d", atlas.Met, atlas.Residents, atlas.CachesFound, atlas.Caches), theme.muted))
+	}
 	lines = append(lines, L("", cWhite))
 	count := clampi(h-len(lines)-7, 1, len(atlas.Places))
 	start := clampi(g.atlasCursor-count+1, 0, len(atlas.Places)-count)
@@ -89,7 +95,11 @@ func (g *Game) showAtlas(detail bool) {
 		if i == g.atlasCursor {
 			cursor, col = "›", cYellow
 		}
-		lines = append(lines, L(fmt.Sprintf("%s %s  %s", cursor, marker, p.Name), col))
+		name := p.Name
+		if p.Visited && p.Caches > 0 && p.CachesFound >= p.Caches && p.Met >= p.People {
+			name += " ★"
+		}
+		lines = append(lines, L(fmt.Sprintf("%s %s  %s", cursor, marker, name), col))
 	}
 	g.overlay = &Overlay{Kind: "atlas", Title: "WORLD ATLAS", Lines: lines, Footer: "↑/↓ choose · Enter routes · Esc close"}
 }
@@ -117,4 +127,19 @@ func (g *Game) atlasKey(kind, name, act string, up, down, closeKey bool) {
 	case name == "Enter":
 		g.showAtlas(true)
 	}
+}
+
+// placeTally summarizes the people and caches of one district.
+func placeTally(p AtlasPlace) string {
+	parts := ""
+	if p.People > 0 {
+		parts = fmt.Sprintf("Residents met %d/%d", p.Met, p.People)
+	}
+	if p.Caches > 0 {
+		if parts != "" {
+			parts += " · "
+		}
+		parts += fmt.Sprintf("Hidden caches %d/%d", p.CachesFound, p.Caches)
+	}
+	return parts
 }

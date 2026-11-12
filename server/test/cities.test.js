@@ -167,3 +167,61 @@ test("guarded routes, Veyr's register, and authored progress survive a restart",
   assert.equal(restored.stateFor(old).district, undefined);
   assert.ok(restored.travelOptions(old).destinations.some((destination) => destination.id === "home"));
 });
+
+test("Lantern Row, inns, hidden caches, residents and city merchants", (t) => {
+  const world = setup(t);
+  const p = hero(world, 1);
+  const dialogue = [];
+  world.on("dialogue", (_, d) => dialogue.push(d));
+  const cities = world.cities;
+  assert.ok(cities.residents.size >= 15 && cities.caches.size >= 12);
+
+  // Meeting a resident counts once and is remembered.
+  walk(world, p, "emberfall", "d");
+  assert.ok(p.exploration.met.has("emberfall:d"));
+  const met = p.exploration.met.size;
+  walk(world, p, "emberfall", "d");
+  assert.equal(p.exploration.met.size, met);
+
+  // A hidden cache pays once per hero.
+  const gold = p.stats.gold;
+  walk(world, p, "emberfall", "k");
+  assert.ok(p.stats.gold > gold);
+  const after = p.stats.gold;
+  walk(world, p, "emberfall", "k");
+  assert.equal(p.stats.gold, after);
+  assert.match(dialogue.at(-1).text, /already searched/);
+  assert.ok(world.stateFor(p).npcs.some((npc) => npc.name === "Loose Cistern Stone" && npc.color[0] < 150), "searched caches fade");
+
+  // The inn heals and leaves the hero Well Rested.
+  p.stats.hp = 1;
+  walk(world, p, "emberfall", "i");
+  assert.equal(p.stats.hp, p.stats.maxHp);
+  assert.ok(world.hasBuff(p, "rested"));
+
+  // Lantern Row hangs off Bellhaven, with a merchant and a cartographer.
+  finishMail(world, p);
+  walk(world, p, "cellars", "b");
+  walk(world, p, "bellhaven", "l");
+  assert.equal(cities.areaAt(p.x, p.y).id, "lantern_row");
+  assert.equal(world.stateFor(p).player.safe, true);
+  walk(world, p, "lantern_row", "c");
+  assert.match(dialogue.at(-1).text, /hidden cache|district|resident/);
+  const stall = point(world, "lantern_row", "m");
+  p.x = stall.x - 1;
+  p.y = stall.y;
+  assert.ok(world.nearMerchant(p), "any city stall trades");
+
+  const atlas = cities.atlas(p);
+  assert.equal(atlas.cachesFound, 1);
+  assert.equal(atlas.caches, cities.caches.size);
+  const row = atlas.places.find((place) => place.id === "lantern_row");
+  assert.ok(row.visited && row.caches === 1 && row.people >= 2);
+
+  // Residents and caches survive a save.
+  const saved = JSON.parse(JSON.stringify(world.saveData(p)));
+  const again = setup(t);
+  const back = hero(again, 2, undefined, saved);
+  assert.ok(back.exploration.met.has("emberfall:d"));
+  assert.ok(back.exploration.caches.has("emberfall:k"));
+});

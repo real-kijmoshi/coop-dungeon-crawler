@@ -14,6 +14,7 @@ class Grid {
         this.chunkSize = 10;
         this.loadedChunks = new Set();
         this.cityProgress = null;
+        this.landmarks = [];
         this.grid = this.initializeGrid();
     }
 
@@ -251,7 +252,8 @@ class Grid {
             playerPosition: this.playerPosition,
             exploredCells: Array.from(this.exploredCells),
             loadedChunks: Array.from(this.loadedChunks),
-            cityProgress: this.cityProgress
+            cityProgress: this.cityProgress,
+            landmarks: this.landmarks
         };
 
         try {
@@ -279,6 +281,7 @@ class Grid {
             this.exploredCells = new Set(gameState.exploredCells);
             this.loadedChunks = new Set(gameState.loadedChunks);
             this.cityProgress = gameState.cityProgress ?? null;
+            this.landmarks = Array.isArray(gameState.landmarks) ? gameState.landmarks : [];
             this.rng = this.mulberry32(this.seed);
             
             return true;

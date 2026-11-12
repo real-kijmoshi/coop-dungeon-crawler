@@ -198,8 +198,10 @@ var classLooks = map[string]struct {
 	Name  string
 	Color Color
 }{
-	"warrior": {"Warrior", Color{255, 120, 80}},
-	"rogue":   {"Rogue", Color{180, 255, 120}},
-	"mage":    {"Mage", Color{140, 170, 255}},
-	"cleric":  {"Cleric", Color{255, 240, 150}},
+	"warrior":     {"Warrior", Color{255, 120, 80}},
+	"rogue":       {"Rogue", Color{180, 255, 120}},
+	"mage":        {"Mage", Color{140, 170, 255}},
+	"cleric":      {"Cleric", Color{255, 240, 150}},
+	"ranger":      {"Ranger", Color{120, 210, 140}},
+	"necromancer": {"Necromancer", Color{170, 120, 220}},
 }

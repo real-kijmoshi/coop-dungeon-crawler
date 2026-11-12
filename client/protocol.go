@@ -230,13 +230,21 @@ type AtlasPlace struct {
 	Safe        bool         `json:"safe"`
 	Visited     bool         `json:"visited"`
 	Routes      []AtlasRoute `json:"routes"`
+	People      int          `json:"people"`
+	Met         int          `json:"met"`
+	Caches      int          `json:"caches"`
+	CachesFound int          `json:"cachesFound"`
 }
 
 type Atlas struct {
-	Current   string       `json:"current"`
-	Lead      string       `json:"lead"`
-	Places    []AtlasPlace `json:"places"`
-	Completed bool         `json:"completed"`
+	Current     string       `json:"current"`
+	Lead        string       `json:"lead"`
+	Places      []AtlasPlace `json:"places"`
+	Completed   bool         `json:"completed"`
+	Residents   int          `json:"residents"`
+	Met         int          `json:"met"`
+	Caches      int          `json:"caches"`
+	CachesFound int          `json:"cachesFound"`
 }
 
 type Dialogue struct {

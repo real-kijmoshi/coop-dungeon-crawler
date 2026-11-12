@@ -985,7 +985,7 @@ class World extends EventEmitter {
   // ------------------------------------------------------------------ shop
   nearMerchant(player) {
     return (this.merchant && chebyshev(player, this.merchant) <= 2) ||
-      (this.cities && chebyshev(player, this.cities.merchant) <= 2);
+      !!this.cities?.merchantNear(player);
   }
 
   shopFor(player) {
@@ -1247,6 +1247,80 @@ class World extends EventEmitter {
         else this.notify(player, "Holy Nova heals your party.", C.skill);
         return true;
       }
+      // ---- ranger
+      case "aimedshot": {
+        const t = this.visibleMonsters(player, 9).sort((a, b) => dist(b, player) - dist(a, player))[0];
+        if (!t) return this.notify(player, "No enemy in sight to aim at."), false;
+        const far = dist(t, player) >= 4;
+        this.hitMonster(player, t, far ? 2.4 : 2.2, { label: far ? "Your long Aimed Shot strikes" : "Your Aimed Shot strikes" });
+        return true;
+      }
+      case "snare": {
+        const t = near(2);
+        if (!t.length) return this.notify(player, "No enemies within 2 tiles."), false;
+        for (const m of t) {
+          m.frozenUntil = Math.max(m.frozenUntil || 0, now + 3000);
+          this.interruptTelegraph(m);
+        }
+        this.aoe(player, t, 0.9, "Snare Trap roots and");
+        return true;
+      }
+      case "volley": {
+        const t = this.visibleMonsters(player, 7);
+        if (!t.length) return this.notify(player, "No enemy in sight."), false;
+        this.aoe(player, t, 1.1, "Volley");
+        return true;
+      }
+      case "huntersmark": {
+        const t = this.visibleMonsters(player, 9);
+        for (const m of t) m.exposedUntil = now + 8000;
+        for (const a of allies(8)) {
+          if (a.downed) continue;
+          this.addBuff(a, "huntersmark", "Hunter's Mark", 8000);
+          if (a !== player) this.notify(a, `${player.username} marks the hunt. Your crit chance rises!`, C.good);
+        }
+        this.notify(player, `Hunter's Mark: ${t.length} foe${t.length === 1 ? "" : "s"} exposed, party crit +25%.`, C.skill);
+        this.fx(player, "toast", "HUNTER'S MARK", [120, 230, 150]);
+        return true;
+      }
+      // ---- necromancer
+      case "drain": {
+        const t = this.visibleMonsters(player, 6)[0];
+        if (!t) return this.notify(player, "No enemy in sight to drain."), false;
+        const r = this.hitMonster(player, t, 1.8, { label: "You drain the life of", halfDef: true });
+        this.healPlayer(player, Math.max(1, Math.round(r.dmg * 0.5)));
+        return true;
+      }
+      case "frailty": {
+        const t = this.visibleMonsters(player, 7);
+        if (!t.length) return this.notify(player, "No enemy in sight to curse."), false;
+        for (const m of t) {
+          m.exposedUntil = now + 10000;
+          this.floater(m.x, m.y, "frail", [190, 130, 255]);
+        }
+        this.notify(player, `Curse of Frailty withers ${t.length} foe${t.length === 1 ? "" : "s"}.`, C.skill);
+        return true;
+      }
+      case "boneprison": {
+        const t = near(2);
+        if (!t.length) return this.notify(player, "No enemies within 2 tiles."), false;
+        for (const m of t) {
+          m.frozenUntil = Math.max(m.frozenUntil || 0, now + 3000);
+          this.interruptTelegraph(m);
+        }
+        this.aoe(player, t, 1.2, "Bone Prison traps and", { halfDef: true });
+        return true;
+      }
+      case "harvest": {
+        const t = near(6);
+        if (!t.length) return this.notify(player, "No souls within reach."), false;
+        this.aoe(player, t, 2.5, "SOUL HARVEST", { halfDef: true });
+        for (const a of allies(6)) {
+          if (!a.downed) this.healPlayer(a, Math.round(a.stats.maxHp * Math.min(0.3, 0.06 * t.length)));
+        }
+        this.fx(player, "toast", "SOUL HARVEST", [190, 130, 255]);
+        return true;
+      }
     }
     return false;
   }
@@ -1269,7 +1343,7 @@ class World extends EventEmitter {
     const combo = opts.noCombo ? null : this.comboFor(player, monster, prime, now);
     const flank = this.flankers(player, monster, now);
     let dmg = B.rollDamage(this.effAtk(player) * mult, def, player.stats.level);
-    const crit = opts.forceCrit || chance(player.stats.crit);
+    const crit = opts.forceCrit || chance(player.stats.crit + (this.hasBuff(player, "huntersmark") ? 0.25 : 0));
     if (crit) dmg *= 2;
     if (flank) dmg *= 1 + 0.15 * flank;
     if (combo) dmg *= combo.mult;
@@ -1423,7 +1497,8 @@ class World extends EventEmitter {
       s.xpNext = xpToNext(s.level);
       return;
     }
-    s.xp += Math.round(amount * (1 + 0.1 * (player.prestige || 0)));
+    const rested = this.hasBuff(player, "rested") ? 0.15 : 0;
+    s.xp += Math.round(amount * (1 + 0.1 * (player.prestige || 0) + rested));
     while (s.level < MAX_LEVEL && s.xp >= xpToNext(s.level)) {
       s.xp -= xpToNext(s.level);
       s.level++;
@@ -1931,8 +2006,8 @@ class World extends EventEmitter {
     if (this.cities) {
       for (const feature of this.cities.features.values()) {
         if (!isVisible(feature)) continue;
-        const { x, y, name, char, color, kind } = feature;
-        npcs.push({ x, y, name, char, color, kind });
+        const { x, y, name, char, kind } = feature;
+        npcs.push({ x, y, name, char, color: this.cities.lookFor(player, feature), kind });
       }
     }
     if (this.merchant && isVisible(this.merchant)) npcs.push(this.merchant);

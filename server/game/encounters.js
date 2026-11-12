@@ -31,6 +31,14 @@ const ENCOUNTER_WAVES = 3;
 const ENCOUNTER_ABANDON_MS = 30000;
 const MARK_TICKS = 8; // ~2.4s to group up
 const MARK_EVERY_MS = 14000;
+const STREAK_MS = 25000; // find the next new chamber within this to keep a Pathfinder streak
+const STREAK_MAX = 5;
+const STREAK_BONUS = 0.15; // extra discovery XP per streak step
+const SURVEY_EVERY = 15; // new chambers per survey cache
+const LANDMARK_ODDS = 13; // about one chamber in 13 is a landmark
+const PATHFINDER_COLOR = [150, 220, 255];
+const LANDMARK_ADJ = ["Weeping", "Sunken", "Hollow", "Gilded", "Forgotten", "Shattered", "Silent", "Ashen", "Drowned", "Crooked", "Lantern", "Bleeding"];
+const LANDMARK_NOUN = ["Gallery", "Vault", "Chapel", "Cistern", "Ossuary", "Forge", "Garden", "Archive", "Hall", "Grotto", "Well", "Observatory"];
 
 // Which skill leaves which mark on a monster.
 const SKILL_PRIME = {
@@ -45,6 +53,10 @@ const SKILL_PRIME = {
   chain: "shock",
   smite: "holy",
   holynova: "holy",
+  aimedshot: "pierce",
+  volley: "pierce",
+  drain: "blight",
+  harvest: "blight",
 };
 
 // What happens when an ally strikes a marked monster.
@@ -55,6 +67,8 @@ const COMBOS = {
   frost: { name: "SHATTER", mult: 2, color: [150, 220, 255] },
   shock: { name: "OVERLOAD", mult: 1.6, color: [255, 240, 120] },
   holy: { name: "JUDGEMENT", mult: 1.6, color: [255, 245, 180] },
+  pierce: { name: "PIERCE", mult: 1.7, color: [150, 240, 160] },
+  blight: { name: "WITHER", mult: 1.65, color: [190, 130, 255] },
 };
 const SELF_COMBO_MULT = 1.35;
 
@@ -75,6 +89,14 @@ const SKILL_SOUND = {
   smite: "holy",
   sanctuary: "holy",
   holynova: "holy",
+  aimedshot: "shoot",
+  snare: "slam",
+  volley: "shoot",
+  huntersmark: "buff",
+  drain: "curse",
+  frailty: "curse",
+  boneprison: "frost",
+  harvest: "explode",
 };
 
 const ELITE_AFFIXES = [
@@ -439,6 +461,12 @@ module.exports = {
           if (o !== monster && chebyshev(o, monster) <= 1) this.hitMonster(player, o, 0.6, { quiet: true, prime: null, noCombo: true });
         }
         break;
+      case "pierce":
+        if (alive) monster.exposedUntil = now + 4000;
+        break;
+      case "blight":
+        if (partner && !partner.downed) this.healPlayer(partner, Math.max(1, Math.round(dmg * 0.25)));
+        break;
       case "holy":
         for (const a of this.players.values()) {
           if (!a.downed && a.cls && dist(a, monster) <= 6) this.healPlayer(a, Math.round(a.stats.maxHp * 0.08));
@@ -761,6 +789,9 @@ module.exports = {
 
   // -------------------------------------------------------------- discovery
   // The first visit to a chamber is worth a little XP, so exploring pays.
+  // Chaining discoveries builds a Pathfinder streak, every SURVEY_EVERY new
+  // chambers earn a survey cache, and a few chambers are named landmarks
+  // that hold a buried chest for the first hero to find them.
   discoverRoom(p) {
     const id = this.cell(p.x, p.y);
     if (id <= 0 || id === this.safeRoomId) return;
@@ -768,13 +799,69 @@ module.exports = {
     if (p.seenRooms.has(id)) return;
     p.seenRooms.add(id);
     p.counters.rooms = (p.counters.rooms || 0) + 1;
+    const now = Date.now();
+    const streak = p.exploreStreak && p.exploreStreak.until > now ? Math.min(STREAK_MAX, p.exploreStreak.count + 1) : 1;
+    p.exploreStreak = { count: streak, until: now + STREAK_MS };
     const level = this.levelAt(p.x, p.y);
-    const xp = Math.round(B.monsterBase(level).xp * 0.6 * B.xpLevelMult(p.stats.level, level));
+    const mult = 1 + STREAK_BONUS * (streak - 1);
+    const xp = Math.round(B.monsterBase(level).xp * 0.6 * mult * B.xpLevelMult(p.stats.level, level));
     if (xp >= 1) {
-      this.floater(p.x, p.y, `+${xp} xp`, [150, 200, 255]);
+      this.floater(p.x, p.y, streak > 1 ? `+${xp} xp ×${streak}` : `+${xp} xp`, [150, 200, 255]);
       this.gainXp(p, xp);
+    }
+    if (streak === STREAK_MAX && p.exploreStreak.announced !== true) {
+      p.exploreStreak.announced = true;
+      this.notify(p, `Pathfinder! Keep finding new chambers for +${Math.round(STREAK_BONUS * (STREAK_MAX - 1) * 100)}% discovery XP.`, PATHFINDER_COLOR);
     }
     this.soundFor(p, "discover");
     this.questEvent(p, "explore");
+    if (p.counters.rooms % SURVEY_EVERY === 0) this.surveyCache(p, level);
+    this.checkLandmark(p, id, level);
+  },
+
+  surveyCache(p, level) {
+    const gold = Math.round(B.chestGold(level) * 0.6);
+    this.addGold(p, gold);
+    const extras = [];
+    if (p.stats.potions < MAX_POTIONS) {
+      p.stats.potions++;
+      extras.push("a potion");
+    }
+    if (p.counters.rooms % (SURVEY_EVERY * 3) === 0) {
+      const item = generateItem(level, { boost: 3 });
+      if (this.giveItem(p, item, { announceRare: true })) extras.push(item.name);
+    }
+    this.fx(p, "toast", `Survey cache · ${p.counters.rooms} chambers`, PATHFINDER_COLOR);
+    this.notify(p, `Survey cache for mapping ${p.counters.rooms} chambers: ${gold} gold${extras.length ? `, ${extras.join(", ")}` : ""}.`, PATHFINDER_COLOR);
+    this.markDirty(p);
+  },
+
+  isLandmark(id) {
+    return id > 1 && ((Math.imul(id, 2654435761) >>> 0) % LANDMARK_ODDS) === 0;
+  },
+
+  landmarkName(id) {
+    const h = Math.imul(id ^ 0x5bd1e995, 2246822519) >>> 0;
+    return `the ${LANDMARK_ADJ[h % LANDMARK_ADJ.length]} ${LANDMARK_NOUN[(h >>> 8) % LANDMARK_NOUN.length]}`;
+  },
+
+  checkLandmark(p, id, level) {
+    if (!this.isLandmark(id)) return;
+    const name = this.landmarkName(id);
+    const claimed = this.map.landmarks || (this.map.landmarks = []);
+    p.counters.landmarks = (p.counters.landmarks || 0) + 1;
+    this.checkAchievements(p);
+    if (claimed.includes(id)) {
+      this.notify(p, `Landmark: ${name}. Someone has already dug up its cache.`, PATHFINDER_COLOR);
+      return;
+    }
+    const room = this.map.rooms.find((r) => r.id === id);
+    const spot = room && this.randomFreeTileInRoom(room);
+    if (!spot) return;
+    claimed.push(id);
+    this.map.scheduleSave?.();
+    this.dropItem(spot.x, spot.y, { kind: "chest", level });
+    this.fx(p, "toast", `Landmark · ${name}`, PATHFINDER_COLOR);
+    this.announce(`${p.username} discovered a landmark: ${name}. A buried cache surfaces!`, PATHFINDER_COLOR);
   },
 };

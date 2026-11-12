@@ -19,8 +19,8 @@ const areas = {
 #....#....#####........#
 #....#~~~~~#..#........#
 #....=======..*.......a#
-#....#~~~~~#...........#
-#..b.#~~~~~#..c....l...#
+#....#~~~~~#.........i.#
+#..b.#~~~~~#..c....l..k#
 ########################`,
     npcs: {
       d: { name: "Postmaster Dena", char: "D", action: "letters",
@@ -31,7 +31,9 @@ const areas = {
         text: "A woman takes the letter through the grille. 'My sister gets the morning post. I get the road they charge for it.' She slips you a cellar plan." },
       m: { name: "Merchant", char: "M", kind: "merchant" },
       c: { name: "Cistern Keeper", char: "C", text: "Up top, rain runs straight through the stone. This cistern keeps the whole court supplied through a dry season." },
-      r: { name: "Rim Stair", char: "^", text: "From the landing you can see the rim farms. The growers carry their baskets down to the city every evening." },
+      r: { name: "Rim Stair", char: "^", thing: true, text: "From the landing you can see the rim farms. The growers carry their baskets down to the city every evening." },
+      i: { name: "The Lantern Bridge Inn", kind: "inn", text: "Old Hobb pours you something hot and points at a bunk under the eaves." },
+      k: { name: "Loose Cistern Stone", kind: "cache", text: "A stone by the cistern wall rocks under your boot. Someone kept their savings behind it." },
     },
   },
   cellars: {
@@ -62,14 +64,14 @@ const areas = {
       " #..",
       " #p.",
     ].join("\n"),
-    npcs: { h: { name: "Survey Hinge", char: "H", action: "hinge" } },
+    npcs: { h: { name: "Survey Hinge", char: "H", thing: true, action: "hinge" } },
   },
   tollworks: {
     name: "Tollworks", label: "Goblin-held road", level: 2, color: [151, 173, 108],
     description: "A striped gate marks the salvage gang's claim. The high service path overlooks the road.",
     map: `
 #######################
-#...*.....#.......*...#
+#...*....k#.......*...#
 #a........#......3...b#
 #....1....#...........#
 #.........#..*........#
@@ -78,6 +80,9 @@ const areas = {
 #..*.........#...2....#
 #............#........#
 #######################`,
+    npcs: {
+      k: { name: "Gang Stash", kind: "cache", text: "The salvage gang hid their take under a loose board on the service path." },
+    },
     enemies: {
       1: { ...goblin, name: "Tollworks Scout", hp: 0.75, atk: 0.75 },
       2: { ...goblin, name: "Tern, Tollworks Captain", hp: 1.2, atk: 0.85 },
@@ -93,13 +98,15 @@ const areas = {
 #..*..,,,,..#..,,,,...#
 #...........#..,,,,...#
 #..q.......===........#
-#..,,,,.....#....*....#
+#..,,,,.....#....*...k#
 #..,,,,.....#.........#
-#..........s#........c#
+#m.........s#........c#
 #######################`,
     npcs: {
       q: { name: "Scale Keeper", char: "q", text: "One sack, two prices. The lease makes this gate cheaper for wagons. Ask a grower at Sporehold what it costs on foot." },
       s: { name: "Straw Grower", char: "s", text: "Grain grows above. Down here I trade its straw for mushrooms. Every cart has to come through one of these ramps." },
+      m: { name: "Root Trader", char: "M", kind: "merchant" },
+      k: { name: "Mushroom Crate", kind: "cache", text: "Under a crate of dried caps, someone forgot a pouch." },
     },
   },
   sporehold: {
@@ -110,7 +117,7 @@ const areas = {
 #a.....q..*##     #..c..#
 #....,,,....#     #.....#
 #...........=======..*..#
-#...*.......#     #.....#
+#...*.......#     #....k#
 #.........###     ###.###
 ####.################.###
    #......*...........b.#
@@ -118,6 +125,7 @@ const areas = {
     npcs: {
       q: { name: "Clinic Worker", char: "q", text: "The freight board says the clinic is close. Come across the bridge and count the paces yourself." },
       c: { name: "Apothecary", char: "+", text: "The fixed stair goes to Cinderkeep. Tell the shift workers you came down from the clinic." },
+      k: { name: "Root Hollow", kind: "cache", text: "A hollow in the root wall holds a wrapped bundle and a note: 'For whoever needs it more.'" },
     },
   },
   bellhaven: {
@@ -125,16 +133,17 @@ const areas = {
     description: "A ferry cage hangs over the water. Brass marks show where the old floods reached.",
     map: `
 #########################
-#a......*#~~~~~#.....*..#
+#a......*#~~~~~#.....*.k#
 #........#~~~~~#........#
 #....d...#~~~~~#...c....#
 #........=======........#
 #........#~~~~~#........#
-#.....*..#~~~~~#....b...#
+#.l...*..#~~~~~#....b...#
 #########################`,
     npcs: {
       d: { name: "Iven, Dispatcher", char: "I", text: "Two bells for one rescue. Ours starts at dispatch. Siltwatch starts theirs at the house that raised it." },
       c: { name: "Ferry Keeper", char: "f", text: "The cage takes you over the deep channel. Walk down to Siltwatch for the small boats." },
+      k: { name: "Flood Marker", kind: "cache", text: "Behind the brass flood marker is a dry niche. Someone sealed coins in wax there." },
     },
   },
   siltwatch: {
@@ -148,11 +157,12 @@ const areas = {
 #~~~~~~~=~~~=.........#
 #~~~~~~~=~~~=...q.....#
 #~~..*..=====.........#
-#~~.....~~~~~~~~~~~~~~#
+#~~k....~~~~~~~~~~~~~~#
 #######################`,
     npcs: {
       n: { name: "Nemi, Boatwright", char: "N", text: "That hollow board tells me where the water got to. Follow the far pier and you can reach the aqueduct without the freight road." },
       q: { name: "Rescue Pilot", char: "q", text: "We put our first notch on the tag at the house itself. Iven can compare it with the one in his booth." },
+      k: { name: "Sunken Strongbox", kind: "cache", text: "A strongbox is tied under the boardwalk on a fraying rope. You haul it up." },
     },
   },
   aqueduct: {
@@ -166,11 +176,12 @@ const areas = {
 #...========....1.......#
 #...~~~~~~=.............#
 #.........#........2....#
-#b....*...#.......l.....#
+#b....*..k#.......l.....#
 #########################`,
     npcs: {
-      d: { name: "Fourth Stamp", char: "4", action: "stamp",
+      d: { name: "Fourth Stamp", char: "4", thing: true, action: "stamp",
         text: "The survey drawing lists three roads. This inspection plate carries a fourth stamp, marked with the old Orraveth address." },
+      k: { name: "Pipe Inspection Hatch", kind: "cache", text: "The hatch sticks, then gives. An inspector's emergency kit is still inside." },
     },
     enemies: {
       1: { ...guard, name: "Winch Lookout", ranged: 4, ability: null, verb: "shoots at" },
@@ -184,13 +195,16 @@ const areas = {
 #######################
 #a......w....*........#
 #..######...######....#
-#..#..............#...#
+#..#k.............#...#
 #..#...1..........#...#
 #..#........2.....#...#
 #..#...*..........#...#
 #..........3......*..b#
 #######################`,
-    npcs: { w: { name: "Shift Worker", char: "w", text: "They searched every tool cart this morning. The gallery runs round their shield line. The fitters are waiting on the other side." } },
+    npcs: {
+      w: { name: "Shift Worker", char: "w", text: "They searched every tool cart this morning. The gallery runs round their shield line. The fitters are waiting on the other side." },
+      k: { name: "Confiscated Tool Cart", kind: "cache", text: "The guards never got round to emptying this cart. Its owner won't miss what's at the bottom." },
+    },
     enemies: {
       1: guard, 2: guard,
       3: { ...guard, name: "Gallery Crossbowman", ranged: 4, ability: null, verb: "shoots at" },
@@ -203,16 +217,18 @@ const areas = {
 #######################
 #a.....:::::.......b..#
 #..*...........*......#
-#.......s.............#
+#.......s...........m.#
 #....#...........#....#
 #::::#.....f.....#::::#
 #....#...........#....#
-#.....*............*..#
+#k....*............*..#
 #######################`,
     npcs: {
       s: { name: "Sera Dain", char: "S", text: "Veyr signed a drawing with three sockets. I filed a fourth into his replacement so it would work. The mould is by the furnace." },
-      f: { name: "Old Casting Mould", char: "4", action: "mould",
+      f: { name: "Old Casting Mould", char: "4", thing: true, action: "mould",
         text: "Four sockets. The small one has the same stamp as the old road at the aqueduct. Follow the workers' lift to Kilnward." },
+      m: { name: "Foundry Quartermaster", char: "M", kind: "merchant" },
+      k: { name: "Cooling Slag Pile", kind: "cache", text: "Under the cooled slag is a fitter's lost pay packet, still sealed." },
     },
   },
   kilnward: {
@@ -220,7 +236,7 @@ const areas = {
     description: "Shift bells travel down the handrails between the counterweights.",
     map: `
 ########################
-#a..##..##..##..##..b..#
+#a..##.k##..##..##..b..#
 #...##..##..##..##.....#
 #.*....................#
 #.........p............#
@@ -231,6 +247,7 @@ const areas = {
     npcs: {
       p: { name: "Pela, Apprentice", char: "P", action: "receiver",
         text: "Watch the last receiver. Each time the city shortens a public road, this branch takes the missing paces. It still leads to the Long Ward." },
+      k: { name: "Counterweight Gap", kind: "cache", text: "Between two counterweights, out of reach of the bells, someone wedged a bundle." },
     },
   },
   long_ward: {
@@ -240,15 +257,18 @@ const areas = {
 ########################
 #a..#..#..#..#.........#
 #..*..............m....#
-#......................#
+#...................n..#
 #..#..#..#..#...*......#
-#......................#
+#...................i..#
 #.........======......b#
-#...*.....#~~~~#.......#
+#...*.....#~~~~#......k#
 ########################`,
     npcs: {
       m: { name: "Mera, Tollkeeper", char: "M", action: "register",
         text: "I still count the crossings. Walk both ends of the old approach and bring me the fourth stamp. Then we can challenge Veyr's override." },
+      n: { name: "Ward Trader", char: "M", kind: "merchant" },
+      i: { name: "The Two Numbers Inn", kind: "inn", text: "The landlady asks which house number you'd like on your door. Both rooms are the same bed." },
+      k: { name: "Doubled Doorstep", kind: "cache", text: "One of the doubled doorsteps is hollow. Inside: a forgotten rent payment." },
     },
   },
   proving_chamber: {
@@ -256,7 +276,7 @@ const areas = {
     description: "Veyr has locked the public hinge. The only way to recover the counterseal is through him.",
     map: `
 #########################
-#a.....*...........*....#
+#a.....*...........*...k#
 #.......................#
 #....##..........##.....#
 #....##.....1....##.....#
@@ -265,10 +285,34 @@ const areas = {
 #....##..........##..r..#
 #......*...........*....#
 #########################`,
-    npcs: { r: { name: "Public Register", char: "R", action: "registerEnding" } },
+    npcs: {
+      r: { name: "Public Register", char: "R", thing: true, action: "registerEnding" },
+      k: { name: "Veyr's Field Case", kind: "cache", text: "Veyr's field case holds his survey fee, paid in advance and never earned." },
+    },
     enemies: {
       1: { ...guard, type: "veyr", name: "Chief Surveyor Veyr", char: "V", boss: true,
         hp: 0.23, atk: 0.68, def: 0.9, aggro: 10 },
+    },
+  },
+  lantern_row: {
+    name: "Lantern Row", label: "Night market", safe: true, level: 3, color: [226, 182, 118],
+    description: "Lamplit stalls climb the old flood steps. Travellers from every district trade stories here.",
+    map: `
+#########################
+#a....*.....i......*....#
+#.......................#
+#..n.....,,,,,.....c....#
+#.......,,,,,,,.........#
+#..*.....,,,,,......m...#
+#.....l..............k..#
+#########################`,
+    npcs: {
+      n: { name: "Ysolde, Lamplighter", char: "Y", text: "Every lamp on this row was lit by someone who came back from below. Light one when you return from somewhere nobody's mapped." },
+      l: { name: "Old Fisher", char: "f", text: "The dungeon under Emberfall shifts its chambers. Some have names older than the city. Find one and the earth gives up what it hid." },
+      c: { name: "Corin, Cartographer", char: "C", action: "cartographer" },
+      i: { name: "The Last Lamp Inn", kind: "inn", text: "Lanterns sway over the beds. The innkeeper says the light keeps the bad dreams below the waterline." },
+      m: { name: "Night Market Trader", char: "M", kind: "merchant" },
+      k: { name: "Lamp Oil Barrel", kind: "cache", text: "The barrel is half empty, and the bottom half is mostly coins." },
     },
   },
 };
@@ -282,6 +326,7 @@ const routes = [
   { id: "rescue-landing", a: ["cellars", "b"], b: ["bellhaven", "a"], label: "Rescue Landing" },
   { id: "root-bridges", a: ["rootmarket", "b"], b: ["sporehold", "a"] },
   { id: "freight-road", a: ["rootmarket", "c"], b: ["aqueduct", "a"] },
+  { id: "lantern-steps", a: ["bellhaven", "l"], b: ["lantern_row", "a"], label: "Lantern Steps" },
   { id: "ferry-walk", a: ["bellhaven", "b"], b: ["siltwatch", "a"] },
   { id: "marsh-pier", a: ["siltwatch", "b"], b: ["aqueduct", "b"] },
   { id: "post-court-ladder", a: ["aqueduct", "l"], b: ["emberfall", "l"], shortcut: true, clear: "aqueduct" },

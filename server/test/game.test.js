@@ -565,6 +565,97 @@ check("achievement list is consistent", () => {
   const ids = new Set(ACHIEVEMENTS.map((x) => x.id));
   assert.equal(ids.size, ACHIEVEMENTS.length);
 });
+check("rangers and necromancers: every skill fires and the new marks combo", () => {
+  const room = arena();
+  const r = mk(30, "rhea", "ranger");
+  const n = mk(31, "nox", "necromancer");
+  for (const [p, i] of [[r, 0], [n, 1]]) {
+    setLevel(p, 30);
+    p.x = room.x + 1 + i;
+    p.y = room.y + 2;
+    p.buffs = {};
+    p.cooldowns = {};
+  }
+  const tough = MONSTERS.find((x) => x.type === "golem");
+  const foe = () => {
+    w.monsters.clear();
+    const m = w.spawnMonster(r.x, r.y + 1, 20, room.id, tough);
+    m.maxHp = m.hp = 1e6;
+    return m;
+  };
+  for (const [p, ids] of [[r, ["aimedshot", "snare", "volley", "huntersmark"]], [n, ["drain", "frailty", "boneprison", "harvest"]]]) {
+    for (const id of ids) {
+      const m = foe();
+      p.cooldowns = {};
+      w.useSkill(p, id);
+      assert(p.cooldowns[id] > Date.now(), `${id} went on cooldown`);
+      if (id === "snare" || id === "boneprison") assert(m.frozenUntil > Date.now(), `${id} roots`);
+      if (id === "frailty" || id === "huntersmark") assert(m.exposedUntil > Date.now(), `${id} exposes`);
+    }
+  }
+  assert(w.hasBuff(r, "huntersmark") && w.hasBuff(n, "huntersmark"), "the mark is shared with nearby allies");
+  // Drain Life heals its caster.
+  let m = foe();
+  n.stats.hp = 1;
+  n.cooldowns = {};
+  w.useSkill(n, "drain");
+  assert(n.stats.hp > 1);
+  assert.equal(m.primed?.type, "blight");
+  // An ally detonates the ranger's mark for PIERCE, which leaves the foe exposed.
+  m = foe();
+  r.cooldowns = {};
+  w.useSkill(r, "aimedshot");
+  assert.equal(m.primed?.type, "pierce");
+  w.hitMonster(n, m, 1);
+  assert(msgs.some((t) => t.includes("PIERCE")));
+  assert(m.exposedUntil > Date.now());
+  w.monsters.clear();
+  w.removePlayer(r.id);
+  w.removePlayer(n.id);
+});
+check("exploring: Pathfinder streaks, survey caches and landmark chambers", () => {
+  const p = mk(32, "pathy", "ranger");
+  setLevel(p, 10);
+  const room = map.rooms.find((x) => x.id !== w.safeRoomId && x.width >= 3);
+  p.x = room.x;
+  p.y = room.y;
+  // Fake a run of new chambers by forgetting where we have been.
+  const gains = [];
+  for (let i = 0; i < 5; i++) {
+    p.seenRooms = new Set();
+    const before = p.stats.xp + p.stats.level * 1e6;
+    w.discoverRoom(p);
+    gains.push(p.stats.xp + p.stats.level * 1e6 - before);
+  }
+  assert.equal(p.exploreStreak.count, 5);
+  assert(gains[4] > gains[0], `streak raises discovery XP ${gains}`);
+  p.exploreStreak.until = 0;
+  p.seenRooms = new Set();
+  w.discoverRoom(p);
+  assert.equal(p.exploreStreak.count, 1, "the streak lapses");
+
+  const gold = p.stats.gold;
+  p.counters.rooms = 14;
+  p.seenRooms = new Set();
+  w.discoverRoom(p);
+  assert(p.stats.gold > gold, "a survey cache every 15 chambers");
+  assert(toasts.some((t) => t.includes("Survey cache")));
+
+  let id = 2;
+  while (!w.isLandmark(id)) id++;
+  assert.match(w.landmarkName(id), /^the \w+ \w+$/);
+  assert.equal(w.landmarkName(id), w.landmarkName(id), "names are stable");
+  const lm = { id, x: room.x, y: room.y, width: room.width, height: room.height };
+  map.rooms.push(lm);
+  const items = w.items.size;
+  w.checkLandmark(p, id, 10);
+  assert.equal(w.items.size, items + 1, "the first finder digs up a chest");
+  assert(map.landmarks.includes(id));
+  w.checkLandmark(p, id, 10);
+  assert.equal(w.items.size, items + 1, "only once per world");
+  map.rooms.pop();
+  w.removePlayer(p.id);
+});
 check("party leave", () => {
   assert(w.partyAction(c, "leave").ok);
   assert(w.partyAction(a, "leave").ok);
