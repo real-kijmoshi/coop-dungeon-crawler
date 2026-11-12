@@ -418,6 +418,19 @@ func (g *Game) drawMap(r rect) {
 			cv.Put(sx, sy, firstRune(it.Char), it.Color, nil, true)
 		}
 	}
+	// Seal runes: every one must be held at the same time to break a boss's seal.
+	for _, rn := range st.Runes {
+		sx, sy, ok := toScreen(rn.X, rn.Y)
+		if !ok {
+			continue
+		}
+		bg, col := mix(Color{40, 20, 70}, Color{110, 60, 190}, pulse), Color{220, 180, 255}
+		if rn.Lit {
+			bg, col = Color{150, 110, 255}, Color{255, 255, 255}
+		}
+		cv.Put(sx, sy, '◎', col, &bg, true)
+		cv.Put(sx+1, sy, ' ', col, &bg, false)
+	}
 	for _, n := range st.NPCs {
 		sx, sy, ok := toScreen(n.X, n.Y)
 		if !ok {
@@ -446,6 +459,10 @@ func (g *Game) drawMap(r rect) {
 		switch {
 		case m.Hit:
 			bg = ptr(Color{200, 200, 200})
+		case m.Staggered:
+			bg = ptr(mix(Color{120, 95, 20}, Color{255, 230, 120}, pulse))
+		case m.Sealed:
+			bg = ptr(mix(Color{50, 25, 90}, Color{130, 80, 220}, pulse))
 		case m.Charging || m.Windup:
 			bg = ptr(mix(Color{150, 30, 30}, Color{255, 200, 60}, pulse))
 		case m.Exposed:
@@ -740,10 +757,16 @@ func (g *Game) drawSidebar(r rect) {
 			xx := x + 2
 			for _, b := range p.Buffs {
 				t := fmt.Sprintf(" %s %ds ", b.Name, secs(b.Until))
+				bg := Color{110, 210, 230}
+				if isAura(b.ID) {
+					t, bg = " "+b.Name+" ", Color{150, 230, 170}
+				} else if b.ID == "rally" {
+					bg = Color{120, 255, 220}
+				}
 				if xx+runeLen(t) > x+w-2 {
 					break
 				}
-				xx += cv.Text(xx, yy, t, Color{20, 30, 40}, ptr(Color{110, 210, 230}), true, -1) + 1
+				xx += cv.Text(xx, yy, t, Color{20, 30, 40}, &bg, true, -1) + 1
 			}
 		})
 	}
@@ -805,6 +828,15 @@ func (g *Game) drawSidebar(r rect) {
 			if m.Primed != "" {
 				name += " ✦" // marked: an ally's hit sets off a team combo
 			}
+			if m.Chain > 1 {
+				name += fmt.Sprintf(" ×%d", m.Chain)
+			}
+			if m.Staggered {
+				name += " ⚡"
+			}
+			if m.Sealed {
+				name += " ◎"
+			}
 			nc := theme.text
 			if m.Boss {
 				nc = Color{255, 150, 60}
@@ -812,7 +844,18 @@ func (g *Game) drawSidebar(r rect) {
 				nc = Color{255, 220, 90}
 			}
 			cv.Text(nx, yy, pad(name, nameW), nc, &pb, m.Boss || m.Elite, nameW)
-			cv.Bar(nx+nameW, yy, 8, m.HP, m.MaxHP, hpColor(m.HP, m.MaxHP), "")
+			if m.Poise != nil {
+				// HP bar, then a short poise bar: empty it as a team to stagger.
+				cv.Bar(nx+nameW, yy, 5, m.HP, m.MaxHP, hpColor(m.HP, m.MaxHP), "")
+				pc := Color{255, 210, 90}
+				if m.Staggered {
+					pc = Color{255, 255, 200}
+				}
+				cv.Put(nx+nameW+5, yy, ' ', pc, &pb, false)
+				cv.Bar(nx+nameW+6, yy, 2, *m.Poise, 1, pc, "")
+			} else {
+				cv.Bar(nx+nameW, yy, 8, m.HP, m.MaxHP, hpColor(m.HP, m.MaxHP), "")
+			}
 		}
 		y += eh
 	}
@@ -925,7 +968,11 @@ func (g *Game) drawHotbar(r rect) {
 	cv := g.cv
 	p := g.state.Player
 	cv.Fill(r.x, r.y, r.w, 1, theme.bg)
-	slotW := r.w / (len(p.Skills) + 1)
+	slots := len(p.Skills) + 1
+	if p.Unity != nil {
+		slots++
+	}
+	slotW := r.w / slots
 	now := g.serverNow()
 	dark := Color{15, 15, 20}
 	for i, sk := range p.Skills {
@@ -962,8 +1009,38 @@ func (g *Game) drawHotbar(r rect) {
 			}
 		}
 	}
-	px := r.x + len(p.Skills)*slotW
-	potW := r.w - len(p.Skills)*slotW
+	if u := p.Unity; u != nil {
+		ux := r.x + len(p.Skills)*slotW
+		ready := u.Max > 0 && u.Value >= u.Max
+		key := " " + g.settings.keyLabel("rally") + " "
+		keyBg := Color{60, 90, 85}
+		if ready {
+			keyBg = mix(Color{80, 220, 190}, Color{220, 255, 245}, 0.5+0.5*math.Sin(float64(time.Now().UnixMilli())/150))
+		}
+		keyW := mini(slotW, runeLen(key))
+		cv.Text(ux, r.y, key, dark, &keyBg, true, keyW)
+		if bw := slotW - keyW; bw > 0 {
+			if ready {
+				cv.Text(ux+keyW, r.y, pad(" ✦ RALLY READY", bw), Color{20, 40, 36}, ptr(Color{120, 255, 220}), true, bw)
+			} else {
+				label := []rune(pad(fmt.Sprintf(" Unity %d%%", int(u.Value)), bw))
+				filled := 0
+				if u.Max > 0 {
+					filled = int(u.Value / u.Max * float64(bw))
+				}
+				for j := 0; j < bw && j < len(label); j++ {
+					bg := Color{24, 34, 34}
+					if j < filled {
+						bg = Color{40, 95, 85}
+					}
+					cv.Put(ux+keyW+j, r.y, label[j], Color{150, 230, 210}, &bg, false)
+				}
+			}
+		}
+	}
+	used := (slots - 1) * slotW
+	px := r.x + used
+	potW := r.w - used
 	keyBg, txt := Color{255, 120, 180}, Color{255, 200, 230}
 	if p.Stats.Potions == 0 {
 		keyBg, txt = Color{60, 40, 50}, theme.faint
@@ -1108,6 +1185,15 @@ func (g *Game) biomeFor(x, y int) *BiomeInfo {
 		}
 	}
 	return nil
+}
+
+// isAura reports buffs that last while allies stand close, rather than for a time.
+func isAura(id string) bool {
+	switch id {
+	case "formation", "guarded", "guarding", "arcane", "blessed", "weakpoint":
+		return true
+	}
+	return false
 }
 
 // primeColor is the tint of a monster carrying a hero's mark (see team combos).

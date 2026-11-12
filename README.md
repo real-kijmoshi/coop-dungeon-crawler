@@ -356,6 +356,37 @@ You pick a class the first time you play (it's permanent for that hero, so make 
   monster another hero hit in the last 3 seconds **flanks** it (+15% damage per extra hero). A party builds **one kill
   combo** together.
 
+#### Team combat
+
+- **Threat:** monsters go after whoever is most dangerous to them, not whoever hit them last. Warriors make 2.2x threat,
+  so they can hold a monster while the mage keeps casting; rogues make 0.7x and can slip under the radar.
+  A challenger needs 30% more threat than the current target to pull a monster.
+- **Class auras** help the allies around you:
+  - **Warrior (Bodyguard):** an ally standing next to a warrior has 30% of each blow taken by the warrior instead
+    (and the warrior's guard soaks part of that). A badly hurt warrior (under 25% HP) stops guarding.
+  - **Mage (Arcane Font):** allies within 5 tiles recharge their skills 15% faster.
+  - **Cleric (Blessed):** allies within 5 tiles regain 2% HP every 3 seconds, even mid-fight, and a hero who goes down
+    near a cleric holds on 10 seconds longer.
+  - **Rogue (Weak Points):** a monster a rogue hit in the last 4 seconds takes 12% more damage from everyone else.
+- **Combo chains:** when a team combo is set off **by a skill**, that skill leaves its own mark on the monster, so the
+  next hero can detonate it again. Each new hero in the chain adds +25% (up to ×4), shown as `×2`, `×3` on the monster.
+- **Poise and stagger:** elites and bosses have a poise bar (the short yellow bar in the enemy list). Hits wear it down:
+  warriors, crits, flanking and team combos (Frost and Shock combos most of all) break it fastest. At zero the monster is
+  **STAGGERED** (⚡): it can't act, its wind-up is cancelled and it takes 50% more damage for 3.5s (5s for bosses).
+  Each break makes a boss's guard 25% tougher.
+- **Unity and RALLY:** a party shares one **Unity** meter (shown next to your skills). It fills as you fight near allies,
+  land team combos and chains, stagger foes and revive friends; fighting alone fills it slowly. When it is full, press
+  **R** (Vim layout: **F**) to **RALLY**: every party member within 8 tiles, including downed ones who get back up, unleashes
+  their class ultimate at once, and everyone gets +30% damage, 25% less damage taken and skills that recharge twice as fast
+  for 10 seconds, 20% stronger for each extra hero linked:
+  **Earthshatter** (warrior: 2.5x around you, breaks poise, taunts everything nearby), **Blade Storm** (rogue: guaranteed
+  crits on up to 6 foes), **Cataclysm** (mage: 2.5x to everything in sight and a 2s freeze), **Divine Grace** (cleric:
+  revives and heals everyone nearby by half and makes them immune for 2.5s).
+- **Second Wind:** reviving an ally gives you both +20% damage for 6 seconds.
+- **Boss seals:** at half health (and again at 20% for the Abyss Lord) a boss raises an **Abyssal Seal** and takes only
+  10% damage. Glowing runes `◎` appear in its lair, one per hero fighting (up to three). Stand on **all of them at the same
+  time** to shatter the seal and stagger the boss for 7 seconds. If the seal holds for 20 seconds, the boss heals 10%.
+
 #### Combat
 
 - **Dodge** with **Space**, then a movement direction. You move up to two open tiles, and a successful dodge takes 2.4 seconds to recharge. A blocked dodge spends nothing.

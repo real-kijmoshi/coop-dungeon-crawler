@@ -20,7 +20,7 @@ type Action struct {
 var actions = []Action{
 	{"up", "Move up"}, {"down", "Move down"}, {"left", "Move left"}, {"right", "Move right"},
 	{"skill1", "Skill 1"}, {"skill2", "Skill 2"}, {"skill3", "Skill 3"}, {"skill4", "Skill 4"},
-	{"dodge", "Dodge (then direction)"}, {"potion", "Drink potion"}, {"inventory", "Inventory"}, {"journal", "Journal"},
+	{"dodge", "Dodge (then direction)"}, {"rally", "Rally (team ultimate)"}, {"potion", "Drink potion"}, {"inventory", "Inventory"}, {"journal", "Journal"},
 	{"party", "Party"}, {"travel", "Travel (waystones)"}, {"ping", "Ping / mark target"},
 	{"chat", "Chat"}, {"partychat", "Party chat"}, {"leaderboard", "Leaderboard"},
 	{"help", "Help"}, {"settings", "Settings"}, {"accept", "Accept invite"}, {"decline", "Decline invite"},
@@ -30,21 +30,21 @@ var actions = []Action{
 var presets = map[string]map[string]string{
 	"WASD": {
 		"up": "w", "down": "s", "left": "a", "right": "d",
-		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
+		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space", "rally": "r",
 		"potion": "h", "inventory": "i", "journal": "j", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "l", "help": "?", "settings": "o",
 		"accept": "y", "decline": "n", "quit": "q",
 	},
 	"Vim (hjkl)": {
 		"up": "k", "down": "j", "left": "h", "right": "l",
-		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
+		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space", "rally": "f",
 		"potion": "e", "inventory": "i", "journal": "u", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "r", "help": "?", "settings": "o",
 		"accept": "y", "decline": "n", "quit": "q",
 	},
 	"Arrows": {
 		"up": "Up", "down": "Down", "left": "Left", "right": "Right",
-		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
+		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space", "rally": "r",
 		"potion": "h", "inventory": "i", "journal": "j", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "l", "help": "?", "settings": "o",
 		"accept": "y", "decline": "n", "quit": "q",
@@ -111,10 +111,13 @@ func loadSettings() Settings {
 	if p, ok := presets[s.Preset]; ok {
 		base = p
 	}
-	if _, ok := s.Keys["dodge"]; !ok {
-		s.Keys["dodge"] = ""
-		if s.actionFor(base["dodge"]) == "" {
-			s.Keys["dodge"] = base["dodge"]
+	// Newer actions only take their default key if the player hasn't used it already.
+	for _, k := range []string{"dodge", "rally"} {
+		if _, ok := s.Keys[k]; !ok {
+			s.Keys[k] = ""
+			if s.actionFor(base[k]) == "" {
+				s.Keys[k] = base[k]
+			}
 		}
 	}
 	for k, v := range base {

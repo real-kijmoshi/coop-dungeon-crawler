@@ -112,3 +112,53 @@ func TestDangerTilesAndCombatMarks(t *testing.T) {
 		t.Error("a marked monster must be flagged in the enemy list")
 	}
 }
+
+// Team combat: the hotbar shows the shared unity meter, the enemy list shows a
+// staggered, sealed boss, and seal runes are drawn on the map.
+func TestTeamCombatHUD(t *testing.T) {
+	s := tcell.NewSimulationScreen("UTF-8")
+	if err := s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	s.SetSize(150, 42)
+	cv := &Canvas{s: s}
+	g := &Game{cv: cv, settings: defaultSettings(), profile: &Profile{}}
+	st := &GameState{Depth: 3, AreaLevel: 12, MaxLevel: 100}
+	st.Player.Stats.Level = 10
+	st.Player.Stats.HP, st.Player.Stats.MaxHP = 100, 100
+	st.Player.ClassName = "Warrior"
+	st.Player.X, st.Player.Y = 50, 50
+	st.Player.Unity = &Unity{Value: 100, Max: 100}
+	st.Player.Buffs = []Buff{{ID: "guarding", Name: "Guarding bob", Until: 1}}
+	st.View = View{OriginX: 38, OriginY: 38}
+	poise := 0.4
+	st.Monsters = []Monster{
+		{Name: "Goblin King", Char: "G", Level: 14, HP: 900, MaxHP: 900, Boss: true, X: 53, Y: 50, Poise: &poise, Staggered: true, Sealed: true, Chain: 3},
+	}
+	st.Runes = []Rune{{X: 51, Y: 51, Lit: true}}
+	g.state = st
+	g.draw()
+	s.Show()
+	cells, w, h := s.GetContents()
+	var b strings.Builder
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			r := cells[y*w+x].Runes
+			if len(r) == 0 {
+				b.WriteRune(' ')
+			} else {
+				b.WriteRune(r[0])
+			}
+		}
+		b.WriteRune('\n')
+	}
+	out := b.String()
+	for _, want := range []string{"RALLY READY", "×3 ⚡ ◎", "◎", "Guarding bob"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Contains(out, "Guarding bob 0s") {
+		t.Error("auras should not show a countdown")
+	}
+}

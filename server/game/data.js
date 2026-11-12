@@ -247,6 +247,11 @@ const ACHIEVEMENTS = [
   { id: "cursed5", name: "Curse Breaker", desc: "Break 5 cursed chests", title: "the Curse Breaker", check: (p) => (p.counters.cursed || 0) >= 5 },
   { id: "vault3", name: "Two Keys", desc: "Open 3 sealed vaults with an ally", title: "the Keyholder", check: (p) => (p.counters.vaults || 0) >= 3 },
   { id: "rooms150", name: "Cartographer", desc: "Discover 150 chambers", title: "the Cartographer", check: (p) => (p.counters.rooms || 0) >= 150 },
+  { id: "chain3", name: "Chain Reaction", desc: "Land a x3 team combo chain", title: "the Catalyst", check: (p) => (p.counters.bestChain || 0) >= 3 },
+  { id: "stagger25", name: "Guard Breaker", desc: "Stagger 25 elites or bosses", title: "the Breaker", check: (p) => (p.counters.staggers || 0) >= 25 },
+  { id: "rally10", name: "Rallying Cry", desc: "Take part in 10 rallies", title: "the Rallier", check: (p) => (p.counters.rallies || 0) >= 10 },
+  { id: "seal", name: "Sealbreaker", desc: "Help shatter a boss's abyssal seal", title: "the Sealbreaker", check: (p) => (p.counters.seals || 0) >= 1 },
+  { id: "guardian", name: "Shieldwall", desc: "Take 5000 damage for your allies as a warrior", title: "the Shieldwall", check: (p) => (p.counters.guarded || 0) >= 5000 },
   { id: "abyss", name: "Abyss Conqueror", desc: "Defeat the Abyss Lord", title: "the Conqueror", check: (p) => (p.counters.kinds.abyss_lord || 0) >= 1 },
 ];
 

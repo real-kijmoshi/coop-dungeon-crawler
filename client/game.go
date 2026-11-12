@@ -397,6 +397,11 @@ func (g *Game) gameKey(ev *tcell.EventKey) {
 				g.dodgeArmed = !g.dodgeArmed
 			}
 		}
+	case "rally":
+		if g.state != nil && g.connected {
+			g.dodgeArmed = false
+			g.conn.Send("rally")
+		}
 	case "skill1", "skill2", "skill3", "skill4":
 		g.conn.Send("skill", int(g.settings.actionFor(name)[5]-'1'))
 	case "potion":

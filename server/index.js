@@ -321,6 +321,12 @@ const onConnection = (socket) => {
 
   socket.on("ping", () => world.ping(player));
 
+  socket.on("rally", (callback) => {
+    const result = world.rally(player);
+    if (!result.ok) world.notify(player, result.message, [120, 255, 220]);
+    if (typeof callback === "function") callback(result);
+  });
+
   socket.on("travelOptions", (callback) => {
     if (typeof callback === "function") callback(world.travelOptions(player));
   });

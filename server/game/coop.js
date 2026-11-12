@@ -267,6 +267,7 @@ module.exports = {
           const mult = 1 + 0.6 * (fighters - 1);
           m.maxHp = Math.round(m.maxHp * mult);
           m.hp = Math.round(m.hp * mult);
+          if (m.maxPoise) m.poise = m.maxPoise = Math.round(m.maxPoise * (1 + 0.5 * (fighters - 1)));
         }
         const line = BOSS_LINES[m.type];
         for (const p of this.players.values()) {
@@ -296,6 +297,9 @@ module.exports = {
       m.calledAdds = true;
       this.bossCallsAdds(m);
     }
+
+    // Abyssal seal: heroes must hold every rune at once to break it.
+    if (this.maybeSeal(m, now)) return true;
 
     // Doom mark: heroes must stand together to share it.
     if (m.introduced) this.bossMark(m, now);

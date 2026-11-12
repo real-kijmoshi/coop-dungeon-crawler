@@ -565,6 +565,132 @@ check("achievement list is consistent", () => {
   const ids = new Set(ACHIEVEMENTS.map((x) => x.id));
   assert.equal(ids.size, ACHIEVEMENTS.length);
 });
+console.log("team combat");
+const golem = () => MONSTERS.find((x) => x.type === "golem");
+check("threat: the warrior holds a monster that the mage keeps hitting", () => {
+  const room = arena();
+  const m = w.spawnMonster(c.x, c.y + 1, 20, room.id, golem());
+  m.maxHp = m.hp = 1e6;
+  w.hitMonster(a, m, 2, { noCombo: true, prime: null });
+  assert.equal(m.target, a.id);
+  w.hitMonster(c, m, 1, { noCombo: true, prime: null });
+  assert.equal(m.target, a.id, "a single mage hit doesn't pull it off the warrior");
+  for (let i = 0; i < 12; i++) w.hitMonster(c, m, 1, { noCombo: true, prime: null });
+  assert.equal(m.target, c.id, "enough damage does");
+});
+check("class auras: the warrior guards, the mage speeds skills, the cleric keeps the downed alive", () => {
+  const room = arena();
+  b.x = a.x + 1;
+  b.y = a.y;
+  assert.equal(w.guardFor(b), a);
+  const st = w.stateFor(b).player.buffs.map((x) => x.id);
+  assert(st.includes("guarded") && st.includes("blessed") === false, st.join(","));
+  const hpA = a.stats.hp;
+  const hpB = b.stats.hp;
+  w.hurtPlayer(b, 400, 20, { by: "test" });
+  assert(a.stats.hp < hpA, "the warrior took part of the blow");
+  assert(b.stats.hp < hpB);
+  // Mage nearby: shorter cooldowns for allies.
+  c.x = a.x + 2;
+  c.y = a.y;
+  a.cooldowns = {};
+  const m = w.spawnMonster(a.x, a.y + 1, 20, room.id, golem());
+  m.maxHp = m.hp = 1e6;
+  const before = Date.now();
+  w.useSkill(a, "cleave");
+  const cd = a.cooldowns.cleave - before;
+  assert(cd <= 5000 * 0.85 + 50 && cd >= 5000 * 0.85 - 50, `cooldown ${cd}`);
+  // Cleric nearby: a downed ally lasts longer.
+  b.x = c.x;
+  b.y = c.y + 1;
+  w.downOrKill(c, "test");
+  assert(c.downed && c.downed.until - Date.now() > 25000);
+  w.revive(c, a);
+  assert(w.hasBuff(c, "secondwind") && w.hasBuff(a, "secondwind"), "second wind for both");
+});
+check("poise: focused hits stagger an elite, which then takes more damage and holds still", () => {
+  const room = arena();
+  const m = w.spawnMonster(a.x, a.y + 1, 20, room.id, golem());
+  m.elite = true;
+  w.initPoise(m);
+  m.maxHp = m.hp = 1e7;
+  let n = 0;
+  while (!(m.staggerUntil > Date.now()) && n++ < 40) w.hitMonster(a, m, 1, { noCombo: true, prime: null });
+  assert(m.staggerUntil > Date.now(), "staggered");
+  assert(w.stateFor(a).monsters.find((x) => x.id === m.id).staggered);
+  m.cooldown = 0;
+  assert.equal(w.updateMonster(m, Date.now()), false, "a staggered monster can't act");
+  assert(w.teamDamageMult(a, m, Date.now()) >= 1.5);
+  m.staggerUntil = Date.now() - 1;
+  w.updatePoise(Date.now());
+  assert.equal(m.poise, m.maxPoise, "recovers with full poise");
+});
+check("combo chains: a team combo by a skill marks the monster for the next hero", () => {
+  const room = arena();
+  const m = w.spawnMonster(c.x, c.y + 1, 20, room.id, golem());
+  m.maxHp = m.hp = 1e7;
+  a.x = m.x - 1;
+  a.y = m.y;
+  w.useSkill(c, "frostnova"); // the mage primes frost
+  w.useSkill(a, "cleave"); // the warrior detonates it and leaves sunder
+  assert.equal(m.chain.count, 1);
+  assert.equal(m.primed.type, "sunder");
+  assert.equal(m.primed.by, a.id);
+  c.cooldowns = {};
+  w.useSkill(c, "fireball"); // the mage detonates the sunder: chain x2
+  assert.equal(m.chain.count, 2);
+  assert(msgs.some((t) => t.includes("CHAIN ×2")));
+});
+check("unity fills while fighting together and RALLY links every nearby hero's ultimate", () => {
+  const room = arena();
+  for (let i = 0; i < 5; i++) w.spawnMonster(room.x + 3, room.y + 2 + (i % 2), 20, room.id, golem());
+  const party = w.partyOf(a);
+  party.unity = 0;
+  assert(!w.rally(a).ok, "not ready yet");
+  const m = w.spawnMonster(a.x, a.y + 1, 20, room.id, golem());
+  m.maxHp = m.hp = 1e7;
+  for (let i = 0; i < 200 && w.unityOf(a) < 100; i++) w.hitMonster(a, m, 1, { noCombo: true, prime: null });
+  assert.equal(w.unityOf(b), 100, "the meter is shared by the party");
+  assert(w.stateFor(c).player.unity.value === 100);
+  c.downed = { until: Date.now() + 5000, by: "test" };
+  const hp = m.hp;
+  assert(w.rally(a).ok);
+  assert.equal(c.downed, null, "rally brings back the downed");
+  assert([a, b, c].every((p) => w.hasBuff(p, "rally")));
+  assert(m.hp < hp, "ultimates hit");
+  assert.equal(w.unityOf(a), 0);
+  assert(toasts.some((t) => t.includes("LINKED RALLY ×3")));
+  assert(a.achievements.length > 0);
+});
+check("boss seals: at half health the boss shields itself until every rune is held", () => {
+  w.ensureChunksAround(w.spawn.x + 35, w.spawn.y);
+  const room = map.rooms.find((r) => r.width >= 6 && r.height >= 5 && r.id !== w.safeRoomId && w.levelAt(r.x, r.y) >= 5);
+  arena();
+  w.monsters.clear();
+  const boss = w.spawnMonster(room.x + 2, room.y + 2, 20, room.id, BOSSES[0]);
+  [a, b].forEach((p, i) => Object.assign(p, { x: room.x + i, y: room.y }));
+  c.x = room.x;
+  c.y = room.y + room.height - 1;
+  boss.introduced = true;
+  boss.calledAdds = true;
+  boss.nextMark = boss.nextSlam = Date.now() + 1e6;
+  boss.hp = Math.round(boss.maxHp * 0.45);
+  w.bossMechanics(boss, Date.now());
+  assert(boss.seal && boss.seal.runes.length === 3, "one rune per hero");
+  assert.equal(w.stateFor(a).runes.length >= 1, true);
+  assert(w.teamDamageMult(a, boss, Date.now()) <= 0.1 * 1.5);
+  const [r1, r2, r3] = boss.seal.runes;
+  Object.assign(a, { x: r1.x, y: r1.y });
+  Object.assign(b, { x: r2.x, y: r2.y });
+  w.updateSeals(Date.now());
+  assert(boss.seal, "two of three runes is not enough");
+  Object.assign(c, { x: r3.x, y: r3.y });
+  w.updateSeals(Date.now());
+  assert.equal(boss.seal, null, "shattered");
+  assert(boss.staggerUntil > Date.now() + 5000, "and the boss reels");
+  assert(a.achievements.includes("seal"));
+  w.monsters.clear();
+});
 check("party leave", () => {
   assert(w.partyAction(c, "leave").ok);
   assert(w.partyAction(a, "leave").ok);

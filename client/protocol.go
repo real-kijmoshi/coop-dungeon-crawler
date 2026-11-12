@@ -73,6 +73,7 @@ type PlayerState struct {
 	Buffs        []Buff       `json:"buffs"`
 	Skills       []Skill      `json:"skills"`
 	Quests       []QuestBrief `json:"quests"`
+	Unity        *Unity       `json:"unity"`
 }
 
 type Event struct {
@@ -113,6 +114,26 @@ type Monster struct {
 	Enraged  bool    `json:"enraged"`
 	Hit      bool    `json:"hit"`
 	Hunting  bool    `json:"hunting"`
+	// Team combat (see server/game/teamplay.js): poise is 0..1 for elites and
+	// bosses, nil for everything else.
+	Poise     *float64 `json:"poise"`
+	Staggered bool     `json:"staggered"`
+	Sealed    bool     `json:"sealed"`
+	Chain     int      `json:"chain"`
+}
+
+// Unity is the shared party meter that powers a RALLY.
+type Unity struct {
+	Value float64 `json:"value"`
+	Max   float64 `json:"max"`
+}
+
+// Rune is one tile of a boss's abyssal seal; Lit while a hero stands on it.
+type Rune struct {
+	X     int     `json:"x"`
+	Y     int     `json:"y"`
+	Lit   bool    `json:"lit"`
+	Until float64 `json:"until"`
 }
 
 type FloorItem struct {
@@ -214,6 +235,7 @@ type GameState struct {
 	SafeRoomID    *int        `json:"safeRoomId"`
 	View          View        `json:"view"`
 	Danger        [][2]int    `json:"danger"`
+	Runes         []Rune      `json:"runes"`
 	Threat        *Threat     `json:"threat"`
 	Monsters      []Monster   `json:"monsters"`
 	Items         []FloorItem `json:"items"`

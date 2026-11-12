@@ -24,6 +24,7 @@ const { MERCHANT_LINES } = require("./lore");
 const coop = require("./coop");
 const endgame = require("./endgame");
 const encounters = require("./encounters");
+const teamplay = require("./teamplay");
 
 const TICK_MS = 300;
 const SIGHT = 12; // vision radius in tiles
@@ -413,6 +414,8 @@ class World extends EventEmitter {
       tauntUntil: 0,
     };
     if (elite) this.rollAffix(monster, def);
+    if (boss && def.final) monster.final = true;
+    this.initPoise(monster);
     this.monsters.set(monster.id, monster);
     return monster;
   }
@@ -1050,7 +1053,7 @@ class World extends EventEmitter {
     }
     if (used) {
       this.sound(player.x, player.y, encounters.SKILL_SOUND[skill.id] || "buff");
-      player.cooldowns[skill.id] = now + skill.cooldown;
+      player.cooldowns[skill.id] = now + Math.round(skill.cooldown * this.skillCooldownMult(player));
       this.changed();
     }
   }
@@ -1230,6 +1233,7 @@ class World extends EventEmitter {
     if (crit) dmg *= 2;
     if (flank) dmg *= 1 + 0.15 * flank;
     if (combo) dmg *= combo.mult;
+    dmg *= this.teamDamageMult(player, monster, now);
     const exposed = monster.exposedUntil > now;
     if (exposed) {
       dmg *= 1.25;
@@ -1245,8 +1249,8 @@ class World extends EventEmitter {
     if (ward && chance(0.4)) this.floater(ward.x, ward.y, "wards", [150, 200, 255]);
     this.sound(monster.x, monster.y, crit ? "crit" : "hit");
     if (monster.pack && !monster.target) this.callPack(monster, player);
-    if (!monster.flees && !(monster.tauntUntil > now)) monster.target = player.id;
-    if (combo) monster.primed = null;
+    this.addThreat(monster, player, dmg, now);
+    if (combo) this.afterCombo(player, monster, combo, prime, now);
     else if (prime) monster.primed = { type: prime, by: player.id, until: now + 6000 };
 
     const ls = this.effLifesteal(player);
@@ -1255,13 +1259,14 @@ class World extends EventEmitter {
     if (!opts.quiet) {
       this.notify(
         player,
-        `${crit ? "CRIT! " : ""}${opts.label || "You hit"} the ${monster.name} for ${dmg}${exposed ? " (opening)" : ""}${flank ? " (flanked)" : ""}${ward ? " (warded)" : ""}.`,
+        `${crit ? "CRIT! " : ""}${opts.label || "You hit"} the ${monster.name} for ${dmg}${exposed ? " (opening)" : ""}${flank ? " (flanked)" : ""}${ward ? " (warded)" : ""}${monster.staggerUntil > now ? " (staggered)" : ""}${monster.seal ? " (sealed!)" : ""}.`,
         crit ? C.crit : C.hit,
       );
     }
     const killed = monster.hp <= 0;
     if (killed) this.killMonster(monster, player);
     if (combo) this.detonate(player, monster, combo, dmg);
+    this.afterHeroHit(player, monster, { mult, crit, flank, combo }, now);
     return { dmg, killed };
   }
 
@@ -1274,6 +1279,7 @@ class World extends EventEmitter {
     const now = Date.now();
     const k = killer.stats;
     k.kills++;
+    this.gainUnity(killer, monster.boss ? 30 : monster.elite ? 6 : 1.5);
     const kinds = killer.counters.kinds;
     kinds[monster.type] = (kinds[monster.type] || 0) + 1;
     if (monster.undead) killer.counters.undead = (killer.counters.undead || 0) + 1;
@@ -1469,9 +1475,9 @@ class World extends EventEmitter {
       (p) => p !== player && !p.downed && dist(p, player) <= REVIVE_RANGE,
     );
     if (!allyNearby) return this.killPlayer(player, by);
-    player.downed = { until: Date.now() + DOWNED_MS, by };
+    player.downed = { until: Date.now() + DOWNED_MS + this.downedBonusMs(player), by };
     for (const m of this.monsters.values()) if (m.target === player.id) m.target = null;
-    this.announce(`${player.username} is DOWN! Walk into them within ${DOWNED_MS / 1000}s to revive!`, C.bad);
+    this.announce(`${player.username} is DOWN! Walk into them within ${Math.round((player.downed.until - Date.now()) / 1000)}s to revive!`, C.bad);
     this.notify(player, "You are down! Hold on - an ally can revive you.", C.bad);
     this.fx(player, "death", "✚ YOU ARE DOWN ✚", [255, 90, 90]);
     this.sound(player.x, player.y, "down");
@@ -1485,6 +1491,9 @@ class World extends EventEmitter {
     this.fx(player, "toast", `Revived by ${saviour.username}!`, C.good);
     this.sound(player.x, player.y, "revive");
     if (saviour !== player) {
+      this.addBuff(player, "secondwind", "Second Wind", 6000);
+      this.addBuff(saviour, "secondwind", "Second Wind", 6000);
+      this.gainUnity(saviour, 20);
       saviour.counters.revives = (saviour.counters.revives || 0) + 1;
       this.gainXp(saviour, Math.round(xpToNext(saviour.stats.level) * 0.03));
       this.checkAchievements(saviour);
@@ -1536,6 +1545,7 @@ class World extends EventEmitter {
     for (const p of this.players.values()) nearestDist = Math.min(nearestDist, dist(p, monster));
     if (nearestDist > ACTIVE_RANGE) return false;
     if (monster.frozenUntil > now) return false;
+    if (monster.staggerUntil > now) return false;
     if (monster.windup > this.tickCount) return false; // winding up a telegraphed attack
     if (monster.boss && this.bossMechanics(monster, now)) return true;
 
@@ -1720,6 +1730,7 @@ class World extends EventEmitter {
       if (this.updateMonster(monster, now)) changed = true;
     }
     if (this.encounters.size) this.updateEncounters(now);
+    this.updateTeamplay(now);
 
     for (const p of this.players.values()) {
       if (p.downed && now >= p.downed.until) {
@@ -1865,6 +1876,7 @@ class World extends EventEmitter {
         enraged: !!m.enraged,
         hit: now - m.lastHit < 250,
         hunting: m.target === player.id,
+        ...this.monsterTeamState(m, now),
       });
     }
 
@@ -1946,7 +1958,9 @@ class World extends EventEmitter {
         buffs: Object.entries(player.buffs)
           .filter(([, b]) => b.until > now)
           .map(([id, b]) => ({ id, name: b.name, until: b.until }))
-          .concat(!player.downed && this.inFormation(player) ? [{ id: "formation", name: "Formation", until: now + 1000 }] : []),
+          .concat(!player.downed && this.inFormation(player) ? [{ id: "formation", name: "Formation", until: now + 1000 }] : [])
+          .concat(this.aurasFor(player, now)),
+        unity: { value: this.unityOf(player), max: teamplay.UNITY_MAX },
         skills: c.skills.map((s, i) => ({
           id: s.id,
           key: String(i + 1),
@@ -1965,6 +1979,7 @@ class World extends EventEmitter {
       safeRoomId: this.safeRoomId,
       view,
       danger: this.dangerFor(isVisible),
+      runes: this.runesFor(isVisible),
       threat: this.threatFor(player, now, TICK_MS),
       monsters,
       items,
@@ -1987,7 +2002,7 @@ class World extends EventEmitter {
 }
 
 // Mix in co-op (parties, pings, travel, boss mechanics) and endgame/setting systems.
-Object.assign(World.prototype, coop, endgame, encounters);
+Object.assign(World.prototype, coop, endgame, encounters, teamplay);
 World.prototype.upgradeCostOf = endgame.upgradeCost;
 World.prototype.reforgeCostOf = endgame.reforgeCost;
 

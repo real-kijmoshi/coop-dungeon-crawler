@@ -122,7 +122,13 @@ module.exports = {
     if (opts.crit) dmg *= 2;
     if (this.hasBuff(player, "ironskin")) dmg = Math.round(dmg * 0.3);
     if (this.inFormation(player)) dmg = Math.round(dmg * (1 - FORMATION_REDUCTION));
+    dmg = this.teamProtection(player, dmg);
+    if (dmg === null) {
+      this.floater(player.x, player.y, "aegis", [255, 240, 160]);
+      return 0;
+    }
     dmg = Math.max(1, dmg);
+    if (!opts.noGuard) dmg = Math.max(1, this.guardBlow(player, dmg, opts.by));
     player.stats.hp -= dmg;
     player.lastHurt = Date.now();
     this.floater(player.x, player.y, `-${dmg}`, [255, 90, 90]);
@@ -400,7 +406,9 @@ module.exports = {
     if (!pr || pr.until <= now) return null;
     const team = pr.by !== player.id;
     if (!team && (!prime || prime === pr.type)) return null;
-    return { ...COMBOS[pr.type], type: pr.type, team, by: pr.by, mult: team ? COMBOS[pr.type].mult : SELF_COMBO_MULT };
+    const chain = team ? this.chainStep(player, monster, now) : 1;
+    const mult = team ? COMBOS[pr.type].mult + this.chainBonus(chain) : SELF_COMBO_MULT;
+    return { ...COMBOS[pr.type], type: pr.type, team, by: pr.by, mult, chain };
   },
 
   flankers(player, monster, now) {
@@ -420,7 +428,8 @@ module.exports = {
   detonate(player, monster, combo, dmg) {
     const now = Date.now();
     const alive = this.monsters.has(monster.id);
-    this.floater(monster.x, monster.y, combo.team ? `${combo.name}!` : combo.name.toLowerCase(), combo.color);
+    const chained = combo.chain > 1 ? ` ×${combo.chain}` : "";
+    this.floater(monster.x, monster.y, combo.team ? `${combo.name}${chained}!` : combo.name.toLowerCase(), combo.color);
     this.sound(monster.x, monster.y, "combo");
     if (!combo.team) return;
     const partner = this.players.get(combo.by);
@@ -450,7 +459,9 @@ module.exports = {
       p.counters.teamCombos = (p.counters.teamCombos || 0) + 1;
       this.questEvent(p, "teamcombo");
     }
-    this.notify(player, `TEAM COMBO with ${partner ? partner.username : "an ally"}: ${combo.name}! ${dmg} damage.`, COMBO_COLOR);
+    const chainText = combo.chain > 1 ? ` CHAIN ×${combo.chain}!` : "";
+    const passOn = this.monsters.has(monster.id) && monster.primed && monster.primed.by === player.id ? " Your mark passes the chain on - an ally can detonate it again!" : "";
+    this.notify(player, `TEAM COMBO with ${partner ? partner.username : "an ally"}: ${combo.name}!${chainText} ${dmg} damage.${passOn}`, COMBO_COLOR);
     if (partner) this.notify(partner, `TEAM COMBO: ${player.username} hits your marked ${monster.name} - ${combo.name}! ${dmg} damage.`, COMBO_COLOR);
   },
 
@@ -702,6 +713,7 @@ module.exports = {
         m.xp = Math.round(m.xp * B.ELITE.xp);
         m.color = m.color.map((v) => Math.min(255, v + 60));
         this.rollAffix(m, { name: m.name });
+        this.initPoise(m);
       }
       if (heroes.length) m.target = pick(heroes).id;
       this.joinEncounter(m, enc.id);
