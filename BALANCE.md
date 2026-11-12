@@ -95,7 +95,7 @@ cd server
 npm test                                   # engine checks
 node sim/simulate.js --hours 25            # one solo hero of each class in a shared world
 node sim/simulate.js --classes mage --hours 25 --seed 2
-node sim/simulate.js --party --hours 25    # the four classes in one party
+node sim/simulate.js --party --hours 25    # the six classes in one party
 node sim/simulate.js --hours 5 --json out.json
 ```
 

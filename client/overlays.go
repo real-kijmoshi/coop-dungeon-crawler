@@ -102,7 +102,7 @@ func (g *Game) showClassSelect(note *Line) {
 		if i == g.classCursor {
 			marker = "▶"
 		}
-		lines = append(lines, L(fmt.Sprintf("%s %d  %-8s  HP %d · ATK %d · DEF %d", marker, i+1, c.Name, int(c.HP), int(c.Atk), int(c.Def)), c.Color))
+		lines = append(lines, L(fmt.Sprintf("%s %d  %-11s  HP %d · ATK %d · DEF %d", marker, i+1, c.Name, int(c.HP), int(c.Atk), int(c.Def)), c.Color))
 	}
 	selected := classes[g.classCursor]
 	lines = append(lines, L("", cWhite), L(selected.Name, selected.Color))
@@ -122,7 +122,7 @@ func (g *Game) showClassSelect(note *Line) {
 			lines = append(lines, L(skill, cCyan))
 		}
 	}
-	footer := "↑/↓ or 1-4 preview · Enter choose · Q quit"
+	footer := fmt.Sprintf("↑/↓ or 1-%d preview · Enter choose · Q quit", len(classes))
 	if g.classConfirm {
 		lines = append(lines, L("Choose "+selected.Name+" permanently?", cYellow))
 		footer = "Enter confirm · Esc back"

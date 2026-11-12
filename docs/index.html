@@ -7,7 +7,7 @@
 <meta name="description" content="A free, open-source co-op RPG for your terminal. Pick a class, host a dungeon, and fight through six biomes with up to four players.">
 <meta name="theme-color" content="#110f14">
 <meta property="og:title" content="Coop Dungeon Crawler">
-<meta property="og:description" content="A co-op RPG for your terminal. Four classes, six biomes, and one shared dungeon.">
+<meta property="og:description" content="A co-op RPG for your terminal. Six classes, six biomes, and one shared dungeon.">
 <meta property="og:image" content="https://real-kijmoshi.github.io/coop-dungeon-crawler/assets/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://real-kijmoshi.github.io/coop-dungeon-crawler/">
@@ -105,7 +105,7 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
 .card { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
 .card h3 + p, .card p + p { margin-top: 8px; }
 .card a.button { align-self: flex-start; }
-.class-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.class-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .class { border-top: 2px solid var(--class); }
 .class-glyph { display: grid; place-items: center; width: 42px; height: 42px; color: var(--class); border: 1px solid currentColor; background: var(--bg); font: 700 1.45rem var(--mono); margin-bottom: 14px; }
 .class .skill { border-top: 1px solid var(--line); padding-top: 11px; margin-top: 16px; font-size: .81rem; }
@@ -258,6 +258,8 @@ code, kbd { font-family: var(--mono); color: var(--gold); font-size: .87em; over
       <article class="card class" style="--class:#b7ed98"><div class="class-glyph" aria-hidden="true">@</div><h3>Rogue</h3><p>Dodge incoming hits and strike from the shadows.</p><p class="skill">Backstab · Smoke Bomb · Fan of Knives · Shadow Strike</p></article>
       <article class="card class" style="--class:#a7baff"><div class="class-glyph" aria-hidden="true">@</div><h3>Mage</h3><p>Freeze crowds, chain lightning, and rain fire from range.</p><p class="skill">Fireball · Frost Nova · Chain Lightning · Meteor</p></article>
       <article class="card class" style="--class:#ffdb92"><div class="class-glyph" aria-hidden="true">@</div><h3>Cleric</h3><p>Keep the party alive and deal extra damage to the undead.</p><p class="skill">Heal · Smite · Sanctuary · Holy Nova</p></article>
+      <article class="card class" style="--class:#78d28c"><div class="class-glyph" aria-hidden="true">@</div><h3>Ranger</h3><p>Pick off foes from range, snare them in place, and mark them for the party.</p><p class="skill">Aimed Shot · Snare Trap · Volley · Hunter's Mark</p></article>
+      <article class="card class" style="--class:#aa78dc"><div class="class-glyph" aria-hidden="true">@</div><h3>Necromancer</h3><p>Drain life to stay standing and curse enemies so allies hit harder.</p><p class="skill">Drain Life · Curse of Frailty · Bone Prison · Soul Harvest</p></article>
     </div>
     <div class="world">
       <div>

@@ -7,7 +7,7 @@
 // Prints how long each level takes, deaths, time-to-kill and time-to-die per level band.
 //
 //   node sim/simulate.js --hours 20                      # one solo hero of each class
-//   node sim/simulate.js --hours 10 --party              # the four classes in one party
+//   node sim/simulate.js --hours 10 --party              # the six classes in one party
 //   node sim/simulate.js --hours 5 --classes mage,mage   # pick the heroes
 //   options: --seed N  --json out.json  --quiet
 //   env: SIM_DEBUG=1 prints every bot's state every 30 simulated seconds,
@@ -28,7 +28,7 @@ const SEED = Number(opt("seed", 1));
 const PARTY = !!opt("party", false);
 const QUIET = !!opt("quiet", false);
 const JSON_OUT = opt("json", null);
-const CLASS_LIST = String(opt("classes", "warrior,rogue,mage,cleric")).split(",");
+const CLASS_LIST = String(opt("classes", "warrior,rogue,mage,cleric,ranger,necromancer")).split(",");
 
 // ---------------------------------------------------------------- fake clock + rng
 let NOW = 1_700_000_000_000;
@@ -293,6 +293,9 @@ class Bot {
         case "frostnova":
         case "fan":
         case "holynova":
+        case "snare":
+        case "boneprison":
+        case "harvest":
           want = close.length >= (s.id === "berserk" || s.id === "warcry" ? 1 : 2) || (close.length && close[0].boss);
           break;
         case "fireball":
@@ -300,6 +303,11 @@ class Bot {
         case "chain":
         case "meteor":
         case "shadowstrike":
+        case "aimedshot":
+        case "volley":
+        case "huntersmark":
+        case "drain":
+        case "frailty":
           want = sight.length > 0 && sight.some((m) => world.los(p.x, p.y, m.x, m.y)) && !(this.avoid(sight[0]));
           break;
       }

@@ -1,10 +1,15 @@
 const { areas: layouts, routes } = require("./city-map");
-const { monsterBase, xpLevelMult } = require("./balance");
+const { monsterBase, xpLevelMult, chestGold } = require("./balance");
+const { MAX_POTIONS } = require("./data");
 
 const STRIDE = 64;
 const FIRST_ROOM_ID = 1_000_000;
 const NPC_COLOR = [245, 209, 138];
 const ROUTE_COLOR = [145, 216, 211];
+const CACHE_COLOR = [214, 176, 112];
+const SEARCHED_COLOR = [110, 100, 88];
+const INN_COLOR = [255, 186, 120];
+const RESTED_MS = 10 * 60 * 1000;
 const MAP_TILES = {
   "~": { char: "~", color: [76, 151, 197], bg: [14, 40, 66], solid: true },
   "=": { char: "=", color: [188, 151, 93], bg: [52, 43, 30] },
@@ -48,6 +53,8 @@ class Cities {
     this.hinge = saved.hinge === 1 ? 1 : 0;
     this.cleared = readSet(saved.cleared, new Set(Object.keys(layouts)));
     this.ladder = saved.ladder === true && this.cleared.has("aqueduct");
+    this.residents = new Set();
+    this.caches = new Set();
 
     for (const [id, layout] of Object.entries(layouts)) this.addArea(id, layout);
     this.home = this.areas.get("emberfall").points.get("s");
@@ -97,7 +104,16 @@ class Cities {
       });
     });
     for (const [char, npc] of Object.entries(layout.npcs || {})) {
-      this.addFeature(area.points.get(char), npc);
+      const id = `${area.id}:${char}`;
+      if (npc.kind === "cache") {
+        this.caches.add(id);
+        this.addFeature(area.points.get(char), { char: "%", color: CACHE_COLOR, ...npc, id });
+      } else if (npc.kind === "inn") {
+        this.addFeature(area.points.get(char), { char: "I", color: INN_COLOR, ...npc, id });
+      } else {
+        if (!npc.kind && !npc.thing) this.residents.add(id);
+        this.addFeature(area.points.get(char), { ...npc, id });
+      }
     }
   }
 
@@ -131,12 +147,14 @@ class Cities {
       areas: readSet(data?.areas, this.areas),
       routes: readSet(data?.routes, surveyedRoutes),
       facts: readSet(data?.facts, facts),
+      met: readSet(data?.met, this.residents),
+      caches: readSet(data?.caches, this.caches),
     };
   }
 
   saveProgress(player) {
-    const { areas, routes, facts } = player.exploration;
-    return { areas: [...areas], routes: [...routes], facts: [...facts] };
+    const { areas, routes, facts, met, caches } = player.exploration;
+    return { areas: [...areas], routes: [...routes], facts: [...facts], met: [...met], caches: [...caches] };
   }
 
   saveWorld() {
@@ -201,6 +219,9 @@ class Cities {
       return { ok: true };
     }
     if (feature.kind === "route") return this.cross(player, feature);
+    if (feature.kind === "inn") return this.rest(player, feature);
+    if (feature.kind === "cache") return this.search(player, feature);
+    this.meet(player, feature);
     const known = player.exploration.facts;
     switch (feature.action) {
       case "hinge":
@@ -220,6 +241,8 @@ class Cities {
           return this.speak(feature, "That is the fourth road. Veyr took the counterseal into the proving chamber. I can hold the register open while you follow him.");
         }
         return this.speak(feature, feature.text);
+      case "cartographer":
+        return this.speak(feature, this.survey(player));
       case "registerEnding":
         if (!this.cleared.has("proving_chamber")) return this.speak(feature, "Veyr's frame still holds the public hinge. Defeat him to release the override.");
         this.recordFact(player, "ending");
@@ -227,6 +250,79 @@ class Cities {
     }
     if (feature.action) this.recordFact(player, feature.action);
     return this.speak(feature, feature.text);
+  }
+
+  // The first conversation with each resident is worth a little XP.
+  meet(player, feature) {
+    const met = player.exploration.met;
+    if (!this.residents.has(feature.id) || met.has(feature.id)) return;
+    met.add(feature.id);
+    this.world.markDirty(player);
+    const area = this.areaAt(feature.x, feature.y);
+    const xp = Math.round(monsterBase(area.level).xp * xpLevelMult(player.stats.level, area.level));
+    if (xp > 0) this.world.gainXp(player, xp);
+    this.world.notify(player, `You meet ${feature.name}. Residents met: ${met.size}/${this.residents.size}.`, NPC_COLOR);
+    if (met.size === this.residents.size) {
+      this.world.fx(player, "toast", "Everyone knows your name", NPC_COLOR);
+      this.world.notify(player, "You have met every resident of the cities below Emberfall.", NPC_COLOR);
+    }
+  }
+
+  // An innkeeper restores a hero and leaves them Well Rested (+15% XP).
+  rest(player, feature) {
+    const world = this.world;
+    const s = player.stats;
+    s.hp = s.maxHp;
+    const topped = s.potions < 3;
+    if (topped) s.potions = 3;
+    world.addBuff(player, "rested", "Well Rested", RESTED_MS);
+    world.markDirty(player);
+    world.markProfile(player);
+    world.changed();
+    const line = feature.text || "A warm bed and a bowl of stew. You wake up ready for the road.";
+    return this.speak(feature, `${line} (Full health${topped ? ", potions topped up to 3" : ""}, Well Rested: +15% XP for 10 minutes.)`);
+  }
+
+  // Hidden caches: each hero can search each one once.
+  search(player, feature) {
+    const found = player.exploration.caches;
+    if (found.has(feature.id)) return this.speak(feature, "You've already searched here. Only dust and old footprints remain.");
+    found.add(feature.id);
+    const area = this.areaAt(feature.x, feature.y);
+    const gold = chestGold(area.level);
+    this.world.addGold(player, gold);
+    const potion = player.stats.potions < MAX_POTIONS;
+    if (potion) player.stats.potions++;
+    this.world.soundFor(player, "chest");
+    this.world.markDirty(player);
+    this.world.markProfile(player);
+    this.world.changed();
+    const loot = `${gold} gold${potion ? " and a healing potion" : ""}`;
+    this.world.notify(player, `Hidden cache ${found.size}/${this.caches.size}: ${loot}.`, CACHE_COLOR);
+    return this.speak(feature, `${feature.text || "Something is tucked away here."} You find ${loot}.`);
+  }
+
+  // The cartographer tells a hero what is still unexplored.
+  survey(player) {
+    const progress = player.exploration;
+    const places = [...this.areas.values()].filter((area) => area.id !== "proving_chamber");
+    const unseen = places.filter((area) => !progress.areas.has(area.id));
+    const caches = this.caches.size - progress.caches.size;
+    const people = this.residents.size - progress.met.size;
+    const bits = [];
+    if (unseen.length) bits.push(`${unseen.length} district${unseen.length === 1 ? "" : "s"} you haven't walked (try ${unseen[0].name})`);
+    if (caches > 0) bits.push(`${caches} hidden cache${caches === 1 ? "" : "s"} (look for % in the corners)`);
+    if (people > 0) bits.push(`${people} resident${people === 1 ? "" : "s"} you haven't spoken to`);
+    if (!bits.length) return "My maps have nothing left to teach you. Every street, every cache, every face. Remarkable.";
+    return `By my survey there are ${bits.join(", ")}.`;
+  }
+
+  // Any merchant stall in a city counts as the merchant.
+  merchantNear(player, range = 2) {
+    for (const feature of this.features.values()) {
+      if (feature.kind === "merchant" && Math.max(Math.abs(feature.x - player.x), Math.abs(feature.y - player.y)) <= range) return true;
+    }
+    return false;
   }
 
   recordFact(player, fact) {
@@ -303,6 +399,7 @@ class Cities {
       .map((area) => ({
         id: area.id, name: area.name, label: area.label, description: area.description, safe: !!area.safe,
         visited: progress.areas.has(area.id),
+        ...this.areaCounts(area, progress),
         routes: !progress.areas.has(area.id) ? [] : [...this.features.values()]
           .filter((feature) => feature.kind === "route" && this.areaAt(feature.x, feature.y) === area)
           .filter((feature) => feature.route !== "proving-chamber" || progress.facts.has("register"))
@@ -317,7 +414,32 @@ class Cities {
     else if (progress.facts.has("register")) lead = "Enter the proving chamber from Long Ward.";
     else if (progress.facts.has("receiver") && progress.facts.has("stamp")) lead = "Show Mera in Long Ward what you found.";
     else if (progress.facts.has("stamp")) lead = "Follow the service roads to Pela in Kilnward.";
-    return { current: current?.id ?? "", places, lead, completed: progress.facts.has("ending") };
+    return {
+      current: current?.id ?? "", places, lead, completed: progress.facts.has("ending"),
+      residents: this.residents.size, met: progress.met.size,
+      caches: this.caches.size, cachesFound: progress.caches.size,
+    };
+  }
+
+  areaCounts(area, progress) {
+    let people = 0, met = 0, caches = 0, found = 0;
+    for (const feature of this.features.values()) {
+      if (!feature.id?.startsWith(`${area.id}:`)) continue;
+      if (this.residents.has(feature.id)) {
+        people++;
+        if (progress.met.has(feature.id)) met++;
+      } else if (this.caches.has(feature.id)) {
+        caches++;
+        if (progress.caches.has(feature.id)) found++;
+      }
+    }
+    return { people, met, caches, cachesFound: found };
+  }
+
+  // How a feature looks to one hero (searched caches fade).
+  lookFor(player, feature) {
+    if (feature.kind === "cache" && player.exploration?.caches.has(feature.id)) return SEARCHED_COLOR;
+    return feature.color;
   }
 
   describe(area, visible, player) {

@@ -448,7 +448,7 @@ func (g *Game) drawMap(r rect) {
 		if !ok {
 			continue
 		}
-		if n.Name == "Merchant" {
+		if n.Name == "Merchant" || n.Kind == "merchant" {
 			bg := Color{70, 50, 20}
 			cv.Put(sx, sy, firstRune(n.Char), n.Color, &bg, true)
 			cv.Put(sx+1, sy, '$', Color{255, 215, 0}, &bg, false)
