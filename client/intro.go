@@ -59,8 +59,30 @@ var introScenes = []introScene{
 	},
 }
 
+var cityIntroScenes = []introScene{
+	{
+		title: "The lights of Emberfall",
+		text:  "Rain slips through the plateau and fills the cisterns below. Emberfall built its market around one of them. Lanterns mark the bridge to the post office.",
+		color: Color{158, 187, 239},
+		art:   introScenes[0].art,
+	},
+	{
+		title: "The roads below",
+		text:  "Survey hinges shift distance between roads. When food could no longer reach the cities one winter, Orraveth took their extra miles onto its own bridge.",
+		color: Color{255, 153, 93},
+		art:   introScenes[1].art,
+	},
+	{
+		title: "Two letters for one house",
+		text:  "Dena has two letters for 8 Mill Stair. One says Emberfall. The other says Orraveth, a city crossed out on the atlas. She is waiting in the Post Court.",
+		color: Color{255, 207, 132},
+		art:   introScenes[2].art,
+	},
+}
+
 type introPlayback struct {
 	scene  int
+	scenes []introScene
 	since  time.Time
 	replay bool
 }
@@ -74,7 +96,11 @@ func (g *Game) beginHeroIntro() {
 }
 
 func (g *Game) playIntro(replay bool) {
-	g.intro = &introPlayback{since: time.Now(), replay: replay}
+	scenes := introScenes
+	if g.hasCities() {
+		scenes = cityIntroScenes
+	}
+	g.intro = &introPlayback{since: time.Now(), replay: replay, scenes: scenes}
 	g.overlay = &Overlay{Kind: "intro"}
 }
 
@@ -86,7 +112,7 @@ func (g *Game) introKey(key string) {
 			g.intro.since = time.Now()
 		}
 	case "Enter", "Right", "Space":
-		if g.intro.scene+1 < len(introScenes) {
+		if g.intro.scene+1 < len(g.intro.scenes) {
 			g.intro.scene++
 			g.intro.since = time.Now()
 			return
@@ -110,7 +136,7 @@ func (g *Game) finishIntro() {
 func (g *Game) drawIntro(now time.Time) {
 	cv := g.cv
 	intro := g.intro
-	scene := introScenes[intro.scene]
+	scene := intro.scenes[intro.scene]
 	back := Color{13, 11, 17}
 	cv.Fill(0, 0, cv.W, cv.H, back)
 
@@ -132,7 +158,7 @@ func (g *Game) drawIntro(now time.Time) {
 	center := func(row int, value string, color Color, bold bool) {
 		cv.Text(x+maxi(2, (width-runeLen(value))/2), row, value, color, &panel, bold, width-4)
 	}
-	center(y+1, fmt.Sprintf("EMBERFALL  ·  %d / %d", intro.scene+1, len(introScenes)), scene.color, false)
+	center(y+1, fmt.Sprintf("EMBERFALL  ·  %d / %d", intro.scene+1, len(g.intro.scenes)), scene.color, false)
 	for i, line := range title {
 		center(y+2+i, line, scene.color, true)
 	}
@@ -170,7 +196,7 @@ func (g *Game) drawIntro(now time.Time) {
 		center(row, line, theme.text, false)
 	}
 	footer := "← back   Enter next   Esc skip"
-	if intro.scene+1 == len(introScenes) {
+	if intro.scene+1 == len(g.intro.scenes) {
 		footer = "← back   Enter continue"
 	}
 	if width < 37 {

@@ -32,6 +32,11 @@ module.exports = {
   },
 
   checkBiome(p) {
+    const district = this.cities?.areaAt(p.x, p.y);
+    if (district) {
+      p.biome = district.id;
+      return;
+    }
     const b = this.biomeAt(p.x, p.y);
     if (p.biome === b.id) return;
     const first = p.biome === undefined;
@@ -43,6 +48,7 @@ module.exports = {
 
   worldInfo() {
     return {
+      cities: !!this.cities,
       tierDistance: TIER_DISTANCE,
       biomes: BIOMES.map((b) => ({ id: b.id, name: b.name, from: b.from, to: b.to, floor: b.floor, corridor: b.corridor, wall: b.wall })),
       story: STORY,

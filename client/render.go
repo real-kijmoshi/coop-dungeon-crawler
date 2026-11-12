@@ -109,6 +109,19 @@ func (g *Game) draw() {
 				right = fmt.Sprintf("dodge %.1fs", left/1000)
 			}
 		}
+		if d := st.District; d != nil {
+			title = strings.ToUpper(d.Name) + " · " + d.Label
+			if d.Safe {
+				titleColor = cGreen
+			}
+			right = ""
+			if k := g.settings.keyLabel("interact"); d.Prompt != "" && k != "" {
+				hint := k + " " + d.Prompt
+				if runeLen(title)+runeLen(hint)+8 < mapW {
+					right = hint
+				}
+			}
+		}
 	}
 	cv.Box(0, top, mapW, mapH, BoxOpts{Color: border, BG: theme.bg, Title: title, TitleColor: &titleColor, RightTitle: right, RightColr: ptr(theme.faint)})
 	inner := rect{1, top + 1, mapW - 2, mapH - 2}
@@ -282,6 +295,12 @@ func (g *Game) drawMap(r rect) {
 		flicker = 0.95 + math.Round((0.05*valueNoise(tsec*3, 3)+0.02*math.Sin(tsec*5))*50)/50
 	}
 	lights := g.lightSources(tsec)
+	terrain := map[[2]int]DistrictTile{}
+	if st.District != nil {
+		for _, tile := range st.District.Terrain {
+			terrain[[2]int{tile.X, tile.Y}] = tile
+		}
+	}
 
 	for ty := 0; ty < r.h; ty++ {
 		for tx := 0; tx < cols; tx++ {
@@ -300,8 +319,14 @@ func (g *Game) drawMap(r rect) {
 				continue // unknown: leave background
 			}
 			var t tileStyle
+			tile, painted := terrain[[2]int{wx, wy}]
 			face := false
 			switch {
+			case painted:
+				t = tileStyle{tile.Color, tile.BG, [2]rune{firstRune(tile.Char), ' '}}
+				if tile.Char == "~" || tile.Char == "=" {
+					t.chars[1] = t.chars[0]
+				}
 			case cell == 0:
 				edge := false
 				for dy := -1; dy <= 1 && !edge; dy++ {
@@ -325,7 +350,7 @@ func (g *Game) drawMap(r rect) {
 			}
 			// Each depth band (biome) has its own colors.
 			b := g.biomeFor(wx, wy)
-			if b != nil && t != tileSafe {
+			if b != nil && t != tileSafe && !painted {
 				switch t {
 				case tileWall:
 					t = tileStyle{b.Wall, b.Wall, t.chars}
@@ -337,7 +362,7 @@ func (g *Game) drawMap(r rect) {
 			}
 			chars := t.chars
 			jitter := 0.9 + hash2(wx, wy)*0.2
-			if cell == 0 {
+			if cell == 0 && !painted {
 				// Walls: lit top surface, darker face with a mortar line where you can see the side.
 				top := scale(t.bg, 1.12*jitter)
 				if face {
@@ -362,7 +387,7 @@ func (g *Game) drawMap(r rect) {
 				t.fg = scale(t.fg, ao)
 			}
 			var decor *decorLook
-			if g.settings.Decor && cell > 0 && t != tileSafe {
+			if g.settings.Decor && st.District == nil && cell > 0 && t != tileSafe {
 				decor = decorAt(b, wx, wy)
 			}
 
@@ -427,6 +452,10 @@ func (g *Game) drawMap(r rect) {
 			bg := Color{70, 50, 20}
 			cv.Put(sx, sy, firstRune(n.Char), n.Color, &bg, true)
 			cv.Put(sx+1, sy, '$', Color{255, 215, 0}, &bg, false)
+			continue
+		}
+		if n.Kind != "" {
+			cv.Put(sx, sy, firstRune(n.Char), n.Color, nil, true)
 			continue
 		}
 		// Waystone: bright when attuned, dim when not yet discovered.
@@ -719,7 +748,11 @@ func (g *Game) drawSidebar(r rect) {
 			cv.Text(xx, yy, fmt.Sprintf("Depth %d", st.Depth), Color{200, 160, 255}, &pb, true, -1)
 			cv.Text(x+11, yy, fmt.Sprintf("best %d", s.MaxDepth), theme.muted, &pb, false, -1)
 		}
-		if st.Home != nil {
+		if st.District != nil {
+			if st.District.Safe {
+				cv.Text(x+w-13, yy, "⌂ safe city", cGreen, &pb, false, 11)
+			}
+		} else if st.Home != nil {
 			dx, dy := st.Home.X-p.X, st.Home.Y-p.Y
 			txt, col := fmt.Sprintf("⌂ %d %s", int(math.Round(math.Hypot(float64(dx), float64(dy)))), compass(dx, dy)), theme.muted
 			if p.Safe {
@@ -861,10 +894,21 @@ func (g *Game) drawSidebar(r rect) {
 				cv.Text(x+2, yy, pad(lead+m.Username, 12), m.Color, &pb, me, 12)
 				where := "you"
 				if !me {
-					dx, dy := m.X-p.X, m.Y-p.Y
-					where = fmt.Sprintf("%d%s", int(math.Hypot(float64(dx), float64(dy))), strings.Fields(compass(dx, dy))[0])
+					district := ""
+					if st.District != nil {
+						district = st.District.Name
+					}
+					if m.District != district {
+						where = m.District
+						if where == "" {
+							where = fmt.Sprintf("D%d", m.Depth)
+						}
+					} else {
+						dx, dy := m.X-p.X, m.Y-p.Y
+						where = fmt.Sprintf("%d%s", int(math.Hypot(float64(dx), float64(dy))), strings.Fields(compass(dx, dy))[0])
+					}
 				}
-				cv.Text(x+14, yy, pad(where, 6), theme.muted, &pb, false, -1)
+				cv.Text(x+14, yy, pad(where, 6), theme.muted, &pb, false, 6)
 				if m.Downed {
 					cv.Text(x+21, yy, "DOWN!", cRed, &pb, true, -1)
 				} else {
@@ -1096,6 +1140,9 @@ func (g *Game) drawToast(r rect) {
 
 // biomeFor returns the biome a world tile belongs to (by its distance from home).
 func (g *Game) biomeFor(x, y int) *BiomeInfo {
+	if g.state != nil && g.state.District != nil {
+		return &g.state.District.BiomeInfo
+	}
 	if g.world == nil || g.state == nil || g.state.Home == nil || g.world.TierDistance <= 0 {
 		return nil
 	}

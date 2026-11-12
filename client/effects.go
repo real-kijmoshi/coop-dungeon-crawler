@@ -66,8 +66,15 @@ func (g *Game) lightSources(t float64) lightField {
 	for _, n := range st.NPCs {
 		if n.Name == "Merchant" {
 			add(n.X, n.Y, 4, 0.45, Color{255, 200, 110})
-		} else {
+		} else if n.Kind == "" {
 			add(n.X, n.Y, 5.5, 0.8*wave(2, 0), Color{90, 220, 255})
+		}
+	}
+	if st.District != nil {
+		for _, tile := range st.District.Terrain {
+			if tile.Light {
+				add(tile.X, tile.Y, 4, 0.48*wave(5, float64(tile.X)), tile.Color)
+			}
 		}
 	}
 	for _, m := range st.Monsters {
@@ -99,8 +106,8 @@ func (g *Game) lightSources(t float64) lightField {
 	for _, pg := range st.Pings {
 		add(pg.X, pg.Y, 3, 0.7*wave(8, 0), Color{120, 230, 255})
 	}
-	// Glowing floor details (lava, mushrooms, crystals) within sight.
-	if g.settings.Decor {
+	// Glowing procedural floor details within sight.
+	if g.settings.Decor && st.District == nil {
 		v := st.View
 		for gy, row := range v.Grid {
 			for gx, c := range row {

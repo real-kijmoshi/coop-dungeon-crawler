@@ -85,6 +85,7 @@ const checkCredentials = (username, password) => {
 // ---------------------------------------------------------------------------
 const gameMap = initMap();
 const world = new World(gameMap, {
+  cities: true,
   eventInterval: process.env.EVENT_INTERVAL_MS
     ? [Number(process.env.EVENT_INTERVAL_MS), Number(process.env.EVENT_INTERVAL_MS)]
     : undefined,
@@ -126,6 +127,7 @@ world.on("sound", (s) => {
   }
 });
 world.on("shop", (id, shop) => sockets.get(id)?.emit("shop", shop));
+world.on("dialogue", (id, dialogue) => sockets.get(id)?.emit("dialogue", dialogue));
 world.on("story", (id) => sockets.get(id)?.emit("story", world.worldInfo().story));
 world.on("message", ({ to, text, color }) => {
   const msg = { text, color };
@@ -286,7 +288,9 @@ const onConnection = (socket) => {
   const player = world.addPlayer(user, data);
   socket.emit("profile", world.profileFor(player));
   socket.emit("message", {
-    text: "Welcome! Press ? for help. Visit the Merchant (M) in the safe room to spend gold.",
+    text: world.cities.areaAt(player.x, player.y)?.id === "emberfall"
+      ? "Welcome to Emberfall. Bump into Postmaster Dena (D) for your first delivery. M opens the atlas."
+      : "Welcome! Press ? for help. Travel to Emberfall from a safe room or waystone.",
     color: [255, 255, 120],
   });
 
@@ -306,6 +310,15 @@ const onConnection = (socket) => {
   socket.on("dodge", (direction, callback) => {
     const result = world.dodgePlayer(player, direction);
     if (typeof callback === "function") callback(result);
+  });
+
+  socket.on("interact", (callback) => {
+    const result = world.interactCity(player);
+    if (typeof callback === "function") callback(result);
+  });
+
+  socket.on("atlas", (callback) => {
+    if (typeof callback === "function") callback(world.cities.atlas(player));
   });
 
   socket.on("potion", () => world.drinkPotion(player));

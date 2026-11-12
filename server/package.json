@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node test/game.test.js && node --test test/transport.test.js test/game-network.test.js",
+    "test": "node test/game.test.js && node --test test/transport.test.js test/game-network.test.js test/cities.test.js",
     "sim": "node sim/simulate.js"
   },
   "keywords": [],

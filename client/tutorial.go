@@ -16,9 +16,15 @@ func (g *Game) tutorialPages() []tutorialPage {
 	if g.state != nil && g.state.Player.DodgeReadyAt == nil {
 		dodge = "Walk out of marked tiles. Dodging is available on newer servers."
 	}
+	opening := "You're in the safe room. Walk out when you're ready to fight."
+	merchant := "Walk into the merchant (M) in the safe room."
+	if g.hasCities() {
+		opening = fmt.Sprintf("Start in Emberfall's Post Court. Walk into Dena (D) to talk, or stand next to her and press %s. Open the atlas with %s.", k("interact"), k("atlas"))
+		merchant = "Walk into the merchant (M) in Post Court or in the dungeon safe room."
+	}
 	return []tutorialPage{
 		{"Your first steps", []string{
-			"You're in Emberfall's safe room. Walk out when you're ready to fight.",
+			opening,
 			fmt.Sprintf("Move with %s / %s / %s / %s or the arrow keys. Walk into an enemy to attack it.", k("up"), k("left"), k("down"), k("right")),
 			fmt.Sprintf("%s uses your first class skill. %s drinks a potion when you need healing.", k("skill1"), k("potion")),
 		}},
@@ -33,7 +39,7 @@ func (g *Game) tutorialPages() []tutorialPage {
 			fmt.Sprintf("%s opens the party list. Select a hero and press Enter to invite them. They press %s to accept.", k("party"), k("accept")),
 		}},
 		{"Buy gear and find the story", []string{
-			"Walk into the merchant (M) in the safe room. Pick an offer to see its effect and price before you confirm.",
+			merchant + " Pick an offer to see its effect and price before you confirm.",
 			fmt.Sprintf("%s opens your inventory. Select gear to compare it against what you're wearing.", k("inventory")),
 			fmt.Sprintf("%s opens the journal. Switch to Lore to read the story of Emberfall, records unlocked by depth, and scrolls (§) you pick up.", k("journal")),
 		}},

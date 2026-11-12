@@ -75,6 +75,20 @@ test('mixed legacy and application-compressed clients authenticate, move and cha
   assert.equal(dodge.d.ok, true);
   await until(() => modern.frames.some(f => f.t === 'gameState' && f.d.player.dodgeReadyAt > f.d.now));
 
+  modern.ws.send(JSON.stringify({ t: 'atlas', id: 32 }));
+  const atlas = await until(() => modern.frames.find(f => f.t === 'reply' && f.id === 32));
+  assert.equal(atlas.d.current, 'emberfall');
+  assert.match(atlas.d.lead, /Dena/);
+  await sleep(125);
+  modern.ws.send(JSON.stringify({ t: 'move', a: ['north'], id: 33 }));
+  assert.equal((await until(() => modern.frames.find(f => f.t === 'reply' && f.id === 33))).d.ok, true);
+  modern.ws.send(JSON.stringify({ t: 'interact', id: 34 }));
+  assert.equal((await until(() => modern.frames.find(f => f.t === 'reply' && f.id === 34))).d.ok, true);
+  await until(() => modern.frames.some(f => f.t === 'dialogue' && f.d.name === 'Postmaster Dena'));
+  modern.ws.send(JSON.stringify({ t: 'atlas', id: 35 }));
+  const updatedAtlas = await until(() => modern.frames.find(f => f.t === 'reply' && f.id === 35));
+  assert.match(updatedAtlas.d.lead, /Deliver both/);
+
   assert.ok(clients[0].applicationCompressedFrames>0 && clients[2].applicationCompressedFrames>0);
   assert.equal(clients[1].applicationCompressedFrames+clients[3].applicationCompressedFrames,0);
   clients[0].ws.send(JSON.stringify({ t: 'chat', a: ['transport-test'] }));
