@@ -121,6 +121,8 @@ type Game struct {
 	selectionPending bool
 	dodgeArmed       bool
 	travelOpts       *TravelOptions
+	atlas            *Atlas
+	atlasCursor      int
 
 	showPerformance bool // F3: network and rendering stats
 	drawTime        time.Duration
@@ -192,6 +194,11 @@ func (g *Game) handleNet(ev NetEvent) {
 				c = *m.Color
 			}
 			g.log(m.Text, c)
+		}
+	case "dialogue":
+		var dialogue Dialogue
+		if json.Unmarshal(ev.D, &dialogue) == nil && dialogue.Name != "" && dialogue.Text != "" {
+			g.showDialogue(dialogue)
 		}
 	case "story":
 		var lines []string
@@ -417,6 +424,17 @@ func (g *Game) gameKey(ev *tcell.EventKey) {
 		g.openTravel()
 	case "ping":
 		g.conn.Send("ping")
+	case "interact":
+		if g.hasCities() && g.connected {
+			g.conn.Request("interact", func(raw json.RawMessage) {
+				var res Result
+				if json.Unmarshal(raw, &res) == nil && !res.OK && res.Message != "" {
+					g.log(res.Message, cYellow)
+				}
+			})
+		}
+	case "atlas":
+		g.openAtlas()
 	case "chat":
 		g.openChat(false)
 	case "partychat":
@@ -715,6 +733,16 @@ func (g *Game) overlayKey(ev *tcell.EventKey) {
 			return
 		}
 		g.showParty(nil)
+		return
+
+	case "dialogue":
+		if closeKey || name == "Enter" || act == "interact" {
+			g.overlay = nil
+		}
+		return
+
+	case "atlas", "atlasPlace":
+		g.atlasKey(o.Kind, name, act, up, down, closeKey)
 		return
 
 	case "travel":

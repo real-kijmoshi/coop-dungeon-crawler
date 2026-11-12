@@ -130,6 +130,7 @@ type NPC struct {
 	Char  string `json:"char"`
 	Color Color  `json:"color"`
 	Known *bool  `json:"known"`
+	Kind  string `json:"kind"`
 }
 
 type Ally struct {
@@ -173,6 +174,7 @@ type PartyMember struct {
 	X        int     `json:"x"`
 	Y        int     `json:"y"`
 	Depth    int     `json:"depth"`
+	District string  `json:"district"`
 }
 
 type PartyState struct {
@@ -199,9 +201,53 @@ type Threat struct {
 	HitsAt float64 `json:"hitsAt"`
 }
 
+type DistrictTile struct {
+	Point
+	Char  string `json:"char"`
+	Color Color  `json:"color"`
+	BG    Color  `json:"bg"`
+	Light bool   `json:"light"`
+}
+
+type District struct {
+	BiomeInfo
+	Label   string         `json:"label"`
+	Safe    bool           `json:"safe"`
+	Prompt  string         `json:"prompt"`
+	Terrain []DistrictTile `json:"terrain"`
+}
+
+type AtlasRoute struct {
+	Name   string `json:"name"`
+	Walked bool   `json:"walked"`
+}
+
+type AtlasPlace struct {
+	Description string       `json:"description"`
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Label       string       `json:"label"`
+	Safe        bool         `json:"safe"`
+	Visited     bool         `json:"visited"`
+	Routes      []AtlasRoute `json:"routes"`
+}
+
+type Atlas struct {
+	Current   string       `json:"current"`
+	Lead      string       `json:"lead"`
+	Places    []AtlasPlace `json:"places"`
+	Completed bool         `json:"completed"`
+}
+
+type Dialogue struct {
+	Name string `json:"name"`
+	Text string `json:"text"`
+}
+
 type GameState struct {
 	Now           float64     `json:"now"`
 	Biome         Biome       `json:"biome"`
+	District      *District   `json:"district"`
 	Party         *PartyState `json:"party"`
 	Invite        *Invite     `json:"invite"`
 	Pings         []Ping      `json:"pings"`
@@ -299,6 +345,7 @@ type BiomeInfo struct {
 }
 
 type WorldInfo struct {
+	Cities       bool        `json:"cities"`
 	TierDistance float64     `json:"tierDistance"`
 	Biomes       []BiomeInfo `json:"biomes"`
 	Story        []string    `json:"story"`

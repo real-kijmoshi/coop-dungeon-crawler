@@ -24,6 +24,7 @@ const { MERCHANT_LINES } = require("./lore");
 const coop = require("./coop");
 const endgame = require("./endgame");
 const encounters = require("./encounters");
+const { Cities } = require("./cities");
 
 const TICK_MS = 300;
 const SIGHT = 12; // vision radius in tiles
@@ -104,6 +105,8 @@ class World extends EventEmitter {
       ? { x: safeRoom.x, y: safeRoom.y, name: "Merchant", char: "M", color: [255, 200, 120] }
       : null;
 
+    this.cities = opts.cities ? new Cities(this) : null;
+    this.home = this.cities?.home || this.spawn;
     for (const room of this.map.rooms) this.populateRoom(room);
 
     this.timer = setInterval(() => this.tick(), TICK_MS);
@@ -126,11 +129,19 @@ class World extends EventEmitter {
   }
 
   inBounds(x, y) {
+    return Number.isInteger(x) && Number.isInteger(y) &&
+      (this.inDungeonBounds(x, y) || !!this.cities?.areaAt(x, y));
+  }
+
+  inDungeonBounds(x, y) {
     return x >= 0 && y >= 0 && x < this.map.size && y < this.map.size;
   }
 
   cell(x, y) {
-    return this.inBounds(x, y) ? this.map.grid[x][y] : 0;
+    if (!this.inBounds(x, y)) return 0;
+    const area = this.cities?.areaAt(x, y);
+    if (area) return area.floor.has(key(x, y)) ? area.roomId : 0;
+    return this.map.grid[x][y];
   }
 
   isFloor(x, y) {
@@ -138,20 +149,24 @@ class World extends EventEmitter {
   }
 
   inSafeRoom(x, y) {
+    const area = this.cities?.areaAt(x, y);
+    if (area) return !!area.safe && this.isFloor(x, y);
     return this.safeRoomId !== null && this.cell(x, y) === this.safeRoomId;
   }
 
   isMerchant(x, y) {
-    return this.merchant && this.merchant.x === x && this.merchant.y === y;
+    return (this.merchant?.x === x && this.merchant?.y === y) ||
+      this.cities?.featureAt(x, y)?.kind === "merchant";
   }
 
   tierAt(x, y) {
+    if (this.cities?.areaAt(x, y)) return 0;
     return Math.floor(dist({ x, y }, this.spawn) / TIER_DISTANCE);
   }
 
   // Monster level of the area (1 near the spawn, 100 near the map edge).
   levelAt(x, y) {
-    return B.levelAtDistance(dist({ x, y }, this.spawn));
+    return this.cities?.areaAt(x, y)?.level ?? B.levelAtDistance(dist({ x, y }, this.spawn));
   }
 
   monsterAt(x, y) {
@@ -169,12 +184,13 @@ class World extends EventEmitter {
       this.isFloor(x, y) &&
       !this.inSafeRoom(x, y) &&
       !this.isMerchant(x, y) &&
+      !this.cities?.featureAt(x, y) &&
       !this.monsterAt(x, y) &&
       !this.playerAt(x, y)
     );
   }
 
-  // Bresenham line of sight: every tile between a and b must be floor.
+  // Bresenham line of sight: floor and open water are transparent.
   los(ax, ay, bx, by) {
     let x = ax;
     let y = ay;
@@ -185,7 +201,8 @@ class World extends EventEmitter {
     let err = dx + dy;
     while (true) {
       if (x === bx && y === by) return true;
-      if ((x !== ax || y !== ay) && !this.isFloor(x, y)) return false;
+      if ((x !== ax || y !== ay) && !this.isFloor(x, y) &&
+          !this.cities?.areaAt(x, y)?.water.has(key(x, y))) return false;
       const e2 = 2 * err;
       if (e2 >= dy) {
         err += dy;
@@ -265,6 +282,7 @@ class World extends EventEmitter {
 
   // ------------------------------------------------------------ generation
   ensureChunksAround(x, y) {
+    if (!this.inDungeonBounds(x, y)) return;
     const { chunkX, chunkY } = this.map.getChunkCoords(x, y);
     let generated = false;
     for (let dx = -2; dx <= 2; dx++) {
@@ -368,7 +386,7 @@ class World extends EventEmitter {
   // level: the level of the area. Stats = level formula x archetype x elite/boss.
   spawnMonster(x, y, level, roomId, forcedDef = null) {
     const def = forcedDef || this.pickMonsterType(level);
-    const boss = !!forcedDef && BOSS_NAMES.has(def.name);
+    const boss = !!forcedDef && (BOSS_NAMES.has(def.name) || def.boss === true);
     const elite = !forcedDef && level >= 8 && chance(0.07 + Math.min(0.08, level * 0.001));
     const lvl = B.clamp(Math.round(level + (elite ? 1 : 0) + (boss ? 2 : 0)), 1, B.MONSTER_MAX_LEVEL);
     const base = B.monsterBase(lvl);
@@ -461,6 +479,7 @@ class World extends EventEmitter {
       counters: { kinds: {}, ...(data.counters || {}) },
       lore: Array.isArray(data.lore) ? data.lore : [],
       waystones: Array.isArray(data.waystones) ? data.waystones : [],
+      exploration: this.cities?.readProgress(data.exploration),
       prestige: user.prestige || 0,
       partyId: null,
       pendingInvite: null,
@@ -480,17 +499,18 @@ class World extends EventEmitter {
 
     // New heroes (no saved position) start at the spawn; don't generate the map corner.
     if (!this.inBounds(p.x, p.y)) {
-      p.x = this.spawn.x;
-      p.y = this.spawn.y;
+      p.x = this.home.x;
+      p.y = this.home.y;
     }
     this.ensureChunksAround(p.x, p.y);
     if (!this.isFloor(p.x, p.y) || this.isMerchant(p.x, p.y)) {
-      p.x = this.spawn.x;
-      p.y = this.spawn.y;
+      p.x = this.home.x;
+      p.y = this.home.y;
       this.ensureChunksAround(p.x, p.y);
     }
     this.players.set(p.id, p);
     this.checkBiome(p);
+    this.cities?.arrive(p);
     this.markProfile(p);
     this.announce(`${this.displayName(p)} entered the dungeon.`, C.good);
     if (this.event) this.notify(p, `Event in progress: ${this.event.name} - ${this.event.desc}`, this.event.color);
@@ -518,6 +538,7 @@ class World extends EventEmitter {
       counters: p.counters,
       lore: p.lore,
       waystones: p.waystones,
+      exploration: this.cities?.saveProgress(p),
     };
   }
 
@@ -645,6 +666,12 @@ class World extends EventEmitter {
       return { ok: true, reason: "revive" };
     }
 
+    const feature = this.cities?.featureAt(nx, ny);
+    if (feature) {
+      player.lastMove = now;
+      return this.interactCity(player, feature);
+    }
+
     if (this.isMerchant(nx, ny)) {
       player.lastMove = now;
       this.emit("shop", player.id, this.shopFor(player));
@@ -664,7 +691,7 @@ class World extends EventEmitter {
 
     const [dx, dy] = DIRS[direction];
     const open = (x, y) => this.isFloor(x, y) && !this.monsterAt(x, y) &&
-      !this.isMerchant(x, y) && !this.playerAt(x, y, (p) => p.downed);
+      !this.isMerchant(x, y) && !this.cities?.featureAt(x, y) && !this.playerAt(x, y, (p) => p.downed);
     let x = player.x + dx;
     let y = player.y + dy;
     if (!open(x, y)) return { ok: false, reason: "blocked" };
@@ -684,11 +711,26 @@ class World extends EventEmitter {
     this.pickUp(player);
     this.checkDepthRecord(player);
     this.checkBiome(player);
-    this.discoverWaystones(player);
-    this.discoverRoom(player);
+    if (this.cities?.areaAt(nx, ny)) {
+      this.cities.arrive(player);
+    } else {
+      this.discoverWaystones(player);
+      this.discoverRoom(player);
+    }
     this.markDirty(player);
     this.changed();
     return { ok: true, reason: "move" };
+  }
+
+  interactCity(player, feature) {
+    if (!this.cities) return { ok: false, message: "City interactions are unavailable here." };
+    const result = this.cities.interact(player, feature);
+    if (result.dialogue) {
+      const { name, text } = result.dialogue;
+      this.notify(player, `${name}: ${text}`, C.quest);
+      this.emit("dialogue", player.id, result.dialogue);
+    }
+    return { ok: result.ok, message: result.message, reason: result.reason || "interact" };
   }
 
   checkDepthRecord(player) {
@@ -942,7 +984,8 @@ class World extends EventEmitter {
 
   // ------------------------------------------------------------------ shop
   nearMerchant(player) {
-    return this.merchant && chebyshev(player, this.merchant) <= 2;
+    return (this.merchant && chebyshev(player, this.merchant) <= 2) ||
+      (this.cities && chebyshev(player, this.cities.merchant) <= 2);
   }
 
   shopFor(player) {
@@ -1271,6 +1314,7 @@ class World extends EventEmitter {
     this.interruptTelegraph(monster);
     this.sound(monster.x, monster.y, monster.boss ? "bosskill" : "kill");
     this.deathEffects(monster);
+    this.cities?.onKill(monster);
     const now = Date.now();
     const k = killer.stats;
     k.kills++;
@@ -1505,9 +1549,12 @@ class World extends EventEmitter {
     player.buffs = {};
     player.combo = { count: 0, until: 0 };
     s.hp = s.maxHp;
-    player.x = this.spawn.x;
-    player.y = this.spawn.y;
+    const respawn = this.cities?.areaAt(player.x, player.y) ? this.home : this.spawn;
+    player.x = respawn.x;
+    player.y = respawn.y;
     this.ensureChunksAround(player.x, player.y);
+    this.checkBiome(player);
+    this.cities?.arrive(player);
     for (const m of this.monsters.values()) if (m.target === player.id) m.target = null;
     this.markProfile(player);
   }
@@ -1765,6 +1812,7 @@ class World extends EventEmitter {
     const size = SIGHT * 2 + 1;
     const grid = [];
     const here = this.cell(player.x, player.y);
+    const district = this.cities?.areaAt(player.x, player.y);
     for (let gy = 0; gy < size; gy++) {
       const row = new Array(size).fill(null);
       for (let gx = 0; gx < size; gx++) {
@@ -1773,14 +1821,14 @@ class World extends EventEmitter {
         if (!this.inBounds(x, y)) continue;
         const inRadius = Math.hypot(x - player.x, y - player.y) <= SIGHT;
         let visible = inRadius && this.los(player.x, player.y, x, y);
-        if (!visible && here > 0) {
+        if (!visible && here > 0 && !district) {
           for (let dy = -1; dy <= 1 && !visible; dy++) {
             for (let dx = -1; dx <= 1 && !visible; dx++) {
               if (this.cell(x + dx, y + dy) === here) visible = true;
             }
           }
         }
-        if (visible) row[gx] = this.map.grid[x][y];
+        if (visible) row[gx] = this.cell(x, y);
       }
       grid.push(row);
     }
@@ -1878,7 +1926,15 @@ class World extends EventEmitter {
       items.push({ x, y, kind: top.kind, char: look.char, color: look.color });
     }
 
+    const area = this.cities?.areaAt(player.x, player.y);
     const npcs = [];
+    if (this.cities) {
+      for (const feature of this.cities.features.values()) {
+        if (!isVisible(feature)) continue;
+        const { x, y, name, char, color, kind } = feature;
+        npcs.push({ x, y, name, char, color, kind });
+      }
+    }
     if (this.merchant && isVisible(this.merchant)) npcs.push(this.merchant);
     for (const w of this.waystones.values()) {
       if (isVisible(w)) npcs.push({ x: w.x, y: w.y, ...this.WAYSTONE_LOOK, known: player.waystones.includes(w.tier) });
@@ -1907,6 +1963,7 @@ class World extends EventEmitter {
     return {
       now,
       biome: { id: biome.id, name: biome.name },
+      district: area ? this.cities.describe(area, isVisible, player) : undefined,
       party: party
         ? {
             leader: this.players.get(party.leader)?.username || "",
@@ -1921,6 +1978,7 @@ class World extends EventEmitter {
               x: m.x,
               y: m.y,
               depth: this.tierAt(m.x, m.y),
+              district: this.cities?.areaAt(m.x, m.y)?.name,
             })),
           }
         : null,
@@ -1961,7 +2019,7 @@ class World extends EventEmitter {
       depth: this.tierAt(player.x, player.y),
       areaLevel: this.levelAt(player.x, player.y),
       maxLevel: MAX_LEVEL,
-      home: this.spawn,
+      home: area ? this.home : this.spawn,
       safeRoomId: this.safeRoomId,
       view,
       danger: this.dangerFor(isVisible),

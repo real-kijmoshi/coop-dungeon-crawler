@@ -22,6 +22,7 @@ var actions = []Action{
 	{"skill1", "Skill 1"}, {"skill2", "Skill 2"}, {"skill3", "Skill 3"}, {"skill4", "Skill 4"},
 	{"dodge", "Dodge (then direction)"}, {"potion", "Drink potion"}, {"inventory", "Inventory"}, {"journal", "Journal"},
 	{"party", "Party"}, {"travel", "Travel (waystones)"}, {"ping", "Ping / mark target"},
+	{"interact", "Interact"}, {"atlas", "World atlas"},
 	{"chat", "Chat"}, {"partychat", "Party chat"}, {"leaderboard", "Leaderboard"},
 	{"help", "Help"}, {"settings", "Settings"}, {"accept", "Accept invite"}, {"decline", "Decline invite"},
 	{"quit", "Quit"},
@@ -33,21 +34,21 @@ var presets = map[string]map[string]string{
 		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
 		"potion": "h", "inventory": "i", "journal": "j", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "l", "help": "?", "settings": "o",
-		"accept": "y", "decline": "n", "quit": "q",
+		"accept": "y", "decline": "n", "quit": "q", "interact": "f", "atlas": "m",
 	},
 	"Vim (hjkl)": {
 		"up": "k", "down": "j", "left": "h", "right": "l",
 		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
 		"potion": "e", "inventory": "i", "journal": "u", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "r", "help": "?", "settings": "o",
-		"accept": "y", "decline": "n", "quit": "q",
+		"accept": "y", "decline": "n", "quit": "q", "interact": "f", "atlas": "m",
 	},
 	"Arrows": {
 		"up": "Up", "down": "Down", "left": "Left", "right": "Right",
 		"skill1": "1", "skill2": "2", "skill3": "3", "skill4": "4", "dodge": "Space",
 		"potion": "h", "inventory": "i", "journal": "j", "party": "p", "travel": "v", "ping": "g",
 		"chat": "t", "partychat": "Tab", "leaderboard": "l", "help": "?", "settings": "o",
-		"accept": "y", "decline": "n", "quit": "q",
+		"accept": "y", "decline": "n", "quit": "q", "interact": "f", "atlas": "m",
 	},
 }
 var presetOrder = []string{"WASD", "Vim (hjkl)", "Arrows"}
@@ -111,10 +112,12 @@ func loadSettings() Settings {
 	if p, ok := presets[s.Preset]; ok {
 		base = p
 	}
-	if _, ok := s.Keys["dodge"]; !ok {
-		s.Keys["dodge"] = ""
-		if s.actionFor(base["dodge"]) == "" {
-			s.Keys["dodge"] = base["dodge"]
+	for _, action := range []string{"dodge", "interact", "atlas"} {
+		if _, ok := s.Keys[action]; !ok {
+			s.Keys[action] = ""
+			if s.actionFor(base[action]) == "" {
+				s.Keys[action] = base[action]
+			}
 		}
 	}
 	for k, v := range base {

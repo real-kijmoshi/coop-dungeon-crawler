@@ -169,8 +169,14 @@ module.exports = {
     const recipients = p.partyId
       ? this.partyMembers(p)
       : Array.from(this.players.values()).filter((o) => dist(o, p) <= 30);
+    const district = this.cities?.areaAt(at.x, at.y);
     for (const r of recipients) {
-      const where = r === p ? "" : ` (${Math.round(dist(r, at))} tiles ${compass(r, at)}, depth ${this.tierAt(at.x, at.y)})`;
+      let where = "";
+      if (r !== p) {
+        const sameArea = district === this.cities?.areaAt(r.x, r.y);
+        const place = district?.name || `depth ${this.tierAt(at.x, at.y)}`;
+        where = sameArea ? ` (${Math.round(dist(r, at))} tiles ${compass(r, at)}, ${place})` : ` (${place})`;
+      }
       this.notify(r, `📍 ${p.username}: ${label}${where}`, [120, 230, 255]);
     }
     this.changed();
@@ -197,7 +203,8 @@ module.exports = {
 
   travelOptions(p) {
     const reason = this.canTravel(p);
-    const dests = [{ id: "home", label: "Safe Room · Emberfall", kind: "home" }];
+    const dests = [{ id: "home", label: this.cities ? "Emberfall · Post Court" : "Safe Room · Emberfall", kind: "home" }];
+    if (this.cities) dests.push({ id: "dungeon-home", label: "Procedural Dungeon · Safe Room", kind: "home" });
     const found = (p.waystones || []).slice().sort((a, b) => a - b);
     for (const tier of found) {
       const w = this.waystones.get(tier);
@@ -206,7 +213,8 @@ module.exports = {
     }
     for (const m of this.partyMembers(p)) {
       if (m === p) continue;
-      dests.push({ id: `p:${m.id}`, label: `${m.username} · depth ${this.tierAt(m.x, m.y)}${m.downed ? " (DOWN!)" : ""}`, kind: "party" });
+      const place = this.cities?.areaAt(m.x, m.y)?.name || `depth ${this.tierAt(m.x, m.y)}`;
+      dests.push({ id: `p:${m.id}`, label: `${m.username} · ${place}${m.downed ? " (DOWN!)" : ""}`, kind: "party" });
     }
     return { can: !reason, reason, destinations: dests };
   },
@@ -217,8 +225,11 @@ module.exports = {
     let to = null;
     let label = "";
     if (dest === "home") {
-      to = { ...this.spawn };
-      label = "the safe room";
+      to = this.home;
+      label = this.cities ? "Emberfall's Post Court" : "the safe room";
+    } else if (dest === "dungeon-home" && this.cities) {
+      to = this.spawn;
+      label = "the dungeon safe room";
     } else if (typeof dest === "string" && dest.startsWith("ws:")) {
       const tier = Number(dest.slice(3));
       const w = this.waystones.get(tier);
@@ -237,6 +248,7 @@ module.exports = {
     p.lastTravel = Date.now();
     this.ensureChunksAround(p.x, p.y);
     this.checkBiome(p);
+    this.cities?.arrive(p);
     this.notify(p, `You step through the waystone and arrive at ${label}.`, [120, 230, 255]);
     this.fx(p, "toast", `✦ Traveled to ${label}`, [120, 230, 255]);
     this.markDirty(p);
@@ -244,12 +256,12 @@ module.exports = {
     return { ok: true };
   },
 
-  freeSpotNear(o) {
+  freeSpotNear(o, available = () => true) {
     const spots = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1], [2, 0], [-2, 0], [0, 2], [0, -2]];
     for (const [dx, dy] of spots) {
       const x = o.x + dx;
       const y = o.y + dy;
-      if (this.isFloor(x, y) && !this.monsterAt(x, y) && !this.isMerchant(x, y)) return { x, y };
+      if (this.isFloor(x, y) && !this.monsterAt(x, y) && !this.isMerchant(x, y) && available(x, y)) return { x, y };
     }
     return null;
   },
@@ -268,7 +280,9 @@ module.exports = {
           m.maxHp = Math.round(m.maxHp * mult);
           m.hp = Math.round(m.hp * mult);
         }
-        const line = BOSS_LINES[m.type];
+        const line = m.type === "veyr"
+        ? "The short roads kept us alive. I decide when they change."
+        : BOSS_LINES[m.type];
         for (const p of this.players.values()) {
           if (dist(p, m) > 25) continue;
           if (line) {

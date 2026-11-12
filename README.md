@@ -265,7 +265,9 @@ or **Arrows** layout, or rebind every key yourself.
 | `I` | Inventory: `E` equip, `X` sell, `D` drop; at the merchant also `U` upgrade and `R` reforge |
 | `J` | Journal: bounties and achievements, `Tab` for lore, `N` changes your title |
 | `P` | Party: invite heroes, see your party, leave |
-| `V` | Travel to the safe room, discovered waystones or party members |
+| `F` | Talk to a nearby NPC, operate a hinge, or take a route. You can also walk into its marker |
+| `M` | Open the world atlas and inspect the routes you have walked |
+| `V` | Travel from a safe district or waystone to Emberfall, the dungeon safe room, a discovered waystone, or a party member |
 | `G` | Ping: marks the nearest enemy (or your spot) for your party |
 | `T` / `Enter` | Chat with everyone (`Tab` switches to party chat) |
 | `Tab` | Party chat |
@@ -301,11 +303,17 @@ Default **T** opens world chat and **Tab** opens party chat after you join a par
 
 At the merchant, the arrows or number keys preview an offer, including its effect, cost, and availability. Press Enter to review the purchase and Enter again to pay.
 
-#### The world of Emberfall
+#### Cities and roads of Orraveth
 
-The town of Emberfall sits on top of old wine cellars. Last winter the ground shook, fire rose from the wells,
-and the things below began to climb out. Each depth band is its own **biome** with its own look, and monsters get
-stronger the further you go from the safe room (their level is shown in the title bar and the enemy list):
+New heroes meet in **Emberfall's Post Court**. Talk to Postmaster Dena (`D`) and deliver both Mill Stair letters to open the way to the Old Cellars. The survey hinge (`H`) moves ten steps between Market Stair and Rescue Landing. Wait for your party to clear the moving path before operating it.
+
+Walk the western road through the goblin-held Tollworks to Rootmarket and Sporehold, or take the rescue route to Bellhaven and Siltwatch. Safe city districts have people to talk to and time to recover. Clear defenders at the armed Foundry Gate and the Glass Aqueduct to open their onward routes. The aqueduct ladder opens a shortcut to Emberfall. Follow the fourth stamp through Kilnward to Long Ward and face Chief Surveyor Veyr in the proving chamber.
+
+The atlas (`M`) remembers your discoveries and walked routes. The host saves the hinge setting, cleared encounters and the unlocked ladder. Existing dungeon positions still load. The Old Cellars connects to the procedural dungeon, and its safe room is also a destination on the travel menu.
+
+#### The procedural dungeon
+
+Each depth band is its own **biome** with its own look. Monsters get stronger the further you go from the dungeon safe room, and their level is shown in the title bar and enemy list:
 
 | Depth | Monster level | Biome | |
 | ----- | ------------- | ----- | - |
@@ -422,7 +430,7 @@ stats) or **reforge** it to re-roll its stats while keeping its rarity and upgra
 - **World events** every 6-9 minutes: **Gold Rush**, **Blood Moon**, **Loot Frenzy** and **Treasure Goblins**.
 - **The Merchant** (`M`) sells potions, permanent percentage upgrades (up to +50% ATK, +60% DEF, +60% HP) and a
   mystery-item gamble.
-- **Death** drops half your gold where you fell and sends you back to the safe room. Your gear is safe.
+- **Death** drops half your gold where you fell. Respawn in Emberfall from an authored road, or in the safe room from the procedural dungeon. Your gear is safe.
 
 Everything is saved on the server: class, level, rebirths, gear, backpack, bounties, achievements, lore, waystones,
 records and position.

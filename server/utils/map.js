@@ -13,6 +13,7 @@ class Grid {
         this.playerPosition = { x: 0, y: 0 };
         this.chunkSize = 10;
         this.loadedChunks = new Set();
+        this.cityProgress = null;
         this.grid = this.initializeGrid();
     }
 
@@ -249,7 +250,8 @@ class Grid {
             rooms: this.rooms,
             playerPosition: this.playerPosition,
             exploredCells: Array.from(this.exploredCells),
-            loadedChunks: Array.from(this.loadedChunks)
+            loadedChunks: Array.from(this.loadedChunks),
+            cityProgress: this.cityProgress
         };
 
         try {
@@ -276,6 +278,7 @@ class Grid {
             this.playerPosition = gameState.playerPosition;
             this.exploredCells = new Set(gameState.exploredCells);
             this.loadedChunks = new Set(gameState.loadedChunks);
+            this.cityProgress = gameState.cityProgress ?? null;
             this.rng = this.mulberry32(this.seed);
             
             return true;

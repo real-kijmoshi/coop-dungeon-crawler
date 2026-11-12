@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/gdamore/tcell/v2"
+	"strings"
 	"testing"
 )
 
@@ -75,6 +76,7 @@ func BenchmarkGameDraw(b *testing.B) {
 
 func TestUnchangedGameFrameDoesNotInvalidateTerminal(t *testing.T) {
 	g, s := fixtureGame(t, 120, 40)
+	g.settings.Animations = false
 	g.draw()
 	s.sets = 0
 	g.draw()
@@ -127,5 +129,51 @@ func TestComposedFramesMatchDirectDrawing(t *testing.T) {
 	a.Show()
 	if composed.sets == 0 || a.W != 15 || a.H != 6 {
 		t.Fatal("resize did not rebuild the frame")
+	}
+}
+
+func TestCityDistrictAndAtlasRender(t *testing.T) {
+	g, s := fixtureGame(t, 72, 24)
+	g.settings.Animations = false
+	g.state.District = &District{
+		BiomeInfo: BiomeInfo{Name: "Emberfall", Floor: TilePalette{FG: cGreen, BG: Color{20, 35, 30}}},
+		Label:     "Post Court", Safe: true, Prompt: "Postmaster Dena",
+		Terrain: []DistrictTile{{Point: Point{X: 2, Y: 2}, Char: "~", Color: cCyan, BG: Color{10, 20, 35}}},
+	}
+	read := func() string {
+		g.draw()
+		var text strings.Builder
+		w, h := s.Size()
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				ch, _, _, _ := s.GetContent(x, y)
+				text.WriteRune(ch)
+			}
+			text.WriteByte('\n')
+		}
+		return text.String()
+	}
+	for _, want := range []string{"EMBERFALL · Post Court", "F Postmaster Dena", "~~"} {
+		if !strings.Contains(read(), want) {
+			t.Fatalf("city view missing %q", want)
+		}
+	}
+	g.atlas = &Atlas{Current: "emberfall", Lead: "Deliver both Mill Stair letters.", Places: []AtlasPlace{
+		{ID: "emberfall", Name: "Emberfall", Label: "Post Court", Safe: true, Visited: true,
+			Routes: []AtlasRoute{{Name: "Old Cellars", Walked: true}}},
+	}}
+	g.showAtlas(false)
+	for _, want := range []string{"WORLD ATLAS", "@  Emberfall", "Deliver both Mill Stair letters."} {
+		if !strings.Contains(read(), want) {
+			t.Fatalf("atlas missing %q", want)
+		}
+	}
+	g.overlayKey(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	if !strings.Contains(read(), "✓ Old Cellars") {
+		t.Fatal("atlas did not mark the route as walked")
+	}
+	g.showDialogue(Dialogue{Name: "Postmaster Dena", Text: "Two letters for one house."})
+	if !strings.Contains(read(), "Two letters for one house.") {
+		t.Fatal("city dialogue did not render")
 	}
 }
