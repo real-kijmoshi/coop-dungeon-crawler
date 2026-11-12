@@ -370,9 +370,9 @@ You pick a class the first time you play (it's permanent for that hero, so make 
   - **Rogue (Weak Points):** a monster a rogue hit in the last 4 seconds takes 12% more damage from everyone else.
 - **Combo chains:** when a team combo is set off **by a skill**, that skill leaves its own mark on the monster, so the
   next hero can detonate it again. Each new hero in the chain adds +25% (up to ×4), shown as `×2`, `×3` on the monster.
-- **Poise and stagger:** elites and bosses have a poise bar (the short yellow bar in the enemy list). Hits wear it down:
+- **Poise and stagger:** elites and bosses have a poise bar (the gold GUARD bar under the boss bar, and a gold cell in the enemy list). Hits wear it down:
   warriors, crits, flanking and team combos (Frost and Shock combos most of all) break it fastest. At zero the monster is
-  **STAGGERED** (⚡): it can't act, its wind-up is cancelled and it takes 50% more damage for 3.5s (5s for bosses).
+  **STAGGERED** (✷): it can't act, its wind-up is cancelled and it takes 50% more damage for 3.5s (5s for bosses).
   Each break makes a boss's guard 25% tougher.
 - **Unity and RALLY:** a party shares one **Unity** meter (shown next to your skills). It fills as you fight near allies,
   land team combos and chains, stagger foes and revive friends; fighting alone fills it slowly. When it is full, press

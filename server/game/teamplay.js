@@ -200,7 +200,7 @@ module.exports = {
     const name = by ? by.username : "The party";
     for (const h of this.alliesNear(null, m, 14)) {
       this.notify(h, `${name} breaks the ${m.name}'s guard - STAGGERED for ${ms / 1000}s! Everyone hits ${Math.round((STAGGER_TAKEN - 1) * 100)}% harder!`, STAGGER_COLOR);
-      if (m.boss) this.fx(h, "toast", `⚡ ${m.name.toUpperCase()} STAGGERED - ALL IN! ⚡`, STAGGER_COLOR);
+      if (m.boss) this.fx(h, "toast", `✷ ${m.name.toUpperCase()} STAGGERED - ALL IN! ✷`, STAGGER_COLOR);
     }
     if (by) {
       by.counters.staggers = (by.counters.staggers || 0) + 1;

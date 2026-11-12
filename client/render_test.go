@@ -153,7 +153,7 @@ func TestTeamCombatHUD(t *testing.T) {
 		b.WriteRune('\n')
 	}
 	out := b.String()
-	for _, want := range []string{"RALLY READY", "×3 ⚡ ◎", "◎", "Guarding bob"} {
+	for _, want := range []string{"RALLY READY", "×3 ✷ ◎", "◎", "Guarding bob", "GOBLIN KING", "GUARD", "SEALED · runes held 1/1", "STAGGERED · ALL IN"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q", want)
 		}

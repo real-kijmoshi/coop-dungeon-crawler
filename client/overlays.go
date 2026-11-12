@@ -79,7 +79,7 @@ func helpLines(s Settings) []Line {
 		L("Team combo: a skill marks a monster (✦) - when an ALLY hits it, it detonates for big damage.", cOrange),
 		L("Stand next to an ally to take 15% less damage; hit the same monster together to flank it.", cOrange),
 		L("A team combo made WITH a skill marks the foe again: pass the chain (×2, ×3...) round the party.", cOrange),
-		L("Elites and bosses have POISE (yellow bar): break it together to STAGGER them (⚡ +50% damage).", cOrange),
+		L("Elites and bosses have POISE (yellow bar): break it together to STAGGER them (✷ +50% damage).", cOrange),
 		L("Monsters chase whoever is most dangerous: warriors hold them, rogues slip under the radar.", cOrange),
 		L("Auras: Warrior guards adjacent allies · Mage speeds allies' skills · Cleric mends allies and", cOrange),
 		L("  keeps the downed alive longer · Rogue exposes weak points (+12% for allies' hits).", cOrange),

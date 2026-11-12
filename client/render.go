@@ -88,6 +88,9 @@ func (g *Game) draw() {
 	} else if g.settings.LowHPPulse && st != nil && st.Player.Stats.HP > 0 && st.Player.Stats.HP/st.Player.Stats.MaxHP < 0.3 {
 		pulse := 0.5 + 0.5*math.Sin(float64(now.UnixMilli())/160)
 		border = mix(Color{90, 30, 30}, Color{255, 60, 60}, pulse)
+	} else if g.hasBuff("rally") {
+		pulse := 0.5 + 0.5*math.Sin(float64(now.UnixMilli())/200)
+		border = mix(Color{40, 120, 110}, unityColor, pulse)
 	}
 	title, titleColor, right := "CONNECTING", Color{200, 160, 255}, ""
 	if st != nil {
@@ -119,7 +122,12 @@ func (g *Game) draw() {
 			g.drawSidebar(rect{mapW, top, sidebarW, mapH + 1 + logH})
 		}
 		g.drawHotbar(rect{0, top + mapH, mapW, 1})
-		g.drawCombatHint(inner)
+		hint := inner
+		if rows := g.drawBossBar(inner); rows > 0 {
+			hint.y += rows + 1
+			hint.h -= rows + 1
+		}
+		g.drawCombatHint(hint)
 		if st.Invite != nil {
 			secs := int(math.Max(0, math.Ceil((st.Invite.Until-g.serverNow())/1000)))
 			msg := fmt.Sprintf("  ✉ %s invites you to their party  ·  %s accept  ·  %s decline  (%ds)  ", st.Invite.From, g.settings.keyLabel("accept"), g.settings.keyLabel("decline"), secs)
@@ -413,6 +421,8 @@ func (g *Game) drawMap(r rect) {
 		return offX + tx*tileW, r.y + ty, true
 	}
 
+	g.drawTeamFloorFx(st, toScreen, isOpen, pulse)
+
 	for _, it := range st.Items {
 		if sx, sy, ok := toScreen(it.X, it.Y); ok {
 			cv.Put(sx, sy, firstRune(it.Char), it.Color, nil, true)
@@ -424,12 +434,12 @@ func (g *Game) drawMap(r rect) {
 		if !ok {
 			continue
 		}
-		bg, col := mix(Color{40, 20, 70}, Color{110, 60, 190}, pulse), Color{220, 180, 255}
+		bg, col, glyph := mix(Color{45, 22, 80}, Color{120, 70, 210}, pulse), Color{225, 190, 255}, '◎'
 		if rn.Lit {
-			bg, col = Color{150, 110, 255}, Color{255, 255, 255}
+			bg, col, glyph = mix(Color{170, 130, 255}, Color{230, 210, 255}, pulse), Color{40, 10, 80}, '◉'
 		}
-		cv.Put(sx, sy, '◎', col, &bg, true)
-		cv.Put(sx+1, sy, ' ', col, &bg, false)
+		cv.Put(sx, sy, glyph, col, &bg, true)
+		cv.Put(sx+1, sy, '·', scale(col, 0.8), &bg, false)
 	}
 	for _, n := range st.NPCs {
 		sx, sy, ok := toScreen(n.X, n.Y)
@@ -460,7 +470,7 @@ func (g *Game) drawMap(r rect) {
 		case m.Hit:
 			bg = ptr(Color{200, 200, 200})
 		case m.Staggered:
-			bg = ptr(mix(Color{120, 95, 20}, Color{255, 230, 120}, pulse))
+			bg = ptr(mix(Color{150, 110, 20}, Color{255, 225, 110}, pulse))
 		case m.Sealed:
 			bg = ptr(mix(Color{50, 25, 90}, Color{130, 80, 220}, pulse))
 		case m.Charging || m.Windup:
@@ -481,6 +491,9 @@ func (g *Game) drawMap(r rect) {
 		fg := m.Color
 		if m.Hit {
 			fg = Color{20, 20, 20}
+		}
+		if m.Staggered && !m.Hit {
+			fg = Color{60, 30, 0}
 		}
 		cv.Put(sx, sy, firstRune(m.Char), fg, bg, m.Boss || m.Elite)
 		ratio := m.HP / m.MaxHP
@@ -541,6 +554,8 @@ func (g *Game) drawMap(r rect) {
 		drawActor(a.X, a.Y, a.Username, col, a.Downed, false)
 	}
 	drawActor(p.X, p.Y, p.Username, Color{255, 230, 120}, p.DownedUntil != nil, true)
+
+	g.drawTeamSparks(st, toScreen, isOpen)
 
 	// Pings: blinking markers from you and your party.
 	for _, pg := range st.Pings {
@@ -832,7 +847,7 @@ func (g *Game) drawSidebar(r rect) {
 				name += fmt.Sprintf(" ×%d", m.Chain)
 			}
 			if m.Staggered {
-				name += " ⚡"
+				name += " ✷"
 			}
 			if m.Sealed {
 				name += " ◎"
@@ -843,19 +858,30 @@ func (g *Game) drawSidebar(r rect) {
 			} else if m.Elite {
 				nc = Color{255, 220, 90}
 			}
-			cv.Text(nx, yy, pad(name, nameW), nc, &pb, m.Boss || m.Elite, nameW)
-			if m.Poise != nil {
-				// HP bar, then a short poise bar: empty it as a team to stagger.
-				cv.Bar(nx+nameW, yy, 5, m.HP, m.MaxHP, hpColor(m.HP, m.MaxHP), "")
-				pc := Color{255, 210, 90}
-				if m.Staggered {
-					pc = Color{255, 255, 200}
-				}
-				cv.Put(nx+nameW+5, yy, ' ', pc, &pb, false)
-				cv.Bar(nx+nameW+6, yy, 2, *m.Poise, 1, pc, "")
-			} else {
-				cv.Bar(nx+nameW, yy, 8, m.HP, m.MaxHP, hpColor(m.HP, m.MaxHP), "")
+			switch {
+			case m.Staggered:
+				nc = staggerColor
+			case m.Sealed:
+				nc = Color{210, 170, 255}
 			}
+			cv.Text(nx, yy, pad(name, nameW), nc, &pb, m.Boss || m.Elite, nameW)
+			// Guard (poise) of elites and bosses: one gold cell that empties as the
+			// party wears it down, then the health bar.
+			if m.Poise != nil {
+				levels := []rune(" ▁▂▃▄▅▆▇█")
+				ch, col := levels[int(math.Round(clampf(*m.Poise, 0, 1)*8))], Color{230, 180, 70}
+				if m.Staggered {
+					ch, col = '✷', staggerColor
+				}
+				cv.Put(nx+nameW, yy, ch, col, ptr(Color{40, 32, 20}), true)
+			} else {
+				cv.Put(nx+nameW, yy, ' ', theme.text, &pb, false)
+			}
+			hpc := hpColor(m.HP, m.MaxHP)
+			if m.Sealed {
+				hpc = sealColor
+			}
+			cv.Bar(nx+nameW+1, yy, 7, m.HP, m.MaxHP, hpc, "")
 		}
 		y += eh
 	}
@@ -1010,33 +1036,7 @@ func (g *Game) drawHotbar(r rect) {
 		}
 	}
 	if u := p.Unity; u != nil {
-		ux := r.x + len(p.Skills)*slotW
-		ready := u.Max > 0 && u.Value >= u.Max
-		key := " " + g.settings.keyLabel("rally") + " "
-		keyBg := Color{60, 90, 85}
-		if ready {
-			keyBg = mix(Color{80, 220, 190}, Color{220, 255, 245}, 0.5+0.5*math.Sin(float64(time.Now().UnixMilli())/150))
-		}
-		keyW := mini(slotW, runeLen(key))
-		cv.Text(ux, r.y, key, dark, &keyBg, true, keyW)
-		if bw := slotW - keyW; bw > 0 {
-			if ready {
-				cv.Text(ux+keyW, r.y, pad(" ✦ RALLY READY", bw), Color{20, 40, 36}, ptr(Color{120, 255, 220}), true, bw)
-			} else {
-				label := []rune(pad(fmt.Sprintf(" Unity %d%%", int(u.Value)), bw))
-				filled := 0
-				if u.Max > 0 {
-					filled = int(u.Value / u.Max * float64(bw))
-				}
-				for j := 0; j < bw && j < len(label); j++ {
-					bg := Color{24, 34, 34}
-					if j < filled {
-						bg = Color{40, 95, 85}
-					}
-					cv.Put(ux+keyW+j, r.y, label[j], Color{150, 230, 210}, &bg, false)
-				}
-			}
-		}
+		g.drawUnity(r.x+len(p.Skills)*slotW, r.y, slotW, u)
 	}
 	used := (slots - 1) * slotW
 	px := r.x + used
