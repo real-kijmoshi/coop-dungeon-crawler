@@ -295,12 +295,8 @@ func (g *Game) drawMap(r rect) {
 		flicker = 0.95 + math.Round((0.05*valueNoise(tsec*3, 3)+0.02*math.Sin(tsec*5))*50)/50
 	}
 	lights := g.lightSources(tsec)
-	terrain := map[[2]int]DistrictTile{}
-	if st.District != nil {
-		for _, tile := range st.District.Terrain {
-			terrain[[2]int{tile.X, tile.Y}] = tile
-		}
-	}
+	g.mem.rememberTerrain(st.District)
+	terrain := g.mem.terrain
 
 	for ty := 0; ty < r.h; ty++ {
 		for tx := 0; tx < cols; tx++ {

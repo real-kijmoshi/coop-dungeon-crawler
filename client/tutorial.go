@@ -19,7 +19,7 @@ func (g *Game) tutorialPages() []tutorialPage {
 	opening := "You're in the safe room. Walk out when you're ready to fight."
 	merchant := "Walk into the merchant (M) in the safe room."
 	if g.hasCities() {
-		opening = fmt.Sprintf("Start in Emberfall's Post Court. Walk into Dena (D) to talk, or stand next to her and press %s. Open the atlas with %s.", k("interact"), k("atlas"))
+		opening = fmt.Sprintf("Start in Emberfall's Post Court. Walk into Dena (D) to talk, or stand next to her and press %s. Open the atlas with %s. The Sinkhole Stair (>) across the lantern bridge goes straight down to the dungeon.", k("interact"), k("atlas"))
 		merchant = "Walk into the merchant (M) in Post Court or in the dungeon safe room."
 	}
 	return []tutorialPage{

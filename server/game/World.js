@@ -140,7 +140,7 @@ class World extends EventEmitter {
   cell(x, y) {
     if (!this.inBounds(x, y)) return 0;
     const area = this.cities?.areaAt(x, y);
-    if (area) return area.floor.has(key(x, y)) ? area.roomId : 0;
+    if (area) return this.cities.cellAt(area, x, y);
     return this.map.grid[x][y];
   }
 

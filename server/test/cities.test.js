@@ -225,3 +225,24 @@ test("Lantern Row, inns, hidden caches, residents and city merchants", (t) => {
   assert.ok(back.exploration.met.has("emberfall:d"));
   assert.ok(back.exploration.caches.has("emberfall:k"));
 });
+
+test("Emberfall has an open stair to the dungeon, and city streets are paved corridors", (t) => {
+  const world = setup(t);
+  const p = hero(world, 1);
+  const home = { x: p.x, y: p.y };
+  assert.equal(world.cell(p.x, p.y), -1, "the Post Court spawn is on a street");
+  const area = world.cities.areas.get("emberfall");
+  assert.ok(area.street.size > 0 && area.floor.size > area.street.size, "streets and building floors both exist");
+
+  // No letters needed: walking into the Sinkhole Stair drops the hero into the dungeon.
+  walk(world, p, "emberfall", "x");
+  assert.equal(world.cities.areaAt(p.x, p.y), null);
+  assert.ok(world.inDungeonBounds(p.x, p.y));
+  assert.ok(p.exploration.routes.has("sinkhole"));
+
+  // A stair beside the dungeon safe room climbs back up.
+  const back = world.cities.featureAt(p.x, p.y);
+  assert.equal(back?.name, "Sinkhole Stair to Emberfall");
+  assert.equal(world.interactCity(p).ok, true);
+  assert.deepEqual({ x: p.x, y: p.y }, home);
+});

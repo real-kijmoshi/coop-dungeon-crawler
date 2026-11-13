@@ -16,11 +16,13 @@ const MAP_TILES = {
   "*": { char: "*", color: [255, 209, 118], bg: [56, 42, 24], light: true },
   ",": { char: ",", color: [123, 183, 111], bg: [28, 52, 33] },
   ":": { char: ":", color: [252, 143, 74], bg: [64, 31, 22], light: true },
+  "'": { char: "+", color: [214, 160, 96], bg: [70, 46, 26] },
 };
+const STREET = "_";
 const key = ({ x, y }) => `${x},${y}`;
 const close = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= 1;
 const facts = new Set(["letters", "emberDoor", "orravethDoor", "stamp", "mould", "receiver", "register", "ending"]);
-const surveyedRoutes = new Set([...routes.map((route) => route.id), "dungeon"]);
+const surveyedRoutes = new Set([...routes.map((route) => route.id), "dungeon", "sinkhole"]);
 
 function readSet(value, allowed) {
   return new Set(Array.isArray(value) ? value.filter((id) => allowed.has(id)) : []);
@@ -40,6 +42,11 @@ function road(start, end, detour) {
   add(end.x, y);
   add(end.x, end.y);
   return points.slice(1, -1); // end landings are permanent floor
+}
+
+// Streets are paved in grey stone with a hint of the district's color.
+function cobble(color, scale) {
+  return color.map((value) => Math.round((value * 0.35 + 128 * 0.65) * scale));
 }
 
 class Cities {
@@ -70,6 +77,16 @@ class Cities {
     const gate = cellars.points.get("p");
     this.addFeature(gate, { name: "Procedural Dungeon", char: ">", kind: "route", route: "dungeon", to: dungeon });
     this.addFeature(dungeon, { name: "Old Cellars", char: "<", kind: "route", route: "dungeon", to: gate });
+    // Emberfall's Sinkhole Stair is always open, so a new hero is never stuck in town.
+    const sinkhole = this.areas.get("emberfall").points.get("x");
+    const west = { x: world.spawn.x - 1, y: world.spawn.y + 1 };
+    const landing = world.isFloor(west.x, west.y) && !world.isMerchant(west.x, west.y) && !this.featureAt(west.x, west.y) ? west : null;
+    this.addFeature(sinkhole, {
+      name: "Sinkhole Stair to the Dungeon", char: ">", color: ROUTE_COLOR, kind: "route", route: "sinkhole", to: landing || world.spawn,
+    });
+    if (landing) {
+      this.addFeature(landing, { name: "Sinkhole Stair to Emberfall", char: "<", color: ROUTE_COLOR, kind: "route", route: "sinkhole", to: this.home });
+    }
     const market = [cellars.points.get("s"), cellars.points.get("u")];
     const rescue = [cellars.points.get("t"), cellars.points.get("v")];
     this.roads = [
@@ -84,11 +101,12 @@ class Cities {
     const index = this.areas.size;
     const area = {
       ...layout, id, roomId: FIRST_ROOM_ID + index,
-      floor: new Set(), terrain: [], water: new Set(), points: new Map(),
+      floor: new Set(), street: new Set(), terrain: [], water: new Set(), points: new Map(),
       spawned: false, enemyIds: new Set(),
     };
     this.areas.set(id, area);
     this.byRoom.set(area.roomId, area);
+    const markers = [];
     layout.map.trimEnd().replace(/^\n/, "").split("\n").forEach((row, y) => {
       Array.from(row).forEach((char, x) => {
         if (char === "#" || char === " ") return;
@@ -96,6 +114,8 @@ class Cities {
         const style = MAP_TILES[char];
         if (style?.solid) area.water.add(key(tile));
         else area.floor.add(key(tile));
+        if (char === STREET) area.street.add(key(tile));
+        else if (!style && char !== ".") markers.push(tile);
         if (style) area.terrain.push({ ...tile, ...style });
         if (/^[a-z1-9]$/.test(char)) {
           if (area.points.has(char)) throw new Error(`Duplicate marker ${char} in ${id}`);
@@ -103,6 +123,16 @@ class Cities {
         }
       });
     });
+    // People and gates standing on a street are paved like the street around them.
+    for (const tile of markers) {
+      let street = 0, room = 0;
+      for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) {
+        const next = key({ x: tile.x + dx, y: tile.y + dy });
+        if (area.street.has(next)) street++;
+        else if (area.floor.has(next)) room++;
+      }
+      if (street > room) area.street.add(key(tile));
+    }
     for (const [char, npc] of Object.entries(layout.npcs || {})) {
       const id = `${area.id}:${char}`;
       if (npc.kind === "cache") {
@@ -136,6 +166,13 @@ class Cities {
   areaAt(x, y) {
     if (x < this.firstX || x >= this.firstX + STRIDE || y < 0) return null;
     return this.byRoom.get(FIRST_ROOM_ID + Math.floor(y / STRIDE)) || null;
+  }
+
+  // Streets read as corridors (-1) so the client paints them as paving.
+  cellAt(area, x, y) {
+    const tile = key({ x, y });
+    if (!area.floor.has(tile)) return 0;
+    return area.street.has(tile) ? -1 : area.roomId;
   }
 
   featureAt(x, y) {
@@ -340,7 +377,7 @@ class Cities {
     const gate = feature.gate;
     const known = player.exploration.facts;
     if (gate?.mail && gate.outward && (!known.has("emberDoor") || !known.has("orravethDoor"))) {
-      return this.speak(feature, "Dena needs both Mill Stair letters delivered before you can use the cellar plan.");
+      return this.speak(feature, "Dena needs both Mill Stair letters delivered before you can use the cellar plan. The Sinkhole Stair (>) across the lantern bridge goes down to the dungeon any time.");
     }
     if (gate?.evidence && gate.outward && !known.has("register")) {
       return this.speak(feature, "Bring Mera the fourth stamp from the Glass Aqueduct and Pela's account from Kilnward.");
@@ -448,7 +485,8 @@ class Cities {
     const feature = this.nearbyFeature(player);
     return {
       id: area.id, name: area.name, label: area.label, safe: !!area.safe,
-      floor: { fg, bg }, corridor: { fg, bg }, wall: fg.map((value) => Math.round(value * 0.48)),
+      floor: { fg, bg }, corridor: { fg: cobble(fg, 0.62), bg: cobble(fg, 0.3) },
+      wall: fg.map((value) => Math.round(value * 0.48)),
       terrain: area.terrain.filter(visible),
       prompt: feature ? feature.name : null,
     };

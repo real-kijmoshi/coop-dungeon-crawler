@@ -305,7 +305,7 @@ At the merchant, the arrows or number keys preview an offer, including its effec
 
 #### Cities and roads of Orraveth
 
-New heroes meet in **Emberfall's Post Court**. Talk to Postmaster Dena (`D`) and deliver both Mill Stair letters to open the way to the Old Cellars. The survey hinge (`H`) moves ten steps between Market Stair and Rescue Landing. Wait for your party to clear the moving path before operating it.
+New heroes meet in **Emberfall's Post Court**. Talk to Postmaster Dena (`D`) and deliver both Mill Stair letters to open the way to the Old Cellars. If you'd rather fight first, the **Sinkhole Stair** (`>`) across the lantern bridge always leads down to the procedural dungeon, and a matching stair beside the dungeon safe room climbs back up. Each district is laid out as streets, squares and buildings you enter through doorways (`+`). The survey hinge (`H`) moves ten steps between Market Stair and Rescue Landing. Wait for your party to clear the moving path before operating it.
 
 Walk the western road through the goblin-held Tollworks to Rootmarket and Sporehold, or take the rescue route to Bellhaven and Siltwatch. Safe city districts have people to talk to and time to recover. Clear defenders at the armed Foundry Gate and the Glass Aqueduct to open their onward routes. The aqueduct ladder opens a shortcut to Emberfall. Follow the fourth stamp through Kilnward to Long Ward and face Chief Surveyor Veyr in the proving chamber.
 

@@ -60,8 +60,23 @@ type Toast struct {
 // Memory remembers every tile the player has seen.
 type Memory struct {
 	cells    map[[2]int]int
+	terrain  map[[2]int]DistrictTile // city water, bridges, doors and lamps seen so far
 	safeRoom int
 	hasSafe  bool
+}
+
+// rememberTerrain keeps painted city tiles after they leave the hero's sight,
+// so water and bridges don't turn into blank gaps on the map.
+func (m *Memory) rememberTerrain(d *District) {
+	if d == nil {
+		return
+	}
+	if m.terrain == nil {
+		m.terrain = map[[2]int]DistrictTile{}
+	}
+	for _, tile := range d.Terrain {
+		m.terrain[[2]int{tile.X, tile.Y}] = tile
+	}
 }
 
 func (m *Memory) remember(v View) {
@@ -180,6 +195,7 @@ func (g *Game) handleNet(ev NetEvent) {
 				g.mem.safeRoom, g.mem.hasSafe = *st.SafeRoomID, true
 			}
 			g.mem.remember(st.View)
+			g.mem.rememberTerrain(st.District)
 		}
 	case "profile":
 		var p Profile
