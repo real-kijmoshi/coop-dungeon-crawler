@@ -246,3 +246,26 @@ test("Emberfall has an open stair to the dungeon, and city streets are paved cor
   assert.equal(world.interactCity(p).ok, true);
   assert.deepEqual({ x: p.x, y: p.y }, home);
 });
+
+test("every safe city is a large district whose streets and rooms all connect", (t) => {
+  const world = setup(t);
+  for (const area of world.cities.areas.values()) {
+    if (!area.safe) continue;
+    const tiles = [...area.floor].map((id) => id.split(",").map(Number));
+    const xs = tiles.map(([x]) => x);
+    const ys = tiles.map(([, y]) => y);
+    assert.ok(Math.max(...xs) - Math.min(...xs) >= 60, `${area.id} is wide`);
+    assert.ok(Math.max(...ys) - Math.min(...ys) >= 35, `${area.id} is tall`);
+    assert.ok(area.floor.size - area.street.size > 400, `${area.id} has buildings to walk into`);
+    const start = tiles[0];
+    const seen = new Set([start.join()]);
+    const queue = [start];
+    for (const [x, y] of queue) {
+      for (const [, dx, dy] of steps) {
+        const id = `${x + dx},${y + dy}`;
+        if (!seen.has(id) && area.floor.has(id)) { seen.add(id); queue.push([x + dx, y + dy]); }
+      }
+    }
+    assert.equal(seen.size, area.floor.size, `${area.id} has no sealed-off floor`);
+  }
+});

@@ -1,4 +1,5 @@
 const { MONSTERS } = require("./data");
+const { buildCity } = require("./city-builder");
 
 const goblin = MONSTERS.find((monster) => monster.type === "goblin");
 const guard = {
@@ -7,6 +8,8 @@ const guard = {
   ability: "smash",
 };
 
+// Safe cities are laid out by city-builder.js from a block plan; the
+// encounter areas below are drawn by hand.
 // Map legend: # wall, . building floor, _ street, ' doorway, ~ water,
 // = bridge, * lamp, , garden, : furnace. Letters and digits mark people,
 // route gates and enemies. Emberfall's x is the Sinkhole Stair to the dungeon.
@@ -14,24 +17,21 @@ const areas = {
   emberfall: {
     name: "Emberfall", label: "Post Court", safe: true, level: 1, color: [140, 184, 179],
     description: "Rain runs down the sinkhole wall. Postmaster Dena works beside the lantern bridge.",
-    map: `
-############################################
-#e....#...........#.........#.....#,,,,,,.r#
-#.....#...........#....m....#..*..#,,,,,,..#
-#.....'...........'.........'.....'........#
-#b..*.#.....*.....#.........#.....#,,,,,,*.#
-#.....#...........#.........#.....#,,,,,,..#
-###'#####'#############'#######'#######'####
-#___________d______________________________#
-#_*___________________________________*____#
-#_________s________________________________#
-#####'#####_~~~~~~~~=~~~~~~~~_######'#######
-#.........#_~~~~~~~~=~~~~~~~~_#............#
-#..i......'_~~~~~~~~=~~~~~~~~_'.....c......#
-#.........#_~~~~~~~~=~~~~~~~~_#..*......k..#
-#.*.......#_________=_________#............#
-#.........#________x_____*____'.....l...a..#
-############################################`,
+    map: buildCity("emberfall", {
+      cols: [14, 12, 16, 12, 14], rows: [10, 10, { size: 4, canal: true }, 10],
+      blocks: {
+        "0,0": { type: "hall", rooms: 2 }, "2,0": { type: "hall", rooms: 3 }, "4,0": "garden",
+        "2,1": "plaza", "3,1": { type: "hall", rooms: 2 },
+        "1,3": { type: "hall", rooms: 2 }, "2,3": { type: "plaza", fountain: true }, "3,3": "pool", "4,3": { type: "hall", rooms: 1 },
+      },
+      markers: [
+        ["s", { block: [2, 1], dx: 6, dy: 6 }], ["d", { block: [2, 1], dx: 8, dy: 4 }],
+        ["e", { block: [0, 0], room: 0 }], ["b", { block: [0, 0], room: 1 }],
+        ["m", { block: [2, 0], room: 1 }], ["r", { edge: "N", street: 4 }],
+        ["i", { block: [3, 1], room: 0 }], ["c", { block: [1, 3], room: 0 }], ["k", { block: [1, 3], room: 1, corner: true }],
+        ["x", { block: [2, 3], dx: 3, dy: 2 }], ["l", { block: [4, 3], room: 0 }], ["a", { edge: "E", street: 1 }],
+      ],
+    }),
     npcs: {
       d: { name: "Postmaster Dena", char: "D", action: "letters",
         text: "Two letters. Both say 8 Mill Stair. One says Emberfall and one says Orraveth. The woman at the west door can show you where the other goes." },
@@ -102,20 +102,19 @@ const areas = {
   rootmarket: {
     name: "Rootmarket", label: "Growing terraces", safe: true, level: 2, color: [158, 180, 108],
     description: "Straw wagons rattle past the mushroom stalls toward the sunlit terraces.",
-    map: `
-############################################
-#a__________#.........#,,,,,,,,#..........b#
-#___________#....q....#,,,,,,,,#..,,,..,,,.#
-#__*________'.........'________'.........*.#
-#___________#....*....#,,,,,,,,#..,,,..,,,.#
-#####_###########'#####========#####'#######
-#__________________________________________#
-#____s____________________________________c#
-#######'#######'###########_#######'########
-#,,,,,,.,,,,,,#.........#___#.......#......#
-#,,,,,,.,,,,,,'....m....#___'...*...'....k.#
-#,,,,,,.,,,,,,#.........#___#.......#......#
-############################################`,
+    map: buildCity("rootmarket", {
+      cols: [12, 14, 12, 14, 12], rows: [9, 10, 9],
+      blocks: {
+        "0,0": "garden", "1,0": { type: "hall", rooms: 2 }, "2,0": "garden", "4,0": "garden",
+        "1,1": "garden", "2,1": "market", "3,1": "garden",
+        "0,2": "garden", "2,2": "garden", "4,2": "garden",
+      },
+      markers: [
+        ["a", { edge: "W", street: 1 }], ["b", { edge: "E", street: 1 }], ["c", { edge: "S", street: 3 }],
+        ["q", { block: [1, 0], room: 0 }], ["s", { block: [1, 1] }], ["m", { block: [2, 1] }],
+        ["k", { block: [1, 2], room: 2, corner: true }],
+      ],
+    }),
     npcs: {
       q: { name: "Scale Keeper", char: "q", text: "One sack, two prices. The lease makes this gate cheaper for wagons. Ask a grower at Sporehold what it costs on foot." },
       s: { name: "Straw Grower", char: "s", text: "Grain grows above. Down here I trade its straw for mushrooms. Every cart has to come through one of these ramps." },
@@ -126,20 +125,18 @@ const areas = {
   sporehold: {
     name: "Sporehold", label: "Root bridges", safe: true, level: 3, color: [168, 155, 106],
     description: "The clinic lamp hangs above a wet stair. Rope bridges join the homes along the roots.",
-    map: `
-##############################################
-#a....#.....#~~~~~~~~~~~~~~~~~#.......#......#
-#.....'..q..#~~~~~~~~~~~~~~~~~#...c...'....k.#
-#..*..#.....=================='.......#......#
-#.....#.....#~~~~~~~~=~~~~~~~~#.......#..*...#
-#,,,..#.....#~~~~~~~~=~~~~~~~~#.......#......#
-###'#####'###~~~~~~~~=~~~~~~~~####'######'####
-#____________~~~~~~~~=~~~~~~~~_______________#
-#__*_________~~~~~~~~=~~~~~~~~___________*___#
-######_######~~~~~~~~=~~~~~~~~#########_######
-#____________________________________________#
-#_____*_______________________________*____b_#
-##############################################`,
+    map: buildCity("sporehold", {
+      cols: [14, 12, 14, 12], rows: [10, { size: 4, canal: true }, 10, { size: 4, canal: true }, 9],
+      blocks: {
+        "0,0": { type: "hall", rooms: 2 }, "2,0": "garden",
+        "1,2": "pool", "2,2": { type: "hall", rooms: 3 },
+        "0,4": "garden", "3,4": "garden",
+      },
+      markers: [
+        ["a", { edge: "W", street: 1 }], ["b", { edge: "S", street: 3 }],
+        ["q", { block: [0, 0], room: 0 }], ["c", { block: [2, 2], room: 1 }], ["k", { block: [3, 2], room: 1, corner: true }],
+      ],
+    }),
     npcs: {
       q: { name: "Clinic Worker", char: "q", text: "The freight board says the clinic is close. Come across the bridge and count the paces yourself." },
       c: { name: "Apothecary", char: "+", text: "The fixed stair goes to Cinderkeep. Tell the shift workers you came down from the clinic." },
@@ -149,19 +146,18 @@ const areas = {
   bellhaven: {
     name: "Bellhaven", label: "Rescue quay", safe: true, level: 2, color: [118, 180, 207],
     description: "A ferry cage hangs over the water. Brass marks show where the old floods reached.",
-    map: `
-##############################################
-#a___________#~~~~~~~~~~~~~~~~#..............#
-#____________#~~~~~~~~~~~~~~~~#.....#.......k#
-#__*_________================='.....'........#
-#____________#~~~~~~~~~~~~~~~~#.....#.....c..#
-#####'#######~~~~~~~~~~~~~~~~~#######'########
-#.....d.....#~~~~~~~~~~~~~~~~~_______________#
-#...*.......#~~~~~~~~~~~~~~~~~_______________#
-######'######~~~~~~~~~~~~~~~~~___________b___#
-#l___________=================_______________#
-#______*_____~~~~~~~~~~~~~~~~~________*______#
-##############################################`,
+    map: buildCity("bellhaven", {
+      cols: [14, 12, 14, 12, 14], rows: [10, { size: 6, canal: true }, 10, 9],
+      blocks: {
+        "0,0": { type: "hall", rooms: 2 }, "2,0": "pool", "4,0": { type: "hall", rooms: 2 },
+        "1,2": { type: "plaza", fountain: true }, "2,2": { type: "hall", rooms: 2 },
+        "1,3": "garden", "3,3": "pool",
+      },
+      markers: [
+        ["a", { edge: "W", street: 1 }], ["b", { edge: "E", street: 3 }], ["l", { edge: "S", street: 2 }],
+        ["d", { block: [0, 0], room: 0 }], ["k", { block: [4, 0], room: 1, corner: true }], ["c", { block: [2, 2], room: 0 }],
+      ],
+    }),
     npcs: {
       d: { name: "Iven, Dispatcher", char: "I", text: "Two bells for one rescue. Ours starts at dispatch. Siltwatch starts theirs at the house that raised it." },
       c: { name: "Ferry Keeper", char: "f", text: "The cage takes you over the deep channel. Walk down to Siltwatch for the small boats." },
@@ -171,20 +167,16 @@ const areas = {
   siltwatch: {
     name: "Siltwatch", label: "Boardwalks", safe: true, level: 3, color: [101, 190, 179],
     description: "Boat hooks hang over the doors. Nemi tests her pier with the handle of a hammer.",
-    map: `
-##############################################
-#a_______~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-#________~~~~#.......#~~~~~~~~#........#~~~~~#
-#___*____===='...n...'========'...q....#~~~~~#
-#________~~~~#.......#~~~~~~~~#........#~~~~~#
-#________~~~~####'####~~~~~~~~#####'####~~~~~#
-#####=###~~~~~~~~=~~~~~~~~~~~~~~~~~=~~~~~~~~~#
-#~~~~=~~~~~~~~~~~===================________b#
-#~~~~=~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~___*_____#
-#~~##'##~~~~~~~~~~~~~~~~~~~~~~~~~~~~_________#
-#~~#...'========*===================_________#
-#~~#k..#~~~~~~~~~~~~~~~~~~~~~~~~~~~~_________#
-##############################################`,
+    map: buildCity("siltwatch", {
+      cols: [14, 14, 14, 14], rows: [11, 11, 10], ground: "=", fill: "water",
+      blocks: {
+        "0,0": "stilts", "2,0": "stilts", "3,0": "plaza", "1,1": "stilts", "3,1": "stilts", "0,2": "stilts", "2,2": "stilts",
+      },
+      markers: [
+        ["a", { edge: "W", street: 1 }], ["b", { edge: "E", street: 2 }],
+        ["n", { block: [0, 0], room: 0 }], ["q", { block: [1, 1], room: 0 }], ["k", { block: [0, 2], room: 0, corner: true }],
+      ],
+    }),
     npcs: {
       n: { name: "Nemi, Boatwright", char: "N", text: "That hollow board tells me where the water got to. Follow the far pier and you can reach the aqueduct without the freight road." },
       q: { name: "Rescue Pilot", char: "q", text: "We put our first notch on the tag at the house itself. Iven can compare it with the one in his booth." },
@@ -239,22 +231,19 @@ const areas = {
   cinderkeep: {
     name: "Cinderkeep", label: "Casting floor", safe: true, level: 4, color: [208, 149, 108],
     description: "Furnaces breathe through tall draft shafts. The fitters are examining an older mould.",
-    map: `
-##############################################
-#a_____#:::::::::::#.........#..............b#
-#______#...........#....s....#...............#
-#__*___'...........'.........'.....m.........#
-#______#....:::....#.........#..........*....#
-#______#....:f:....#.........#...............#
-#______#....:::....#####'############'########
-#______#...........#_________________________#
-#______#####'#######___*_____________________#
-#____________________________________________#
-###'#############################'############
-#k.......#::::#.......#...........*..........#
-#........'....'...*...'......................#
-#....*...#::::#.......#.........::::.........#
-##############################################`,
+    map: buildCity("cinderkeep", {
+      cols: [14, 16, 14, 16], rows: [10, 10, 10],
+      blocks: {
+        "1,0": { type: "furnace", rooms: 2 }, "2,0": { type: "furnace", rooms: 1 }, "3,0": { type: "hall", rooms: 2 },
+        "0,1": "plaza", "2,1": { type: "furnace", rooms: 2 },
+        "0,2": { type: "furnace", rooms: 2 }, "2,2": "plaza",
+      },
+      markers: [
+        ["a", { edge: "W", street: 1 }], ["b", { edge: "E", street: 2 }],
+        ["s", { block: [1, 0], room: 0 }], ["f", { block: [2, 0], room: 0 }], ["m", { block: [3, 0], room: 1 }],
+        ["k", { block: [0, 2], room: 0, corner: true }],
+      ],
+    }),
     npcs: {
       s: { name: "Sera Dain", char: "S", text: "Veyr signed a drawing with three sockets. I filed a fourth into his replacement so it would work. The mould is by the furnace." },
       f: { name: "Old Casting Mould", char: "4", thing: true, action: "mould",
@@ -266,19 +255,17 @@ const areas = {
   kilnward: {
     name: "Kilnward", label: "Counterweight fields", safe: true, level: 5, color: [151, 175, 161],
     description: "Shift bells travel down the handrails between the counterweights.",
-    map: `
-##############################################
-#a___##____##____##____##____##____##____b___#
-#____##____##k___##____##____##____##________#
-#_*__________________________________________#
-#_____________________p______________________#
-#____##____##____##____##____##____##___*____#
-#____##____##____##____##____##____##________#
-###'###########'###############'#########'####
-#.......#..............#..............#......#
-#.......'..............'..............'......#
-#c..*...#..............#.......*......#.....d#
-##############################################`,
+    map: buildCity("kilnward", {
+      cols: [15, 15, 15, 15], rows: [9, 9, 9], fill: "pillars",
+      blocks: {
+        "0,0": "houses", "2,0": { type: "hall", rooms: 3 }, "3,0": "houses", "1,1": "plaza", "3,1": "houses",
+        "0,2": "houses", "1,2": "houses", "2,2": { type: "hall", rooms: 3 },
+      },
+      markers: [
+        ["a", { edge: "W", street: 1 }], ["c", { edge: "S", street: 1 }], ["d", { edge: "E", street: 2 }],
+        ["p", { block: [1, 1] }], ["k", { block: [0, 2], room: 0, corner: true }],
+      ],
+    }),
     npcs: {
       p: { name: "Pela, Apprentice", char: "P", action: "receiver",
         text: "Watch the last receiver. Each time the city shortens a public road, this branch takes the missing paces. It still leads to the Long Ward." },
@@ -288,20 +275,17 @@ const areas = {
   long_ward: {
     name: "Long Ward", label: "Orraveth's old street", safe: true, level: 6, color: [168, 152, 192],
     description: "Two sets of house numbers face an approach that takes days to walk.",
-    map: `
-##############################################
-#a________#....#....#....#....#..............#
-#_________#.n..#....#....#....#......m.......#
-#__*______#....#....#....#....#..............#
-#_________##'####'####'####'###..............#
-#____________________________________________#
-#__________________*___________________i_____#
-#____________________________________________#
-###'########'#####~~~~~~~~~~#####'##########'#
-#......#.........#~~~~~~~~~~#..........#.....#
-#..*...'.........'=========='...*......'....b#
-#......#.........#~~~~~~~~~~#..........#....k#
-##############################################`,
+    map: buildCity("long_ward", {
+      cols: [10, 10, 10, 10, 10, 10], rows: [8, 8, 8],
+      blocks: {
+        "4,0": { type: "hall", rooms: 2 }, "1,1": "market", "2,1": "pool", "3,1": { type: "hall", rooms: 2 }, "0,2": "plaza",
+      },
+      markers: [
+        ["a", { edge: "W", street: 1 }], ["b", { edge: "E", street: 2 }],
+        ["m", { block: [4, 0], room: 0 }], ["n", { block: [1, 1] }], ["i", { block: [3, 1], room: 0 }],
+        ["k", { block: [5, 2], room: 0, corner: true }],
+      ],
+    }),
     npcs: {
       m: { name: "Mera, Tollkeeper", char: "M", action: "register",
         text: "I still count the crossings. Walk both ends of the old approach and bring me the fourth stamp. Then we can challenge Veyr's override." },
@@ -336,17 +320,18 @@ const areas = {
   lantern_row: {
     name: "Lantern Row", label: "Night market", safe: true, level: 3, color: [226, 182, 118],
     description: "Lamplit stalls climb the old flood steps. Travellers from every district trade stories here.",
-    map: `
-##############################################
-#a___________________________________________#
-#____*________________i____________*_________#
-#____________________________________________#
-###'#######'#######_______#######'#######'####
-#.......#.........#_,,,,,_#.........#........#
-#...n...'....l....'_,,,,,_'....c....'...m....#
-#.......#.........#_,,,,,_#.........#.....k..#
-#..*....#.........#_______#....*....#........#
-##############################################`,
+    map: buildCity("lantern_row", {
+      cols: [12, 16, 12, 16], rows: [9, 10, 9],
+      blocks: {
+        "0,0": "plaza", "2,0": { type: "hall", rooms: 2 }, "1,1": "market", "3,1": { type: "hall", rooms: 2 },
+        "0,2": "pool", "2,2": "garden",
+      },
+      markers: [
+        ["a", { edge: "W", street: 1 }], ["n", { block: [0, 0] }], ["c", { block: [2, 0], room: 1 }],
+        ["m", { block: [1, 1] }], ["i", { block: [3, 1], room: 0 }], ["l", { block: [0, 2], corner: true }],
+        ["k", { block: [3, 2], room: 1, corner: true }],
+      ],
+    }),
     npcs: {
       n: { name: "Ysolde, Lamplighter", char: "Y", text: "Every lamp on this row was lit by someone who came back from below. Light one when you return from somewhere nobody's mapped." },
       l: { name: "Old Fisher", char: "f", text: "The dungeon under Emberfall shifts its chambers. Some have names older than the city. Find one and the earth gives up what it hid." },

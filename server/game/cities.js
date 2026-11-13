@@ -2,7 +2,7 @@ const { areas: layouts, routes } = require("./city-map");
 const { monsterBase, xpLevelMult, chestGold } = require("./balance");
 const { MAX_POTIONS } = require("./data");
 
-const STRIDE = 64;
+const STRIDE = 128; // each district fits in a STRIDE x STRIDE slot
 const FIRST_ROOM_ID = 1_000_000;
 const NPC_COLOR = [245, 209, 138];
 const ROUTE_COLOR = [145, 216, 211];
