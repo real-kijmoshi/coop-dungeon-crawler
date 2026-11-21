@@ -25,7 +25,7 @@ Press **F3** in game to see ping and frame timing for lag reports.
 - [ ] Warrior: Cleave, War Cry
 - [ ] Rogue: Backstab, Smoke Bomb
 - [ ] Mage: Fireball, Frost Nova
-- [ ] Cleric: Heal (also heals nearby allies), Smite
+- [ ] Cleric: Heal (heals the most hurt ally, revives a downed one), Smite
 - [ ] Ranger: Aimed Shot (farther = stronger), Snare Trap
 - [ ] Necromancer: Drain Life heals you, Curse of Frailty makes the next hit stronger
 
