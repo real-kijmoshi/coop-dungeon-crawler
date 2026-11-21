@@ -269,9 +269,10 @@ const onConnection = (socket) => {
   if (old) {
     old.emit("kicked", "Logged in from another client.");
     old.disconnect(true);
-    const oldPlayer = world.players.get(socket.user.id);
+    // Go through removePlayer so a downed hero still pays the death penalty and the
+    // party forgets the old session (otherwise it keeps a ghost member).
+    const oldPlayer = world.removePlayer(socket.user.id);
     if (oldPlayer) savePlayers([oldPlayer]);
-    world.players.delete(socket.user.id);
   }
 
   // Re-read the user so stats saved by a previous session are up to date.

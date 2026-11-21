@@ -1,32 +1,15 @@
-# Cities of Orraveth: new districts, two new classes, and exploring that pays
+# Steadier servers: reconnect and party fixes, plus a stress-tested protocol
 
-**Update both your server (or Windows host) and your client.** The cities, the atlas and the new classes need the new client. Existing heroes and dungeon maps keep working.
+**Update your server (or Windows host).** The client is unchanged from v0.5.1, so players don't need a new client. Heroes, saves and maps carry over.
 
-## Two new classes
+## Fixes
 
-- **Ranger.** A hunter who fights from range: **Aimed Shot** (stronger the farther the target), **Snare Trap** (roots everything next to you), **Volley** (hits every foe in sight) and **Hunter's Mark** (exposes foes and gives nearby allies +25% crit chance).
-- **Necromancer.** Drains life to stay standing and curses foes for the party: **Drain Life** (heals you for half the damage), **Curse of Frailty** (foes take +25% from their next hit), **Bone Prison** (traps foes around you) and **Soul Harvest** (heavy area damage that heals the party for every foe hit).
-- **Two new team combos.** Aimed Shot marks become **PIERCE** (the foe is left exposed) and Drain Life marks become **WITHER** (the necromancer who set the mark is healed).
+- **No more ghost party members.** Logging in from a second client while the first was still connected left your old self in the party. The party showed a member who wasn't there, counted them toward the 4-hero limit, and you couldn't be invited back. The old session now leaves the party cleanly, and you can be re-invited right away.
+- **You can't escape being downed by logging in again.** Reconnecting from another client while downed used to bring the hero back at full health with no death penalty. It now counts as dying, the same as closing the game.
+- **Clients can't fake their own disconnect.** A crafted `disconnect` or `error` message could remove a hero from the world while their connection stayed open. The server now ignores these internal events from clients.
+- **Commands with missing arguments still get an answer.** A request with fewer arguments than expected (for example, `party accept` with no name) used to lose its reply, and the client waited forever. It now always gets a reply.
 
-## The cities of Orraveth
+## For testers and server hosts
 
-- **A new start.** New heroes meet in Emberfall's Post Court. Deliver Postmaster Dena's letters to open the Old Cellars, and work the survey hinge with your party to choose between Market Stair and Rescue Landing.
-- **A road of districts to walk.** Goblin-held Tollworks, Rootmarket, Sporehold, Bellhaven, Siltwatch, the Glass Aqueduct, Foundry Gate, Cinderkeep, Kilnward and Long Ward, ending with Chief Surveyor Veyr in the proving chamber.
-- **Lantern Row**, a new night market off Bellhaven, with a cartographer who tells you what you have missed.
-- **Inns** in Emberfall, Long Ward and Lantern Row fully heal you, top up your potions and leave you **Well Rested** (+15% XP for 10 minutes).
-- **More merchants** in Rootmarket, Cinderkeep, Long Ward and Lantern Row. Any city stall buys, sells and upgrades.
-- **13 hidden caches** (`%`) with gold and potions, one search per hero. Searched caches fade on your screen.
-- **Residents** give a little XP the first time you talk to them.
-- **The world atlas** (`M`) remembers districts, walked routes, residents met and caches found. A ★ marks a district you have fully explored. Talk with `F`, or walk into anyone.
-
-## Exploring pays
-
-- **Pathfinder streaks.** Finding new chambers in quick succession raises discovery XP, up to +60%.
-- **Survey caches.** Every 15 chambers you map earns gold and a potion. Every 45 also brings a piece of gear.
-- **Landmarks.** About one chamber in 13 has a name, like *the Drowned Ossuary*. The first hero to find it digs up a buried chest. A new achievement, **Wayfarer**, rewards finding five.
-
-## A smoother first session
-
-- **A first-hero guide.** Preview every class and its skills before the permanent choice, then watch three short scenes that introduce Emberfall. Replay them from **Journal → Lore**.
-- **Merchant previews.** Each offer shows what it does, what it costs and whether you can buy it, and asks you to confirm before you pay.
-- **Tactical dodging** to get out of telegraphed attacks, and **Emberfall chronicles** that unlock as you explore deeper.
+- **A new chaos test** puts six heroes (one per class) in a party on a real server. They send thousands of random and malformed commands, reconnect mid-fight, and the server must stay up without a single error. It runs in CI and with `npm test`. Set `CHAOS_MS=60000` for a longer run.
+- **A playtest checklist** in [`docs/TESTING.md`](https://github.com/real-kijmoshi/coop-dungeon-crawler/blob/main/docs/TESTING.md) lists what to try in this release and how to report bugs.

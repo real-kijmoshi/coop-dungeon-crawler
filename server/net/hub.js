@@ -15,6 +15,7 @@ const STATE_MAGIC = Buffer.from("CDC1");
 
 const AUTH_TIMEOUT_MS = 10000;
 const PING_MS = 25000;
+const RESERVED_EVENTS = new Set(["disconnect", "error", "newListener", "removeListener"]);
 
 class Conn extends EventEmitter {
   constructor(ws) {
@@ -88,8 +89,18 @@ class Conn extends EventEmitter {
 
   // Dispatch an incoming client event to handlers registered with on().
   dispatch(msg) {
+    // Server-side lifecycle events can't be triggered by the client.
+    if (RESERVED_EVENTS.has(msg.t)) return;
+    const handler = this.listeners(msg.t)[0];
+    if (!handler) return;
     const args = Array.isArray(msg.a) ? msg.a.slice(0, 4) : [];
     if (msg.id !== undefined && msg.id !== null) {
+      // Pad missing arguments so the reply callback lands in the handler's last slot
+      // (e.g. "party" with only ["accept"] still gets its reply).
+      if (handler.length > 0) {
+        while (args.length < handler.length - 1) args.push(undefined);
+        args.length = handler.length - 1;
+      }
       const id = msg.id;
       args.push((data) => {
         if (this.ws.readyState === this.ws.OPEN) this.ws.send(JSON.stringify({ t: "reply", id, d: data }));

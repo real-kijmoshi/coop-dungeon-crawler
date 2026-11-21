@@ -27,7 +27,7 @@ jobs:
       - name: Test first-launch dependency setup and server
         run: node scripts/smoke-server.js
       - name: Test transport backpressure and compression
-        run: node --test server/test/transport.test.js server/test/game-network.test.js
+        run: node --test server/test/transport.test.js server/test/game-network.test.js server/test/chaos.test.js
       - name: Test repeat launch
         run: node scripts/smoke-server.js
   build:
